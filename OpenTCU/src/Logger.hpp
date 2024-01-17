@@ -51,7 +51,8 @@ public:
         //Print the string.
         fputs(buffer, stdout);
         #ifdef DEBUG
-        WebSerial.print(buffer);
+        if (_initialized)
+            WebSerial.print(buffer);
         #endif
     }
 };

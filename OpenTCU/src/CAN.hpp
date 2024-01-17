@@ -23,6 +23,12 @@ public:
             return;
         }
 
+        if (esp_err_t err = twai_start() != ESP_OK)
+        {
+            Logger::Log("twai_start failed: %#x\n", err);
+            return;
+        }
+
         _initialized = true;
     };
 
@@ -30,7 +36,18 @@ public:
     {
         if (!_initialized)
             return;
-        twai_driver_uninstall();
+
+        if (esp_err_t err = twai_stop() != ESP_OK)
+        {
+            Logger::Log("twai_stop failed: %#x\n", err);
+            return;
+        }
+
+        if (esp_err_t err = twai_driver_uninstall() != ESP_OK)
+        {
+            Logger::Log("twai_driver_uninstall failed: %#x\n", err);
+            return;
+        }
     }
 
     esp_err_t GetStatus(twai_status_info_t* statusInfo)

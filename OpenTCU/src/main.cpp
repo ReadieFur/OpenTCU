@@ -6,9 +6,18 @@
 #include "TwoChip.hpp"
 #include "CAN.hpp"
 
+#define CAN_RX_PIN GPIO_NUM_1
+#define CAN_TX_PIN GPIO_NUM_2
+
+// #define TEST
+
 #define CAN_FREQUENCY 250000
 #define CAN_INTERVAL 1000 / CAN_FREQUENCY
+#ifdef TEST
+#define MAX_DELAY portMAX_DELAY
+#else
 #define MAX_DELAY (CAN_INTERVAL / portTICK_PERIOD_MS) / 3
+#endif
 
 CAN* can;
 
@@ -41,7 +50,7 @@ void TwoChip_OnReceive(const uint8_t* data, uint8_t dataSize)
 	#endif
 }
 
-void setup()
+void SecondarySetupTask(void* parameter)
 {
 	Logger::Begin();
 
@@ -56,6 +65,13 @@ void setup()
 	Logger::Log("Mac address: %s\n", WiFi.macAddress().c_str());
 	#pragma endregion
 
+	Logger::Log("Secondary setup complete.\n");
+
+	vTaskDelete(NULL);
+}
+
+void setup()
+{
 	#pragma region TwoChip setup
 	uint8_t peerMac[] =
 	{
@@ -66,17 +82,17 @@ void setup()
 	#endif
 	};
 
-	for (uint8_t i = 0; i < 6; i++)
-	{
-		if (peerMac[i] != 0x00)
-			break;
+	// for (uint8_t i = 0; i < 6; i++)
+	// {
+	// 	if (peerMac[i] != 0x00)
+	// 		break;
 
-		if (i == 5)
-		{
-			Logger::Log("Invalid peer MAC address.");
-			return;
-		}
-	}
+	// 	if (i == 5)
+	// 	{
+	// 		Logger::Log("Invalid peer MAC address.");
+	// 		return;
+	// 	}
+	// }
 
 	if (esp_err_t err = TwoChip::Begin(peerMac) != ESP_OK)
 	{
@@ -91,23 +107,65 @@ void setup()
 	#ifdef USE_SERIAL_CAN
 	#else
 	can = new CAN(
-		TWAI_GENERAL_CONFIG_DEFAULT(GPIO_NUM_1, GPIO_NUM_2, TWAI_MODE_NORMAL),
+		TWAI_GENERAL_CONFIG_DEFAULT(CAN_TX_PIN, CAN_RX_PIN, TWAI_MODE_NORMAL),
 		TWAI_TIMING_CONFIG_250KBITS(),
 		TWAI_FILTER_CONFIG_ACCEPT_ALL()
 	);
 	#endif
+	
+	Logger::Log("Primary setup complete.\n");
 
-	Logger::Log("Setup complete.\n");
+	//Create a second low-priority task to handle the rest of the setup as the CAN transceiver MUST take priority.
+	xTaskCreate(SecondarySetupTask, "SecondarySetupTask", 4096, NULL, 1, NULL);
 }
 
 void loop()
 {
-	delay(MAX_DELAY);
+	// delay(MAX_DELAY);
 
 	#ifdef USE_SERIAL_CAN
 	#else
+	#ifdef TEST
+	twai_status_info_t statusInfo;
+	if (esp_err_t err = can->GetStatus(&statusInfo) != ESP_OK)
+	{
+		Logger::Log("twai_get_status_info failed: %#x\n", err);
+	}
+	else
+	{
+		Logger::Log("State: %#x\nQueue (TX/RX): %d/%d\nErrors: %d/%d\n", statusInfo.state, statusInfo.msgs_to_tx, statusInfo.msgs_to_rx, statusInfo.tx_error_counter, statusInfo.rx_error_counter);
+	}
+
+	#ifdef MASTER
+	Logger::Log("Waiting for message...\n");
 	twai_message_t message;
 	if (esp_err_t err = can->Read(&message, MAX_DELAY) != ESP_OK)
+	{
+		Logger::Log("twai_receive failed: %#x\n", err);
+	}
+	else
+	{
+		if (message.identifier == 1)
+			Logger::Log("Received test message.\n");
+		else
+			Logger::Log("Received message: %#x\n", message.identifier);
+	}
+	#else
+	Logger::Log("Sending message...\n");
+	twai_message_t testMessage;
+	testMessage.identifier = 0x123;
+	testMessage.flags = TWAI_MSG_FLAG_EXTD;
+	testMessage.data_length_code = 1;
+	testMessage.data[0] = 0x01;
+	if (esp_err_t err = can->Send(testMessage, MAX_DELAY) != ESP_OK)
+		Logger::Log("twai_transmit test failed: %#x\n", err);
+	else
+		Logger::Log("Sent test message.\n");
+	#endif
+	delay(1000);
+	#else
+	twai_message_t message;
+	if (esp_err_t err = can->Read(&message, portMAX_DELAY) != ESP_OK)
 	{
 		Logger::Log("twai_receive failed: %#x\n", err);
 		return;
@@ -116,5 +174,6 @@ void loop()
 	uint8_t* data = TWAIMessageToArray(&message, &dataSize);
 	TwoChip::Send(data, dataSize);
 	delete[] data;
+	#endif
 	#endif
 }
