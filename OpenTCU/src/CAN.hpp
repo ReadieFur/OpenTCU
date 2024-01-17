@@ -1,67 +1,63 @@
-#pragma once
+// #pragma once
 
-// #define USE_SERIAL_CAN
+// #include <driver/gpio.h>
+// #include "Logger.hpp"
+// #include <mcp_can.h>
+// #include <SPI.h>
+// #include <driver/twai.h>
 
-#include <driver/gpio.h>
-#include "Logger.hpp"
-#ifdef USE_SERIAL_CAN
-#else
-#include <driver/twai.h>
-#endif
+// class CAN
+// {
+// private:
+//     SPIClass* _spi;
+//     MCP_CAN* _can;
+// public:
+//     CAN(
+//         const uint8_t spiBus,
+//         const gpio_num_t sckPin,
+//         const gpio_num_t misoPin,
+//         const gpio_num_t mosiPin,
+//         const gpio_num_t ssPin,
+//         const uint8_t canSpeed)
+//     {
+//         _spi = new SPIClass(spiBus);
+//         _spi->begin(sckPin, misoPin, mosiPin, ssPin);
+        
+//         _can = new MCP_CAN(_spi, ssPin);
+//         _can->begin(MCP_ANY, canSpeed, MCP_16MHZ);
+//         _can->setMode(MCP_NORMAL);
+//     }
 
-class CAN
-{
-private:
-    bool _initialized = false;
+//     ~CAN()
+//     {
+//         delete _can;
+//         delete _spi;
+//     }
 
-public:
-    CAN(twai_general_config_t generalConfig, twai_timing_config_t timingConfig, twai_filter_config_t filterConfig)
-    {
-        if (esp_err_t err = twai_driver_install(&generalConfig, &timingConfig, &filterConfig) != ESP_OK)
-        {
-            Logger::Log("twai_driver_install failed: %#x\n", err);
-            return;
-        }
+//     uint8_t Read(twai_message_t* message, const TickType_t ticksToWait)
+//     {
+//         uint8_t result = CAN_FAIL;
+//         uint8_t buffer[8];
+//         uint8_t length = 0;
+//         uint32_t id = 0;
+//         uint8_t extd = 0;
+//         if (result = _can->readMsgBuf(&id, &extd, &length, buffer) == CAN_OK)
+//         {
+//             message->identifier = id;
+//             message->data_length_code = length;
+//             message->extd = extd == CAN_EXTID ? 1 : 0;
+//             memcpy(message->data, buffer, length);
+//         }
+//         return result;
+//     }
 
-        if (esp_err_t err = twai_start() != ESP_OK)
-        {
-            Logger::Log("twai_start failed: %#x\n", err);
-            return;
-        }
-
-        _initialized = true;
-    };
-
-    ~CAN()
-    {
-        if (!_initialized)
-            return;
-
-        if (esp_err_t err = twai_stop() != ESP_OK)
-        {
-            Logger::Log("twai_stop failed: %#x\n", err);
-            return;
-        }
-
-        if (esp_err_t err = twai_driver_uninstall() != ESP_OK)
-        {
-            Logger::Log("twai_driver_uninstall failed: %#x\n", err);
-            return;
-        }
-    }
-
-    esp_err_t GetStatus(twai_status_info_t* statusInfo)
-    {
-        return twai_get_status_info(statusInfo);
-    }
-
-    esp_err_t Send(twai_message_t message, TickType_t ticksToWait = portMAX_DELAY)
-    {
-        return twai_transmit(&message, ticksToWait);
-    }
-
-    esp_err_t Read(twai_message_t* message, TickType_t ticksToWait = portMAX_DELAY)
-    {
-        return twai_receive(message, ticksToWait);
-    }
-};
+//     uint8_t Write(const twai_message_t* message, const TickType_t ticksToWait)
+//     {
+//         return _can->sendMsgBuf(
+//             message->identifier,
+//             message->extd == 1 ? CAN_EXTID : CAN_STDID,
+//             message->data_length_code,
+//             const_cast<uint8_t*>(message->data)
+//         );
+//     }
+// };
