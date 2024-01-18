@@ -10,20 +10,46 @@
 #include "CAN/TwaiCan.hpp"
 #include <Arduino.h> //TODO: Remove this dependency.
 
-ACan* can1;
-ACan* can2;
+#ifdef DEBUG
+#include <ESPAsyncWebServer.h>
+#include <WiFi.h>
+AsyncWebServer* debugServer = nullptr;
+#endif
 
 #define ON LOW
 #define OFF HIGH
 
+ACan* can1;
+ACan* can2;
+
+void debug_setup(void* param)
+{
+    AsyncWebServer* _debugServer = (AsyncWebServer*)param;
+    _debugServer = new AsyncWebServer(81);
+    WiFi.mode(WIFI_STA);
+    WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+    if (WiFi.waitForConnectResult() != WL_CONNECTED)
+    {
+        vTaskDelay(5000 / portTICK_PERIOD_MS);
+        printf("WiFi Failed!\n");
+        vTaskDelete(NULL);
+    }
+    WebSerial.begin(_debugServer);
+    _debugServer->begin();
+    vTaskDelay(5000 / portTICK_PERIOD_MS);
+    printf("Debug server started at %s\n", WiFi.localIP().toString().c_str());
+    vTaskDelete(NULL);
+}
+
 void setup()
 {
-    #ifdef DEBUG
+    //Used to indicate that the program has started.
     pinMode(LED_PIN, OUTPUT);
     digitalWrite(LED_PIN, ON);
-    #endif
 
-    Logger::Begin();
+    // #ifdef DEBUG
+    xTaskCreate(debug_setup, "DebugSetup", 4096, debugServer, 1, NULL); //Low priority task as it is imperative that the CAN bus is setup first.
+    // #endif
 
     #pragma region Setup SPI CAN
     spi_bus_config_t bus_config = {
@@ -62,14 +88,11 @@ void setup()
     catch(const std::exception& e) { assert(false); }
     #pragma endregion
 
-    #if DEBUG
+    //Signal that the program has setup.
     digitalWrite(LED_PIN, OFF);
-    #endif
 }
 
 void loop()
 {
-    // vTaskDelete(NULL);
-    printf("Looping...");
-    vTaskDelay(1000 / portTICK_PERIOD_MS);
+    vTaskDelete(NULL);
 }
