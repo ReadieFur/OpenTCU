@@ -2,6 +2,10 @@
 
 #include <cstdarg>
 #include <cstdio>
+#ifdef DEBUG
+#include <ESPAsyncWebServer.h>
+#include <WebSerialLite.h>
+#endif
 
 #if defined(DEBUG) && 1
 //Define a trace macro that includes the line number and file name with the log.
@@ -13,23 +17,9 @@
 
 class Logger
 {
-private:
-    static bool _initialized;
-
 public:
-    static void Begin()
-    {
-        if (_initialized)
-            return;
-        _initialized = true;
-        Log("Logger initialized.");
-    }
-
     static void Log(const char* format, ...)
     {
-        if (!_initialized)
-            Begin();
-
         char buffer[64];
 
         //Use variadic arguments to format the string.
@@ -40,7 +30,8 @@ public:
 
         //Print the string.
         fputs(buffer, stdout);
+        #ifdef DEBUG
+        WebSerial.print(buffer);
+        #endif
     }
 };
-
-bool Logger::_initialized = false;
