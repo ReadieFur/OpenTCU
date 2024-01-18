@@ -1,3 +1,6 @@
 [submodule "OpenTCU/lib/esp32-mcp2515"]
 	path = OpenTCU/lib/esp32-mcp2515
 	url = https://github.com/dedalqq/esp32-mcp2515.git
+[submodule "OpenTCU/lib/WebSerialLite"]
+	path = OpenTCU/lib/WebSerialLite
+	url = https://github.com/asjdf/WebSerialLite.git
