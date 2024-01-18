@@ -158,10 +158,12 @@ void setup()
 {
   // serial
   Serial.begin(115200);
+  vTaskDelay(5000 / portTICK_PERIOD_MS);
   // interrupt
   pinMode(MCP_INT, INPUT);
 
-  SPIClass* hspi = new SPIClass(FSPI);
+printf("CAN init\n");
+  SPIClass* hspi = new SPIClass(HSPI);
   hspi->begin(SCK, MISO, MOSI, MCP_CS);
   CAN0 = new MCP_CAN(hspi, MCP_CS);
   isotp = new IsoTp(CAN0, MCP_INT);
@@ -171,17 +173,22 @@ void setup()
   CAN0->setMode(MCP_NORMAL);
   // buffers
   rxMsg.Buffer = (uint8_t *)calloc(MAX_MSGBUF, sizeof(uint8_t));
+
+  printf("CAN init OK\n");
 }
 
 void loop()
 {
   // CAN
-  if (digitalRead(MCP_INT) == 0) {
+//   if (digitalRead(MCP_INT) == 0) {
     rxMsg.tx_id = 0x7ED;
     rxMsg.rx_id = 0x7E5;
     printf("Receive...\n");
     isotp->receive(&rxMsg);
     // isotp.print_buffer(rxMsg.rx_id, rxMsg.Buffer, rxMsg.len);
+
+	if (rxMsg.rx_id == 0x7E5)
+		return;
 
 	uint16_t i=0;
 
@@ -197,6 +204,6 @@ void loop()
 		printf(" ");
 	}
 	printf("\n");
-	}
+	// }
 }
 #endif
