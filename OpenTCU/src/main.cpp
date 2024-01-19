@@ -19,8 +19,42 @@ AsyncWebServer* debugServer = nullptr;
 #define ON LOW
 #define OFF HIGH
 
+#define CAN_FREQUENCY 250000
+#define CAN_INTERVAL_TICKS pdMS_TO_TICKS(1000 / CAN_FREQUENCY)
+//Allow a max send timeout of half a frame.
+#define CAN_SEND_TIMEOUT CAN_INTERVAL_TICKS / 2
+
+#define RELAY_TASK_STACK_SIZE 1024
+#define RELAY_TASK_PRIORITY configMAX_PRIORITIES - 2
+
 ACan* can1;
 ACan* can2;
+
+struct SRelayTaskParameters
+{
+    ACan* canA;
+    ACan* canB;
+};
+
+//TODO: Add concurrency protection (devices cannot read and write at the same time).
+void RelayTask(void* param)
+{
+    SRelayTaskParameters* params = static_cast<SRelayTaskParameters*>(param);
+    ACan* canA = params->canA;
+    ACan* canB = params->canB;
+    delete params;
+
+    puts("Relay task started.");
+
+    while(true)
+    {
+        SCanMessage message;
+        //Wait indefinitely for a message to be received.
+        if (canA->Receive(&message, portMAX_DELAY) == ESP_OK)
+            //Relay the message to the other CAN bus.
+            canB->Send(message, CAN_SEND_TIMEOUT);
+    }
+}
 
 void debug_setup(void* param)
 {
@@ -72,8 +106,12 @@ void setup()
     spi_device_handle_t spiDevice;
     assert(spi_bus_add_device(SPI2_HOST, &dev_config, &spiDevice) == ESP_OK);
 
-    try { can1 = new SpiCan(spiDevice, CAN_250KBPS, MCP_8MHZ); }
-    catch(const std::exception& e) { assert(false); } //Cause the program to fail here.
+    try { can1 = new SpiCan(spiDevice, CAN_250KBPS, MCP_8MHZ, CAN1_INT_PIN); }
+    catch(const std::exception& e)
+    {
+        puts(e.what());
+        assert(false);
+    }
     #pragma endregion
 
     #pragma region Setup TWAI CAN
@@ -85,7 +123,18 @@ void setup()
             TWAI_FILTER_CONFIG_ACCEPT_ALL()
         );
     }
-    catch(const std::exception& e) { assert(false); }
+    catch(const std::exception& e)
+    {
+        puts(e.what());
+        assert(false);
+    }
+    #pragma endregion
+
+    #pragma region CAN task setup
+    //Create high priority tasks to handle CAN relay tasks.
+    //I am creating the parameters on the heap just incase this method returns before the task starts which will result in an error.
+    xTaskCreate(RelayTask, "Can1RelayTask", RELAY_TASK_STACK_SIZE, new SRelayTaskParameters { can1, can2 }, RELAY_TASK_PRIORITY, NULL);
+    xTaskCreate(RelayTask, "Can2RelayTask", RELAY_TASK_STACK_SIZE, new SRelayTaskParameters { can2, can1 }, RELAY_TASK_PRIORITY, NULL);
     #pragma endregion
 
     //Signal that the program has setup.

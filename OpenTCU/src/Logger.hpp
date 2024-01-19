@@ -15,6 +15,7 @@
 #define TRACE(format, ...)
 #endif
 
+//TODO: Create a log queue that runs on a different task to avoid blocking the main task.
 class Logger
 {
 public:
