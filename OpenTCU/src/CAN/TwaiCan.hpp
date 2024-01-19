@@ -53,23 +53,23 @@ public:
         return ESP_OK;
     }
 
-    esp_err_t Receive(SCanMessage &message, TickType_t timeout = 0)
+    esp_err_t Receive(SCanMessage* message, TickType_t timeout = 0)
     {
         twai_message_t twaiMessage;
         if (esp_err_t err = twai_receive(&twaiMessage, timeout) != ESP_OK)
             return err;
 
-        message.id = twaiMessage.identifier;
-        message.len = twaiMessage.data_length_code;
-        message.isExtended = twaiMessage.extd;
-        message.isRemote = twaiMessage.rtr;
+        message->id = twaiMessage.identifier;
+        message->len = twaiMessage.data_length_code;
+        message->isExtended = twaiMessage.extd;
+        message->isRemote = twaiMessage.rtr;
         for (int i = 0; i < twaiMessage.data_length_code; i++)
-            message.data[i] = twaiMessage.data[i];
+            message->data[i] = twaiMessage.data[i];
 
         return ESP_OK;
     }
 
-    esp_err_t GetAlerts(uint32_t &alerts, TickType_t timeout = 0)
+    esp_err_t GetAlerts(uint32_t& alerts, TickType_t timeout = 0)
     {
         return twai_read_alerts(&alerts, timeout);
     }
