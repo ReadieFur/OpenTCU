@@ -13,9 +13,6 @@
 #include "Debug.hpp"
 #endif
 
-#define ON LOW
-#define OFF HIGH
-
 #define CAN_FREQUENCY 250000
 #define CAN_INTERVAL_TICKS pdMS_TO_TICKS(1000 / CAN_FREQUENCY)
 //Allow a max send timeout of half a frame.
