@@ -156,3 +156,17 @@ void loop()
     vTaskDelay(1000 / portTICK_PERIOD_MS);
     #endif
 }
+
+#if 0
+void loop(void* param)
+{
+    while(true)
+        loop();
+}
+
+extern "C" void app_main()
+{
+    setup();
+    xTaskCreatePinnedToCore(loop, "Loop", 8096, NULL, 1, NULL, 1);
+}
+#endif
