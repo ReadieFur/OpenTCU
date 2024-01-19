@@ -1,5 +1,6 @@
 #pragma once
 
+#include <esp_log.h>
 #include <ESPAsyncWebServer.h>
 #include <WiFi.h>
 #include <WebSerialLite.h>
@@ -26,6 +27,8 @@ public:
             return;
         _initialized = true;
 
+        esp_log_level_set("*", ESP_LOG_VERBOSE);
+
         _debugServer = new AsyncWebServer(81);
 
         IPAddress ipAddress;
@@ -33,8 +36,7 @@ public:
         WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
         if (WiFi.waitForConnectResult() != WL_CONNECTED)
         {
-            vTaskDelay(5000 / portTICK_PERIOD_MS);
-            printf("STA Failed!\n");
+            Logger::Log("STA Failed!\n");
 
             //Create AP instead.
             WiFi.mode(WIFI_AP);
@@ -48,14 +50,13 @@ public:
         }
         else
         {
-            vTaskDelay(5000 / portTICK_PERIOD_MS);
             ipAddress = WiFi.localIP();
         }
 
         WebSerial.begin(_debugServer);
         _debugServer->begin();
 
-        printf("Debug server started at %s\n", ipAddress.toString().c_str());
+        Logger::Log("Debug server started at %s\n", ipAddress.toString().c_str());
     }
 
     static void Blip(int count = 1)

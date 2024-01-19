@@ -88,7 +88,7 @@ void setup()
     catch(const std::exception& e)
     {
         // TRACE(e.what());
-        puts(e.what());
+        Logger::Log(e.what());
         assert(false);
     }
     #pragma endregion
@@ -105,23 +105,54 @@ void setup()
     catch(const std::exception& e)
     {
         // TRACE(e.what());
-        puts(e.what());
+        Logger::Log(e.what());
         assert(false);
     }
     #pragma endregion
 
+    #ifndef GENERATOR
     #pragma region CAN task setup
     //Create high priority tasks to handle CAN relay tasks.
     //I am creating the parameters on the heap just incase this method returns before the task starts which will result in an error.
     xTaskCreate(RelayTask, "Can1RelayTask", RELAY_TASK_STACK_SIZE, new SRelayTaskParameters { can1, can2 }, RELAY_TASK_PRIORITY, NULL);
     xTaskCreate(RelayTask, "Can2RelayTask", RELAY_TASK_STACK_SIZE, new SRelayTaskParameters { can2, can1 }, RELAY_TASK_PRIORITY, NULL);
     #pragma endregion
+    #endif
 
     //Signal that the program has setup.
     digitalWrite(LED_PIN, OFF);
 }
 
+#ifdef GENERATOR
+uint8_t i = 0;
+#endif
+
 void loop()
 {
+    #ifndef GENERATOR
     vTaskDelete(NULL);
+    #else
+    // Debug::Blip();
+    Logger::Log("\n");
+
+    //Send a message every second.
+    SCanMessage message = {
+        .id = 0x123,
+        .data = { i },
+        .length = 1
+    };
+    can1->Send(message, portMAX_DELAY);
+    Logger::Log("Sent message: %d, %d, %d\n", message.id, message.length, message.data[0]);
+
+    //Receive the message that was sent and ensure that it is the same.
+    SCanMessage receivedMessage;
+    can2->Receive(&receivedMessage, portMAX_DELAY);
+    if (receivedMessage.id != message.id || receivedMessage.length != message.length || receivedMessage.data[0] != message.data[0])
+        Logger::Log("Message mismatch: %d, %d, %d\n", receivedMessage.id, receivedMessage.length, receivedMessage.data[0]);
+    else
+        Logger::Log("Message match: %d, %d, %d\n", receivedMessage.id, receivedMessage.length, receivedMessage.data[0]);
+
+    i++;
+    vTaskDelay(1000 / portTICK_PERIOD_MS);
+    #endif
 }

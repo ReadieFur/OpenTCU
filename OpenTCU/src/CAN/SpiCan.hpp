@@ -93,9 +93,9 @@ public:
     {
         can_frame frame = {
             .can_id = message.id | (message.isExtended ? CAN_EFF_FLAG : 0) | (message.isRemote ? CAN_RTR_FLAG : 0),
-            .can_dlc = message.len
+            .can_dlc = message.length
         };
-        for (int i = 0; i < message.len; i++)
+        for (int i = 0; i < message.length; i++)
             frame.data[i] = message.data[i];
 
         return MCPErrorToESPError(mcp2515->sendMessage(&frame));
@@ -115,10 +115,10 @@ public:
             return MCPErrorToESPError(result);
 
         message->id = frame.can_id & (frame.can_id & CAN_EFF_FLAG ? CAN_EFF_MASK : CAN_SFF_MASK);
-        message->len = frame.can_dlc;
+        message->length = frame.can_dlc;
         message->isExtended = frame.can_id & CAN_EFF_FLAG;
         message->isRemote = frame.can_id & CAN_RTR_FLAG;
-        for (int i = 0; i < message->len; i++)
+        for (int i = 0; i < message->length; i++)
             message->data[i] = frame.data[i];
 
         return ESP_OK;

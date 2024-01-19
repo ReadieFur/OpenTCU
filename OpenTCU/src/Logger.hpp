@@ -3,6 +3,7 @@
 #include <cstdarg>
 #include <cstdio>
 #ifdef DEBUG
+#include <esp_log.h>
 #include <ESPAsyncWebServer.h>
 #include <WebSerialLite.h>
 #endif
@@ -22,9 +23,11 @@ public:
         va_end(args);
 
         //Print the string.
-        fputs(buffer, stdout);
         #ifdef DEBUG
+        ESP_LOGV("", buffer);
         WebSerial.print(buffer);
+        #else
+        fputs(buffer, stdout);
         #endif
     }
 };

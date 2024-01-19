@@ -41,11 +41,11 @@ public:
     {
         twai_message_t twaiMessage = {
             .identifier = message.id,
-            .data_length_code = message.len
+            .data_length_code = message.length
         };
         twaiMessage.extd = message.isExtended;
         twaiMessage.rtr = message.isRemote;
-        for (int i = 0; i < message.len; i++)
+        for (int i = 0; i < message.length; i++)
             twaiMessage.data[i] = message.data[i];
 
         if (esp_err_t err = twai_transmit(&twaiMessage, timeout) != ESP_OK)
@@ -60,7 +60,7 @@ public:
             return err;
 
         message->id = twaiMessage.identifier;
-        message->len = twaiMessage.data_length_code;
+        message->length = twaiMessage.data_length_code;
         message->isExtended = twaiMessage.extd;
         message->isRemote = twaiMessage.rtr;
         for (int i = 0; i < twaiMessage.data_length_code; i++)
