@@ -7,14 +7,6 @@
 #include <WebSerialLite.h>
 #endif
 
-#if defined(DEBUG) && 1
-//Define a trace macro that includes the line number and file name with the log.
-#define TRACE(format, ...) Logger::Log("[%s:%d] " format, __FILE__, __LINE__, ##__VA_ARGS__)
-#else
-//Define a trace macro that does nothing.
-#define TRACE(format, ...)
-#endif
-
 //TODO: Create a log queue that runs on a different task to avoid blocking the main task.
 class Logger
 {

@@ -9,11 +9,8 @@
 #include "CAN/SpiCan.hpp"
 #include "CAN/TwaiCan.hpp"
 #include <Arduino.h> //TODO: Remove this dependency.
-
 #ifdef DEBUG
-#include <ESPAsyncWebServer.h>
-#include <WiFi.h>
-AsyncWebServer* debugServer = nullptr;
+#include "Debug.hpp"
 #endif
 
 #define ON LOW
@@ -43,9 +40,6 @@ void RelayTask(void* param)
     ACan* canA = params->canA;
     ACan* canB = params->canB;
     delete params;
-
-    puts("Relay task started.");
-
     while(true)
     {
         SCanMessage message;
@@ -58,20 +52,7 @@ void RelayTask(void* param)
 
 void debug_setup(void* param)
 {
-    AsyncWebServer* _debugServer = (AsyncWebServer*)param;
-    _debugServer = new AsyncWebServer(81);
-    WiFi.mode(WIFI_STA);
-    WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
-    if (WiFi.waitForConnectResult() != WL_CONNECTED)
-    {
-        vTaskDelay(5000 / portTICK_PERIOD_MS);
-        printf("WiFi Failed!\n");
-        vTaskDelete(NULL);
-    }
-    WebSerial.begin(_debugServer);
-    _debugServer->begin();
-    vTaskDelay(5000 / portTICK_PERIOD_MS);
-    printf("Debug server started at %s\n", WiFi.localIP().toString().c_str());
+    Debug::Setup();
     vTaskDelete(NULL);
 }
 
@@ -82,7 +63,7 @@ void setup()
     digitalWrite(LED_PIN, ON);
 
     // #ifdef DEBUG
-    xTaskCreate(debug_setup, "DebugSetup", 4096, debugServer, 1, NULL); //Low priority task as it is imperative that the CAN bus is setup first.
+    xTaskCreate(debug_setup, "DebugSetup", 4096, NULL, 1, NULL); //Low priority task as it is imperative that the CAN bus is setup first.
     // #endif
 
     #pragma region Setup SPI CAN
@@ -109,6 +90,7 @@ void setup()
     try { can1 = new SpiCan(spiDevice, CAN_250KBPS, MCP_8MHZ, CAN1_INT_PIN); }
     catch(const std::exception& e)
     {
+        // TRACE(e.what());
         puts(e.what());
         assert(false);
     }
@@ -125,6 +107,7 @@ void setup()
     }
     catch(const std::exception& e)
     {
+        // TRACE(e.what());
         puts(e.what());
         assert(false);
     }
