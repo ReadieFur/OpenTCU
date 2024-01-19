@@ -33,6 +33,7 @@ public:
         WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
         if (WiFi.waitForConnectResult() != WL_CONNECTED)
         {
+            vTaskDelay(5000 / portTICK_PERIOD_MS);
             printf("STA Failed!\n");
 
             //Create AP instead.
@@ -47,6 +48,7 @@ public:
         }
         else
         {
+            vTaskDelay(5000 / portTICK_PERIOD_MS);
             ipAddress = WiFi.localIP();
         }
 
