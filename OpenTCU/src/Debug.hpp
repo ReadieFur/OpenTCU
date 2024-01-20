@@ -34,6 +34,14 @@ public:
         IPAddress ipAddress;
         WiFi.mode(WIFI_STA);
         WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+        #ifdef GENERATOR
+        IPAddress ip(192, 168, 0, 197);
+        #else
+        IPAddress ip(192, 168, 0, 199);
+        #endif
+        IPAddress subnet(255, 255, 254, 0);
+        IPAddress gateway(192, 168, 1, 254);
+        WiFi.config(ip, gateway, subnet);
         if (WiFi.waitForConnectResult() != WL_CONNECTED)
         {
             Logger::Log("STA Failed!\n");
