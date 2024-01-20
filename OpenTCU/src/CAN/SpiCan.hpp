@@ -7,6 +7,10 @@
 #include <esp_intr_alloc.h>
 #include <esp_attr.h>
 #include <freertos/semphr.h>
+#include <driver/gpio.h>
+#if DEBUG
+#include <esp_log.h>
+#endif
 
 class SpiCan : public ACan
 {
@@ -36,6 +40,10 @@ private:
 
     static void IRAM_ATTR OnInterrupt(void* arg)
     {
+        #if DEBUG
+        ESP_DRAM_LOGV("SpiCan", "OnInterrupt");
+        #endif
+
         //Check if the arg is an instance of SpiCan.
         if (arg == NULL || !dynamic_cast<SpiCan*>(static_cast<SpiCan*>(arg)))
             return;
@@ -55,8 +63,13 @@ public:
             throw std::runtime_error("Failed to reset MCP2515: " + std::to_string(res));
         if (uint8_t res = mcp2515->setBitrate(speed, clock) != MCP2515::ERROR_OK)
             throw std::runtime_error("Failed to set bitrate: " + std::to_string(res));
+        #ifndef GENERATOR
         if (uint8_t res = mcp2515->setNormalMode() != MCP2515::ERROR_OK) //TODO: Allow the user to change this setting.
             throw std::runtime_error("Failed to set normal mode: " + std::to_string(res));
+        #else
+        if (uint8_t res = mcp2515->setLoopbackMode() != MCP2515::ERROR_OK) //TODO: Allow the user to change this setting.
+            throw std::runtime_error("Failed to set loopback mode: " + std::to_string(res));
+        #endif
 
         this->interruptPin = interruptPin;
         if (interruptPin != GPIO_NUM_NC)
@@ -103,11 +116,11 @@ public:
 
     esp_err_t Receive(SCanMessage* message, TickType_t timeout = 0)
     {
-        //Wait in a "non-blocking" by allowing the CPU to do other things while waiting for a message.
-        BaseType_t res = xSemaphoreTake(interruptSemaphore, timeout);
-        //Check if we timed out.
-        if (res == pdFALSE)
-            return ESP_ERR_TIMEOUT;
+        // //Wait in a "non-blocking" by allowing the CPU to do other things while waiting for a message.
+        // BaseType_t res = xSemaphoreTake(interruptSemaphore, timeout);
+        // //Check if we timed out.
+        // if (res == pdFALSE)
+        //     return ESP_ERR_TIMEOUT;
 
         can_frame frame;
         MCP2515::ERROR result;
