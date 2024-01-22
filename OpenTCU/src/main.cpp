@@ -16,12 +16,24 @@
 #include <WebSerialLite.h>
 #endif
 
-#define CAN_FREQUENCY 250000
-#define CAN_INTERVAL_TICKS pdMS_TO_TICKS(1000 / CAN_FREQUENCY)
-//Allow a max send timeout of half a frame.
-#define CAN_SEND_TIMEOUT CAN_INTERVAL_TICKS / 2
+// #define CAN_FREQUENCY 250000 //Bits per second.
+// #define BIT_SPEED 1.0 / CAN_FREQUENCY
+// //Calculate the maximum number of bits that a message can contain.
+// //https://en.wikipedia.org/wiki/CAN_bus
+// #define FRAME_SIZE 1 + 29 + 1 + 1 + 18 + 1 + 2 + 4 + 64 + 15 + 1 + 1 + 1 + 7
+// //Calculate the maximum amount of time it would take to send a message.
+// #define MAX_MESSAGE_TIME FRAME_SIZE * BIT_SPEED
+// //Add a multiplier of 2 to account for processing time.
+// #define MAX_MESSAGE_TIME_MARGIN MAX_MESSAGE_TIME * 2
+// //Convert the value from seconds to microseconds.
+// #define MAX_MESSAGE_TIME_MARGIN_US MAX_MESSAGE_TIME_MARGIN * 1000000
+// //Define the timeout in ticks.
+// #define CAN_TIMEOUT_TICKS pdUS_TO_TICKS(MAX_MESSAGE_TIME_MARGIN_US)
+// #define CAN_TIMEOUT_TICKS pdUS_TO_TICKS((((1 + 29 + 1 + 1 + 18 + 1 + 2 + 4 + 64 + 15 + 1 + 1 + 1 + 7) * (1.0 / 250000)) * 2) * 1000000)
+//There was supposed to be some logic behind this value but I don't really know what I'm doing so I've just set an arbitrary value for now.
+#define CAN_TIMEOUT_TICKS pdMS_TO_TICKS(10)
 
-#define RELAY_TASK_STACK_SIZE 1024
+#define RELAY_TASK_STACK_SIZE 2048
 #define RELAY_TASK_PRIORITY configMAX_PRIORITIES - 2
 
 SpiCan* spiCAN;
@@ -47,15 +59,20 @@ void RelayTask(void* param)
     while(true)
     {
         SCanMessage message;
+        // TRACE("Waiting for message");
         //Wait indefinitely for a message to be received.
+        //TODO: Fix catching missed interrupts (can cause the program to hang). Two solutions both to be implemented are to add a timeout to the read operation and to fix the interrupt watchers themselves.
         if (canA->Receive(&message, portMAX_DELAY) == ESP_OK)
         {
+            // TRACE("Got message");
             //Relay the message to the other CAN bus.
-            canB->Send(message, CAN_SEND_TIMEOUT);
-
-            #ifdef DEBUG
+            canB->Send(message, CAN_TIMEOUT_TICKS);
             TRACE("Relayed message: %d, %d, %d", message.id, message.length, message.data[0]);
-            #endif
+            // printf("\n");
+        }
+        else
+        {
+            // TRACE("Timeout");
         }
     }
 }
@@ -63,16 +80,15 @@ void RelayTask(void* param)
 #ifdef DEBUG
 void debug_setup(void* param)
 {
+    TRACE("Debug setup started.");
+
+    #if 1
     _debugServer = new AsyncWebServer(81);
 
     IPAddress ipAddress;
     WiFi.mode(WIFI_STA);
     WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
-    #ifdef GENERATOR
-    IPAddress ip(192, 168, 0, 197);
-    #else
     IPAddress ip(192, 168, 0, 199);
-    #endif
     IPAddress subnet(255, 255, 254, 0);
     IPAddress gateway(192, 168, 1, 254);
     WiFi.config(ip, gateway, subnet);
@@ -99,7 +115,14 @@ void debug_setup(void* param)
     _debugServer->begin();
 
     TRACE("Debug server started at %s", ipAddress.toString().c_str());
+    #endif
 
+    //Delayed logs.
+    vTaskDelay(5000 / portTICK_PERIOD_MS);
+    // TRACE("CAN timeout %fus", MAX_MESSAGE_TIME_MARGIN_US);
+    TRACE("CAN timeout set to %d ticks", CAN_TIMEOUT_TICKS);
+
+    TRACE("Debug setup finished.");
     vTaskDelete(NULL);
 }
 #endif
@@ -112,7 +135,7 @@ void setup()
 
     #ifdef DEBUG
     esp_log_level_set("*", ESP_LOG_VERBOSE);
-    // xTaskCreate(debug_setup, "DebugSetup", 4096, NULL, 1, NULL); //Low priority task as it is imperative that the CAN bus is setup first.
+    xTaskCreate(debug_setup, "DebugSetup", 4096, NULL, 1, NULL); //Low priority task as it is imperative that the CAN bus is setup first.
     #endif
 
     #pragma region Setup SPI CAN
@@ -151,11 +174,7 @@ void setup()
             TWAI_GENERAL_CONFIG_DEFAULT(
                 CAN2_TX_PIN,
                 CAN2_RX_PIN,
-                #ifndef GENERATOR
                 TWAI_MODE_NORMAL
-                #else
-                TWAI_MODE_NO_ACK
-                #endif
             ),
             TWAI_TIMING_CONFIG_250KBITS(),
             TWAI_FILTER_CONFIG_ACCEPT_ALL()
@@ -169,64 +188,17 @@ void setup()
     #pragma endregion
 
     #pragma region CAN task setup
-    #ifndef GENERATOR
     //Create high priority tasks to handle CAN relay tasks.
     //I am creating the parameters on the heap just incase this method returns before the task starts which will result in an error.
-    // xTaskCreate(RelayTask, "Can1RelayTask", RELAY_TASK_STACK_SIZE, new SRelayTaskParameters { spiCAN, twaiCAN }, RELAY_TASK_PRIORITY, NULL);
-    // xTaskCreate(RelayTask, "Can2RelayTask", RELAY_TASK_STACK_SIZE, new SRelayTaskParameters { twaiCAN, spiCAN }, RELAY_TASK_PRIORITY, NULL);
-    #endif
+    xTaskCreate(RelayTask, "Can1RelayTask", RELAY_TASK_STACK_SIZE, new SRelayTaskParameters { spiCAN, twaiCAN }, RELAY_TASK_PRIORITY, NULL);
+    xTaskCreate(RelayTask, "Can2RelayTask", RELAY_TASK_STACK_SIZE, new SRelayTaskParameters { twaiCAN, spiCAN }, RELAY_TASK_PRIORITY, NULL);
     #pragma endregion
 
-    #ifndef GENERATOR
     //Signal that the program has setup.
     digitalWrite(LED_PIN, OFF);
-    #endif
 }
-
-#ifdef GENERATOR
-uint8_t i = 0;
-#endif
 
 void loop()
 {
-    #ifndef GENERATOR
-    //Receive a message and send it to the other CAN bus.
-    vTaskDelay(5000 / portTICK_PERIOD_MS);
-    SCanMessage message;
-    TRACE("Waiting for message...");
-    spiCAN->Receive(&message, portMAX_DELAY);
-    TRACE("Received message: %x, %d, %d", message.id, message.length, message.data[0]);
-    twaiCAN->Send(message, CAN_SEND_TIMEOUT);
-
-    // vTaskDelete(NULL);
-    #else
-    //Send a message every second.
-    esp_err_t err;
-    SCanMessage message = {
-        .id = 0x123,
-        .data = { i },
-        .length = 1
-    };
-    err = twaiCAN->Send(message, CAN_SEND_TIMEOUT);
-    TRACE("Sent message: %x, %d, %d", message.id, message.length, message.data[0]);
-
-    //Receive the message that was sent and ensure that it is the same.
-    SCanMessage receivedMessage;
-    err = spiCAN->Receive(&receivedMessage, 1000 / portTICK_PERIOD_MS);
-    if (err != ESP_OK)
-    {
-        TRACE("Failed to receive message: %x", err);
-    }
-    else if (receivedMessage.id != message.id || receivedMessage.length != message.length || receivedMessage.data[0] != message.data[0])
-    {
-        TRACE("Message mismatch: %x, %d, %d", receivedMessage.id, receivedMessage.length, receivedMessage.data[0]);
-    }
-    else
-    {
-        TRACE("Message match: %x, %d, %d", receivedMessage.id, receivedMessage.length, receivedMessage.data[0]);
-    }
-
-    i++;
-    vTaskDelay(1000 / portTICK_PERIOD_MS);
-    #endif
+    vTaskDelete(NULL);
 }

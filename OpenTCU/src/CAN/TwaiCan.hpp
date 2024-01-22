@@ -4,9 +4,10 @@
 #include <esp_err.h>
 #include <driver/gpio.h>
 #include <driver/twai.h>
+#include <stdexcept>
 #include "SCanMessage.hpp"
 #include "ACan.hpp"
-#include <stdexcept>
+#include "Helpers.h"
 
 class TwaiCan : public ACan
 {
@@ -14,7 +15,7 @@ private:
     static bool initialized;
 
 public:
-    TwaiCan(twai_general_config_t generalConfig, twai_timing_config_t timingConfig, twai_filter_config_t filterConfig)
+    TwaiCan(twai_general_config_t generalConfig, twai_timing_config_t timingConfig, twai_filter_config_t filterConfig) : ACan()
     {
         if (initialized)
             throw std::runtime_error("Singleton class TwaiCan can only be initialized once.");
@@ -25,6 +26,9 @@ public:
 
         if (esp_err_t err = twai_start() != ESP_OK)
             throw std::runtime_error("Failed to start TWAI driver: " + std::to_string(err));
+
+        if (esp_err_t err = twai_reconfigure_alerts(TWAI_ALERT_RX_DATA, NULL) != ESP_OK)
+            throw std::runtime_error("Failed to reconfigure TWAI alerts: " + std::to_string(err));
     }
 
     ~TwaiCan()
@@ -37,7 +41,7 @@ public:
         initialized = false;
     }
 
-    esp_err_t Send(SCanMessage message, TickType_t timeout = 0)
+    esp_err_t Send(SCanMessage message, TickType_t timeout)
     {
         twai_message_t twaiMessage = {
             .identifier = message.id,
@@ -48,15 +52,34 @@ public:
         for (int i = 0; i < message.length; i++)
             twaiMessage.data[i] = message.data[i];
 
-        if (esp_err_t err = twai_transmit(&twaiMessage, timeout) != ESP_OK)
-            return err;
-        return ESP_OK;
+        // TRACE("TWAI Write");
+        if (xSemaphoreTake(driverMutex, timeout) != pdTRUE)
+            return ESP_ERR_TIMEOUT;
+        esp_err_t res = twai_transmit(&twaiMessage, timeout);
+        // TRACE("TWAI Write Done");
+        xSemaphoreGive(driverMutex);
+
+        return res;
     }
 
-    esp_err_t Receive(SCanMessage* message, TickType_t timeout = 0)
+    esp_err_t Receive(SCanMessage* message, TickType_t timeout)
     {
+        //Use the read alerts function to wait for a message to be received (instead of locking on the twai_receive function).
+        uint32_t alerts;
+        // TRACE("TWAI Wait");
+        if (esp_err_t err = twai_read_alerts(&alerts, timeout) != ESP_OK)
+            return err;
+        // TRACE("TWAI Wait Done");
+
         twai_message_t twaiMessage;
-        if (esp_err_t err = twai_receive(&twaiMessage, timeout) != ESP_OK)
+        // TRACE("TWAI Read");
+        if (xSemaphoreTake(driverMutex, timeout) != pdTRUE)
+            return ESP_ERR_TIMEOUT;
+        //We shouldn't wait for a message to be received so set the timeout to be minimal.
+        esp_err_t err = twai_receive(&twaiMessage, pdMS_TO_TICKS(1));
+        // TRACE("TWAI Read Done");
+        xSemaphoreGive(driverMutex);
+        if (err != ESP_OK)
             return err;
 
         message->id = twaiMessage.identifier;
@@ -67,11 +90,6 @@ public:
             message->data[i] = twaiMessage.data[i];
 
         return ESP_OK;
-    }
-
-    esp_err_t GetAlerts(uint32_t& alerts, TickType_t timeout = 0)
-    {
-        return twai_read_alerts(&alerts, timeout);
     }
 
     esp_err_t GetStatus(twai_status_info_t &status)
