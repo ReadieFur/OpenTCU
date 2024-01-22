@@ -52,18 +52,18 @@ void setup()
 	vTaskDelay(5000 / portTICK_PERIOD_MS);
 	printf("Setup\n");
 
-	WiFi.mode(WIFI_STA);
-    WiFi.begin(ssid, password);
-    if (WiFi.waitForConnectResult() != WL_CONNECTED)
-	{
-        log("WiFi Failed!\n");
-    }
-	else
-	{
-		log(WiFi.localIP().toString().c_str());
-		WebSerial.begin(&server);
-		server.begin();
-	}
+	// WiFi.mode(WIFI_STA);
+    // WiFi.begin(ssid, password);
+    // if (WiFi.waitForConnectResult() != WL_CONNECTED)
+	// {
+    //     log("WiFi Failed!\n");
+    // }
+	// else
+	// {
+	// 	log(WiFi.localIP().toString().c_str());
+	// 	WebSerial.begin(&server);
+	// 	server.begin();
+	// }
 	
 	twai_general_config_t g_config = TWAI_GENERAL_CONFIG_DEFAULT(TX_PIN, TR_PIN, TWAI_MODE_NO_ACK);
 	twai_timing_config_t t_config = TWAI_TIMING_CONFIG_250KBITS();
@@ -138,7 +138,8 @@ void loop()
 	message.flags = TWAI_MSG_FLAG_EXTD;
 	message.data_length_code = 1;
 	message.data[0] = i;
-	log("Transmitting. ID: %x, Flags: %x, DLC: %d, Data: %x\n", message.identifier, message.flags, message.data_length_code, message.data[0]);
+	log("Transmitting. ID: %x, Flags: %x, DLC: %d, Data: %d\n", message.identifier, message.flags, message.data_length_code, message.data[0]);
+	i++;
 	if (esp_err_t err = twai_transmit(&message, 1000 / portTICK_PERIOD_MS) != ESP_OK)
 	{
 		log("Transmit error: %x %s\n", err, esp_err_to_name(err));
@@ -160,16 +161,30 @@ void loop()
 	// else
 	// 	log("Transmit OK\n");
 
+	//Wait a very short time for the relay to process the message (real world results are very short but set to 10ms for testing).
+	vTaskDelay(10 / portTICK_PERIOD_MS);
+
 	//Receive on MCP2515.
-	if (mcp2515->readMessage(&frame) == MCP2515::ERROR_OK)
+	MCP2515::ERROR err = mcp2515->readMessage(&frame);
+	if (err == MCP2515::ERROR_OK)
 	{
-		log("Received. ID: %x, DLC: %d, Data: %x\n", frame.can_id, frame.can_dlc, frame.data[0]);
+		log("Received. ID: %x, DLC: %d, Data: %d\n", frame.can_id, frame.can_dlc, frame.data[0]);
+
+		//Make sure the received data is the same as the sent data.
+		if (frame.data[0] != i - 1)
+			log("Data mismatch. Sent: %d, Received: %d\n", i - 1, frame.data[0]);
+		else
+			log("Data matched\n");
 	}
 	else
 	{
-		log("Receive error\n");
-		return;
-	}
+		log("Receive error %d\n", err);
 
-	i++;
+		// if (err == MCP2515::ERROR_FAIL)
+		// {
+		// 	//Reset the MCP2515.
+		// 	log("Resetting\n");
+		// 	mcp2515->reset();
+		// }
+	}
 }
