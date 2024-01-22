@@ -1,6 +1,7 @@
 #pragma once
 
 #include <esp_log.h>
+#include <freertos/portmacro.h>
 
 #ifdef DEBUG
 #include <WebSerialLite.h>
@@ -28,3 +29,5 @@
 #endif
 
 #define NEWLINE() printf("\n");
+
+#define pdUS_TO_TICKS(xTimeInNs) ((TickType_t)(((TickType_t)(xTimeInNs) * (TickType_t)configTICK_RATE_HZ) / (TickType_t)1000000U))
