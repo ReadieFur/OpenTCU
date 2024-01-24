@@ -31,7 +31,7 @@
 // #define CAN_TIMEOUT_TICKS pdUS_TO_TICKS(MAX_MESSAGE_TIME_MARGIN_US)
 // #define CAN_TIMEOUT_TICKS pdUS_TO_TICKS((((1 + 29 + 1 + 1 + 18 + 1 + 2 + 4 + 64 + 15 + 1 + 1 + 1 + 7) * (1.0 / 250000)) * 2) * 1000000)
 //There was supposed to be some logic behind this value but I don't really know what I'm doing so I've just set an arbitrary value for now.
-#define CAN_TIMEOUT_TICKS pdMS_TO_TICKS(10)
+#define CAN_TIMEOUT_TICKS pdMS_TO_TICKS(100)
 
 #define RELAY_TASK_STACK_SIZE 2048
 #define RELAY_TASK_PRIORITY configMAX_PRIORITIES - 2
@@ -56,18 +56,23 @@ void RelayTask(void* param)
     ACan* canA = params->canA;
     ACan* canB = params->canB;
     delete params;
+    #if DEBUG
+    //Get task name.
+    char* taskName = pcTaskGetTaskName(NULL);
+    #endif
     while(true)
     {
         SCanMessage message;
         // TRACE("Waiting for message");
         //Wait indefinitely for a message to be received.
         //TODO: Fix catching missed interrupts (can cause the program to hang). Two solutions both to be implemented are to add a timeout to the read operation and to fix the interrupt watchers themselves.
-        if (canA->Receive(&message, portMAX_DELAY) == ESP_OK)
+        if (canA->Receive(&message, CAN_TIMEOUT_TICKS) == ESP_OK)
         {
             // TRACE("Got message");
             //Relay the message to the other CAN bus.
             canB->Send(message, CAN_TIMEOUT_TICKS);
-            TRACE("Relayed message: %d, %d, %d", message.id, message.length, message.data[0]);
+            // TRACE("Relayed message: %d, %d, %d", message.id, message.length, message.data[0]);
+            ESP_LOGV(taskName, "Relayed message: %d, %d", message.id, message.length);
             // printf("\n");
         }
         else
@@ -78,11 +83,36 @@ void RelayTask(void* param)
 }
 
 #ifdef DEBUG
+void power_task(void* param)
+{
+    //Every 1 minute turn the power pin on for 250ms.
+    // pinMode(POWER_PIN, OUTPUT);
+    gpio_config_t powerPinConfig = {
+        .pin_bit_mask = 1ULL << POWER_PIN,
+        .mode = GPIO_MODE_OUTPUT,
+        .pull_up_en = GPIO_PULLUP_DISABLE,
+        .pull_down_en = GPIO_PULLDOWN_ENABLE,
+        .intr_type = GPIO_INTR_DISABLE
+    };
+    assert(gpio_config(&powerPinConfig) == ESP_OK);
+    vTaskDelay(5000 / portTICK_PERIOD_MS); //Wait 5 seconds before starting.
+    while(true)
+    {
+        TRACE("Powering on");
+        digitalWrite(POWER_PIN, ON);
+        vTaskDelay(250 / portTICK_PERIOD_MS);
+        digitalWrite(POWER_PIN, OFF);
+        vTaskDelay(60000 / portTICK_PERIOD_MS);
+    }
+}
+
 void debug_setup(void* param)
 {
     TRACE("Debug setup started.");
 
-    #if 1
+    xTaskCreate(power_task, "PowerTask", 2048, NULL, 1, NULL);
+
+    #if 0
     _debugServer = new AsyncWebServer(81);
 
     IPAddress ipAddress;
@@ -130,7 +160,15 @@ void debug_setup(void* param)
 void setup()
 {
     //Used to indicate that the program has started.
-    pinMode(LED_PIN, OUTPUT);
+    // pinMode(LED_PIN, OUTPUT);
+    gpio_config_t ledPinConfig = {
+        .pin_bit_mask = 1ULL << LED_PIN,
+        .mode = GPIO_MODE_OUTPUT,
+        .pull_up_en = GPIO_PULLUP_DISABLE,
+        .pull_down_en = GPIO_PULLDOWN_ENABLE,
+        .intr_type = GPIO_INTR_DISABLE
+    };
+    assert(gpio_config(&ledPinConfig) == ESP_OK);
     digitalWrite(LED_PIN, ON);
 
     #ifdef DEBUG
@@ -139,6 +177,41 @@ void setup()
     #endif
 
     #pragma region Setup SPI CAN
+    //Configure the pins, all pins should be written low to start with.
+    gpio_config_t mosiPinConfig = {
+        .pin_bit_mask = 1ULL << MOSI_PIN,
+        .mode = GPIO_MODE_OUTPUT,
+        .pull_up_en = GPIO_PULLUP_DISABLE,
+        .pull_down_en = GPIO_PULLDOWN_ENABLE,
+        .intr_type = GPIO_INTR_DISABLE
+    };
+    gpio_config_t misoPinConfig = {
+        .pin_bit_mask = 1ULL << MISO_PIN,
+        .mode = GPIO_MODE_INPUT,
+        .pull_up_en = GPIO_PULLUP_DISABLE,
+        .pull_down_en = GPIO_PULLDOWN_ENABLE,
+        .intr_type = GPIO_INTR_DISABLE
+    };
+    gpio_config_t sckPinConfig = {
+        .pin_bit_mask = 1ULL << SCK_PIN,
+        .mode = GPIO_MODE_OUTPUT,
+        .pull_up_en = GPIO_PULLUP_DISABLE,
+        .pull_down_en = GPIO_PULLDOWN_ENABLE,
+        .intr_type = GPIO_INTR_DISABLE
+    };
+    gpio_config_t csPinConfig = {
+        .pin_bit_mask = 1ULL << CAN1_CS_PIN,
+        .mode = GPIO_MODE_OUTPUT,
+        .pull_up_en = GPIO_PULLUP_DISABLE,
+        .pull_down_en = GPIO_PULLDOWN_ENABLE,
+        .intr_type = GPIO_INTR_DISABLE
+    };
+    //INT pin is configured in the SPI CAN class.
+    assert(gpio_config(&mosiPinConfig) == ESP_OK);
+    assert(gpio_config(&misoPinConfig) == ESP_OK);
+    assert(gpio_config(&sckPinConfig) == ESP_OK);
+    assert(gpio_config(&csPinConfig) == ESP_OK);
+
     spi_bus_config_t bus_config = {
         .mosi_io_num = MOSI_PIN,
         .miso_io_num = MISO_PIN,
@@ -154,7 +227,7 @@ void setup()
         .mode = 0,
         .clock_speed_hz = SPI_MASTER_FREQ_8M, //Match the SPI CAN controller.
         .spics_io_num = CAN1_CS_PIN,
-        .queue_size = 7,
+        .queue_size = 2, //2 as per the specification: https://ww1.microchip.com/downloads/en/DeviceDoc/MCP2515-Stand-Alone-CAN-Controller-with-SPI-20001801J.pdf
     };
     spi_device_handle_t spiDevice;
     assert(spi_bus_add_device(SPI2_HOST, &dev_config, &spiDevice) == ESP_OK);
@@ -168,6 +241,24 @@ void setup()
     #pragma endregion
 
     #pragma region Setup TWAI CAN
+    //Configure GPIO.
+    gpio_config_t txPinConfig = {
+        .pin_bit_mask = 1ULL << CAN2_TX_PIN,
+        .mode = GPIO_MODE_OUTPUT,
+        .pull_up_en = GPIO_PULLUP_DISABLE,
+        .pull_down_en = GPIO_PULLDOWN_ENABLE,
+        .intr_type = GPIO_INTR_DISABLE
+    };
+    gpio_config_t rxPinConfig = {
+        .pin_bit_mask = 1ULL << CAN2_RX_PIN,
+        .mode = GPIO_MODE_INPUT,
+        .pull_up_en = GPIO_PULLUP_DISABLE,
+        .pull_down_en = GPIO_PULLDOWN_ENABLE,
+        .intr_type = GPIO_INTR_DISABLE
+    };
+    assert(gpio_config(&txPinConfig) == ESP_OK);
+    assert(gpio_config(&rxPinConfig) == ESP_OK);
+
     try
     {
         twaiCAN = new TwaiCan(
