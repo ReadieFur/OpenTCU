@@ -64,6 +64,19 @@ public:
 
     esp_err_t Receive(SCanMessage* message, TickType_t timeout)
     {
+        // #if DEBUG
+        // //Get status.
+        // twai_status_info_t status;
+        // if (esp_err_t err = twai_get_status_info(&status) != ESP_OK)
+        // {
+        //     TRACE("Failed to get TWAI status: %d", err);
+        // }
+        // else
+        // {
+        //     TRACE("TWAI Status: %d, %d, %d, %d, %d, %d, %d, %d, %d, %d", status.state, status.msgs_to_tx, status.msgs_to_rx, status.tx_error_counter, status.rx_error_counter, status.tx_failed_count, status.rx_missed_count, status.rx_overrun_count, status.arb_lost_count, status.bus_error_count);
+        // }
+        // #endif
+
         //Use the read alerts function to wait for a message to be received (instead of locking on the twai_receive function).
         uint32_t alerts;
         // TRACE("TWAI Wait");

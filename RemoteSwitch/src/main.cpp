@@ -5,10 +5,10 @@
 #include <WebSerialLite.h>
 #include <gpio.h>
 
-#define POWER_SWITCH_PIN D8
-#define GROUND_SWITCH_PIN D7
+#define POWER_PIN D8
+#define POWER_CHECK_PIN D2
+#define POWER_SWITCH_PIN D7
 #define CAN_SWITCH_PIN D6
-#define POWER_CHECK_PIN D5
 #define LED_PIN D4
 #define TEST_PIN D3
 
@@ -46,17 +46,16 @@ void Blip(int count = 1)
 
 void PowerOff()
 {
+	digitalWrite(POWER_PIN, OFF);
+	// digitalWrite(CAN_SWITCH_PIN, OFF);
 	digitalWrite(POWER_SWITCH_PIN, OFF);
-	digitalWrite(GROUND_SWITCH_PIN, OFF);
-	digitalWrite(CAN_SWITCH_PIN, OFF);
 	digitalWrite(LED_PIN, ON); //Invert for signaling that the power is off.
 }
 
 void PowerOn()
 {
-	digitalWrite(POWER_SWITCH_PIN, ON);
-	digitalWrite(GROUND_SWITCH_PIN, ON);
-	digitalWrite(CAN_SWITCH_PIN, ON);
+	digitalWrite(POWER_PIN, ON);
+	// digitalWrite(CAN_SWITCH_PIN, ON);
 	digitalWrite(LED_PIN, OFF);
 }
 
@@ -74,10 +73,27 @@ void DisableDirectCAN()
 
 void PinStatus()
 {
+	Log("Power Switch: %d\n", digitalRead(POWER_PIN) == ON);
 	Log("Power Switch: %d\n", digitalRead(POWER_SWITCH_PIN) == ON);
-	Log("Ground Switch: %d\n", digitalRead(GROUND_SWITCH_PIN) == ON);
 	Log("CAN Switch: %d\n", digitalRead(CAN_SWITCH_PIN) == ON);
 	Log("Power Check: %d\n", digitalRead(POWER_CHECK_PIN) == ON);
+}
+
+void PowerSwitch()
+{
+	//Turn on then off.
+	digitalWrite(POWER_SWITCH_PIN, ON);
+	delay(100);
+	digitalWrite(POWER_SWITCH_PIN, OFF);
+	Log("Toggled power switch.\n");
+}
+
+void TestPin()
+{
+	int newState = digitalRead(TEST_PIN) == ON ? OFF : ON;
+	Log("Test pin: %d\n", newState);
+	digitalWrite(TEST_PIN, newState);
+	digitalWrite(LED_PIN, newState);
 }
 
 void ReceiveMessage(const uint8_t* data, uint8_t dataSize)
@@ -104,11 +120,17 @@ void ReceiveMessage(const uint8_t* data, uint8_t dataSize)
 		Log("Direct CAN: OFF\n");
 		break;
 	case 0x34: //4
-		PinStatus();
+		PowerSwitch();
 		break;
 	case 0x35: //5
+		PinStatus();
+		break;
 	case 0x36: //6
+		TestPin();
+		break;
 	case 0x37: //7
+		Blip();
+		break;
 	case 0x38: //8
 	case 0x39: //9
 	default:
@@ -120,14 +142,14 @@ void setup()
 {
 	Serial.begin(9600);
 
+	pinMode(POWER_PIN, OUTPUT);
 	pinMode(POWER_SWITCH_PIN, OUTPUT);
-	pinMode(GROUND_SWITCH_PIN, OUTPUT);
 	pinMode(CAN_SWITCH_PIN, OUTPUT);
 	pinMode(POWER_CHECK_PIN, INPUT_PULLUP);
 	pinMode(LED_PIN, OUTPUT);
 	digitalWrite(LED_PIN, OFF);
-	//Immediately write all switches ON.
 	PowerOff();
+	EnableDirectCAN();
 
 	pinMode(TEST_PIN, OUTPUT);
 	digitalWrite(TEST_PIN, ON);
@@ -166,12 +188,12 @@ void loop()
 	delay(250);
 
 	//If the power is off and we have the power state set to on, call the power off function.
-	if (digitalRead(POWER_CHECK_PIN) == OFF && digitalRead(POWER_SWITCH_PIN) == ON)
+	if (digitalRead(POWER_CHECK_PIN) == OFF && digitalRead(POWER_PIN) == ON)
 	{
 		PowerOff();
 		Log("Power: OFF (External)\n");
 	}
-	else if (digitalRead(POWER_CHECK_PIN) == ON && digitalRead(POWER_SWITCH_PIN) == OFF)
+	else if (digitalRead(POWER_CHECK_PIN) == ON && digitalRead(POWER_PIN) == OFF)
 	{
 		PowerOn();
 		Log("Power: ON (External)\n");
@@ -185,4 +207,10 @@ void loop()
 		//Reboot.
 		ESP.restart();
 	}
+
+	// delay(2500);
+	// int newState = digitalRead(TEST_PIN) == ON ? OFF : ON;
+	// Serial.printf("Test pin: %d\n", newState);
+	// digitalWrite(TEST_PIN, newState);
+	// digitalWrite(LED_PIN, newState);
 }
