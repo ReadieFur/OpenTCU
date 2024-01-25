@@ -73,21 +73,12 @@ public:
         if (interruptPin == GPIO_NUM_NC)
             throw std::runtime_error("Interrupt pin cannot be GPIO_NUM_NC.");
         this->interruptPin = interruptPin;
-        gpio_config_t config = {
-            .pin_bit_mask = 1ULL << interruptPin,
-            .mode = GPIO_MODE_INPUT,
-            .pull_up_en = GPIO_PULLUP_ENABLE, //Use the internal pullup resistor as the trigger state of the MCP2515 is LOW.
-            .pull_down_en = GPIO_PULLDOWN_DISABLE,
-            .intr_type = GPIO_INTR_NEGEDGE //Trigger on the falling edge.
-        };
         //If the result of the install is not OK or INVALID_STATE, throw an error. (Invalid state means that the ISR service is already installed).
         // if (esp_err_t res = gpio_install_isr_service(0) != ESP_OK || res != ESP_ERR_INVALID_STATE)
         //     throw std::runtime_error("Failed to install ISR service: " + std::to_string(res));
         //It seems like this method returns an error all of the time, however it is safe to call again. If something truly bad happens we will likely throw in the next stage.
         //https://esp32.com/viewtopic.php?t=13167
         gpio_install_isr_service(0);
-        if (esp_err_t res = gpio_config(&config) != ESP_OK)
-            throw std::runtime_error("Failed to configure interrupt pin: " + std::to_string(res));
         if (esp_err_t res = gpio_isr_handler_add(interruptPin, OnInterrupt, this) != ESP_OK)
             throw std::runtime_error("Failed to add ISR handler: " + std::to_string(res));
 

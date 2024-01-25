@@ -83,46 +83,28 @@ void RelayTask(void* param)
 }
 
 #ifdef DEBUG
-void power_task(void* param)
+void PowerCallback(void* arg)
 {
-    //Every 1 minute turn the power pin on for 250ms.
-    // pinMode(POWER_PIN, OUTPUT);
-    gpio_config_t powerPinConfig = {
-        .pin_bit_mask = 1ULL << POWER_PIN,
-        .mode = GPIO_MODE_OUTPUT,
-        .pull_up_en = GPIO_PULLUP_DISABLE,
-        .pull_down_en = GPIO_PULLDOWN_ENABLE,
-        .intr_type = GPIO_INTR_DISABLE
-    };
-    gpio_config_t powerCheckPinConfig = {
-        .pin_bit_mask = 1ULL << POWER_CHECK_PIN,
-        .mode = GPIO_MODE_INPUT,
-        .pull_up_en = GPIO_PULLUP_DISABLE,
-        .pull_down_en = GPIO_PULLDOWN_ENABLE,
-        .intr_type = GPIO_INTR_NEGEDGE
-    };
-    assert(gpio_config(&powerPinConfig) == ESP_OK);
-    assert(gpio_config(&powerCheckPinConfig) == ESP_OK);
-    vTaskDelay(5000 / portTICK_PERIOD_MS); //Wait 5 seconds before starting.
-    while (true)
-    {
-        // TRACE("Power check pin: %d", digitalRead(POWER_CHECK_PIN));
-        if (digitalRead(POWER_CHECK_PIN) == LOW)
-        {
-            TRACE("Powering on");
-            digitalWrite(POWER_PIN, ON);
-            vTaskDelay(250 / portTICK_PERIOD_MS);
-            digitalWrite(POWER_PIN, OFF);
-        }
-        vTaskDelay(5000 / portTICK_PERIOD_MS);
-    }
+    // ESP_DRAM_LOGV("Powering on");
+    digitalWrite(POWER_PIN, ON);
+    vTaskDelay(250 / portTICK_PERIOD_MS);
+    digitalWrite(POWER_PIN, OFF);
+    
+    // vTaskDelay(5000 / portTICK_PERIOD_MS); //Wait 5 seconds before starting.
+    // while (true)
+    // {
+    //     // TRACE("Power check pin: %d", digitalRead(POWER_CHECK_PIN));
+    //     if (digitalRead(POWER_CHECK_PIN) == LOW)
+    //     {
+            
+    //     }
+    //     vTaskDelay(5000 / portTICK_PERIOD_MS);
+    // }
 }
 
 void debug_setup(void* param)
 {
     TRACE("Debug setup started.");
-
-    xTaskCreate(power_task, "PowerTask", 2048, NULL, 1, NULL);
 
     #if 0
     _debugServer = new AsyncWebServer(81);
@@ -157,6 +139,27 @@ void debug_setup(void* param)
     _debugServer->begin();
 
     TRACE("Debug server started at %s", ipAddress.toString().c_str());
+    #endif
+
+    #if 1
+    gpio_config_t powerPinConfig = {
+        .pin_bit_mask = 1ULL << POWER_PIN,
+        .mode = GPIO_MODE_OUTPUT,
+        .pull_up_en = GPIO_PULLUP_DISABLE,
+        .pull_down_en = GPIO_PULLDOWN_ENABLE,
+        .intr_type = GPIO_INTR_DISABLE
+    };
+    gpio_config_t powerCheckPinConfig = {
+        .pin_bit_mask = 1ULL << POWER_CHECK_PIN,
+        .mode = GPIO_MODE_INPUT,
+        .pull_up_en = GPIO_PULLUP_DISABLE,
+        .pull_down_en = GPIO_PULLDOWN_ENABLE,
+        .intr_type = GPIO_INTR_LOW_LEVEL
+    };
+    assert(gpio_config(&powerPinConfig) == ESP_OK);
+    assert(gpio_config(&powerCheckPinConfig) == ESP_OK);
+    gpio_install_isr_service(0);
+    assert(gpio_isr_handler_add(POWER_CHECK_PIN, PowerCallback, NULL) == ESP_OK);
     #endif
 
     //Delayed logs.
@@ -218,11 +221,18 @@ void setup()
         .pull_down_en = GPIO_PULLDOWN_ENABLE,
         .intr_type = GPIO_INTR_DISABLE
     };
-    //INT pin is configured in the SPI CAN class.
+    gpio_config_t intPinconfig = {
+        .pin_bit_mask = 1ULL << CAN1_INT_PIN,
+        .mode = GPIO_MODE_INPUT,
+        .pull_up_en = GPIO_PULLUP_ENABLE, //Use the internal pullup resistor as the trigger state of the MCP2515 is LOW.
+        .pull_down_en = GPIO_PULLDOWN_DISABLE,
+        .intr_type = GPIO_INTR_NEGEDGE //Trigger on the falling edge.
+    };
     assert(gpio_config(&mosiPinConfig) == ESP_OK);
     assert(gpio_config(&misoPinConfig) == ESP_OK);
     assert(gpio_config(&sckPinConfig) == ESP_OK);
     assert(gpio_config(&csPinConfig) == ESP_OK);
+    assert(gpio_config(&intPinconfig) == ESP_OK);
 
     spi_bus_config_t bus_config = {
         .mosi_io_num = MOSI_PIN,
