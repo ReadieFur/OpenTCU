@@ -124,41 +124,82 @@ public:
 
     esp_err_t Receive(SCanMessage* message, TickType_t timeout = 0)
     {
-        // #if DEBUG
-        // //Get status.
-        // uint8_t a = mcp2515->checkReceive();
-        // uint8_t b = mcp2515->checkError();
-        // uint8_t c = mcp2515->getErrorFlags();
-        // uint8_t d = mcp2515->getInterrupts();
-        // uint8_t e = mcp2515->getInterruptMask();
+        #if defined(DEBUG) && 0
+        //Get status.
+        uint8_t a = mcp2515->checkReceive();
+        uint8_t b = mcp2515->checkError();
+        uint8_t c = mcp2515->getErrorFlags();
+        uint8_t d = mcp2515->getInterrupts();
+        uint8_t e = mcp2515->getInterruptMask();
 
-        // TRACE("SPI Status: %d, %d, %d, %d, %d", a, b, c, d, e);
-        // #endif
+        //Convert error flags to enum values.
+        bool rx0Ovr = c & MCP2515::EFLG_RX0OVR;
+        bool rx1Ovr = c & MCP2515::EFLG_RX1OVR;
+        bool txBO = c & MCP2515::EFLG_TXBO;
+        bool txEP = c & MCP2515::EFLG_TXEP;
+        bool rxEP = c & MCP2515::EFLG_RXEP;
+        bool txWAR = c & MCP2515::EFLG_TXWAR;
+        bool rxWAR = c & MCP2515::EFLG_RXWAR;
+        bool ewarn = c & MCP2515::EFLG_EWARN;
+
+        //CANINTF
+        bool rx0if = e & MCP2515::CANINTF_RX0IF;
+        bool rx1if = e & MCP2515::CANINTF_RX1IF;
+        bool tx0if = e & MCP2515::CANINTF_TX0IF;
+        bool tx1if = e & MCP2515::CANINTF_TX1IF;
+        bool tx2if = e & MCP2515::CANINTF_TX2IF;
+        bool errif = e & MCP2515::CANINTF_ERRIF;
+        bool wakif = e & MCP2515::CANINTF_WAKIF;
+        bool merrf = e & MCP2515::CANINTF_MERRF;
+
+        TRACE("SPI Status: RX: %d, ERR: %d, ERR Flags: %d %d %d %d %d %d %d %d, INT: %d, INT Mask: %d %d %d %d %d %d %d %d",
+            a, b, rx0Ovr, rx1Ovr, txBO, txEP, rxEP, txWAR, rxWAR, ewarn,
+            d, rx0if, rx1if, tx0if, tx1if, tx2if, errif, wakif, merrf);
+
+        TRACE("Interrupt Pin State: %d, Internal read state: %d", gpio_get_level(interruptPin), canRead);
+        #endif
 
         //Check if we need to wait for a message to be received.
-        if (!canRead)
+        //First do a live check of the interrupt pin, if that is high then fall back to the interrupt semaphore.
+        // if (xSemaphoreTake(driverMutex, timeout) != pdTRUE)
+        //     return ESP_ERR_TIMEOUT;
+        // canRead = gpio_get_level(interruptPin) == 0;
+        // xSemaphoreGive(driverMutex);
+        //See the line: if (result != MCP2515::ERROR_OK)
+        if (gpio_get_level(interruptPin) != 0 && !canRead)
         {
             // TRACE("SPI Wait");
             //Wait in a "non-blocking" by allowing the CPU to do other things while waiting for a message.
             BaseType_t res = xSemaphoreTake(interruptSemaphore, timeout);
-            // TRACE("SPI Wait Done");
             //Check if we timed out.
             if (res == pdFALSE)
+            {
+                // TRACE("SPI Wait Timeout");
                 return ESP_ERR_TIMEOUT;
+            }
         }
 
         // TRACE("SPI Read");
         can_frame frame;
         //Lock the driver from other operations while we read the message.
         if (xSemaphoreTake(driverMutex, timeout) != pdTRUE)
+        {
+            // TRACE("SPI Read Timeout");
             return ESP_ERR_TIMEOUT;
+        }
         MCP2515::ERROR result = mcp2515->readMessage(&frame);
         // TRACE("SPI Read Done");
         canRead = mcp2515->checkReceive();
         // TRACE("Has more messages: %d", canRead);
         xSemaphoreGive(driverMutex);
         if (result != MCP2515::ERROR_OK)
+        {
+            //At some point in this development I broke the interrupt and it seems it never fires now.
+            //As a result of I am using gpio_get_level. However an issue has occurred where I can reach this point and read empty messages (error code 5).
+            //I would like to fix this as we are wasting CPU cycles with this bug.
+            // TRACE("SPI Read Error: %d", result);
             return MCPErrorToESPError(result);
+        }
 
         message->id = frame.can_id & (frame.can_id & CAN_EFF_FLAG ? CAN_EFF_MASK : CAN_SFF_MASK);
         message->length = frame.can_dlc;
