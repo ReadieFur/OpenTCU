@@ -56,10 +56,10 @@ void RelayTask(void* param)
     ACan* canA = params->canA;
     ACan* canB = params->canB;
     delete params;
-    #if DEBUG
-    //Get task name.
-    char* taskName = pcTaskGetTaskName(NULL);
-    #endif
+    // #if DEBUG
+    // //Get task name.
+    // char* taskName = pcTaskGetTaskName(NULL);
+    // #endif
     while(true)
     {
         SCanMessage message;
@@ -70,9 +70,9 @@ void RelayTask(void* param)
         {
             // TRACE("Got message");
             //Relay the message to the other CAN bus.
-            canB->Send(message, CAN_TIMEOUT_TICKS);
-            // TRACE("Relayed message: %d, %d, %d", message.id, message.length, message.data[0]);
-            ESP_LOGV(taskName, "Relayed message: %d, %d", message.id, message.length);
+            // canB->Send(message, CAN_TIMEOUT_TICKS);
+            TRACE("Relayed message: %d, %d", message.id, message.length);
+            // ESP_LOGV(taskName, "Relayed message: %d, %d", message.id, message.length);
             // printf("\n");
         }
         else
@@ -94,15 +94,27 @@ void power_task(void* param)
         .pull_down_en = GPIO_PULLDOWN_ENABLE,
         .intr_type = GPIO_INTR_DISABLE
     };
+    gpio_config_t powerCheckPinConfig = {
+        .pin_bit_mask = 1ULL << POWER_CHECK_PIN,
+        .mode = GPIO_MODE_INPUT,
+        .pull_up_en = GPIO_PULLUP_DISABLE,
+        .pull_down_en = GPIO_PULLDOWN_ENABLE,
+        .intr_type = GPIO_INTR_NEGEDGE
+    };
     assert(gpio_config(&powerPinConfig) == ESP_OK);
+    assert(gpio_config(&powerCheckPinConfig) == ESP_OK);
     vTaskDelay(5000 / portTICK_PERIOD_MS); //Wait 5 seconds before starting.
-    while(true)
+    while (true)
     {
-        TRACE("Powering on");
-        digitalWrite(POWER_PIN, ON);
-        vTaskDelay(250 / portTICK_PERIOD_MS);
-        digitalWrite(POWER_PIN, OFF);
-        vTaskDelay(60000 / portTICK_PERIOD_MS);
+        // TRACE("Power check pin: %d", digitalRead(POWER_CHECK_PIN));
+        if (digitalRead(POWER_CHECK_PIN) == LOW)
+        {
+            TRACE("Powering on");
+            digitalWrite(POWER_PIN, ON);
+            vTaskDelay(250 / portTICK_PERIOD_MS);
+            digitalWrite(POWER_PIN, OFF);
+        }
+        vTaskDelay(5000 / portTICK_PERIOD_MS);
     }
 }
 
@@ -281,8 +293,8 @@ void setup()
     #pragma region CAN task setup
     //Create high priority tasks to handle CAN relay tasks.
     //I am creating the parameters on the heap just incase this method returns before the task starts which will result in an error.
-    xTaskCreate(RelayTask, "Can1RelayTask", RELAY_TASK_STACK_SIZE, new SRelayTaskParameters { spiCAN, twaiCAN }, RELAY_TASK_PRIORITY, NULL);
-    xTaskCreate(RelayTask, "Can2RelayTask", RELAY_TASK_STACK_SIZE, new SRelayTaskParameters { twaiCAN, spiCAN }, RELAY_TASK_PRIORITY, NULL);
+    xTaskCreate(RelayTask, "SPI->TWAI", RELAY_TASK_STACK_SIZE, new SRelayTaskParameters { spiCAN, twaiCAN }, RELAY_TASK_PRIORITY, NULL);
+    // xTaskCreate(RelayTask, "TWAI->SPI", RELAY_TASK_STACK_SIZE, new SRelayTaskParameters { twaiCAN, spiCAN }, RELAY_TASK_PRIORITY, NULL);
     #pragma endregion
 
     //Signal that the program has setup.

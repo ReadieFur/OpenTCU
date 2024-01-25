@@ -1,6 +1,7 @@
 #pragma once
 
 #include <esp_log.h>
+#include <freertos/FreeRTOS.h>
 #include <freertos/portmacro.h>
 
 #ifdef DEBUG
@@ -21,7 +22,7 @@
 // printf("[%s:%d] " format, __FILE__, __LINE__, ##__VA_ARGS__);
 // ESP_LOGV(__FILE__ ":" __LINE__, format, ##__VA_ARGS__); 
 #define TRACE(format, ...) \
-    ESP_LOGV("", format, ##__VA_ARGS__); \
+    ESP_LOGV(pcTaskGetTaskName(NULL), format, ##__VA_ARGS__); \
     WebSerial.printf("[%s:%d] " format, __FILE__, __LINE__, ##__VA_ARGS__); \
     WebSerial.println();
 #else
