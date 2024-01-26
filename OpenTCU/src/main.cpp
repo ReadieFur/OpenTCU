@@ -33,8 +33,8 @@
 //There was supposed to be some logic behind this value but I don't really know what I'm doing so I've just set an arbitrary value for now.
 #define CAN_TIMEOUT_TICKS pdMS_TO_TICKS(100)
 
-#define RELAY_TASK_STACK_SIZE 2048
-#define RELAY_TASK_PRIORITY configMAX_PRIORITIES - 2
+#define RELAY_TASK_STACK_SIZE 1024 * 2.5
+#define RELAY_TASK_PRIORITY configMAX_PRIORITIES - 10
 
 SpiCan* spiCAN;
 TwaiCan* twaiCAN;
@@ -60,8 +60,12 @@ void RelayTask(void* param)
     // //Get task name.
     // char* taskName = pcTaskGetTaskName(NULL);
     // #endif
-    while(true)
+    while (true)
     {
+        #ifdef DEBUG
+        while (digitalRead(POWER_CHECK_PIN) == LOW)
+            vTaskDelay(CAN_TIMEOUT_TICKS);
+        #endif
         SCanMessage message;
         // TRACE("Waiting for message");
         //Wait indefinitely for a message to be received.
@@ -71,8 +75,7 @@ void RelayTask(void* param)
             // TRACE("Got message");
             //Relay the message to the other CAN bus.
             // canB->Send(message, CAN_TIMEOUT_TICKS);
-            TRACE("Relayed message: %d, %d", message.id, message.length);
-            // ESP_LOGV(taskName, "Relayed message: %d, %d", message.id, message.length);
+            // TRACE("Relayed message: %d, %d", message.id, message.length);
             // printf("\n");
         }
         else
@@ -83,39 +86,70 @@ void RelayTask(void* param)
 }
 
 #ifdef DEBUG
-void PowerCallback(void* arg)
+void Power(void* arg)
 {
     // ESP_DRAM_LOGV("Powering on");
-    digitalWrite(POWER_PIN, ON);
-    vTaskDelay(250 / portTICK_PERIOD_MS);
-    digitalWrite(POWER_PIN, OFF);
+    // digitalWrite(POWER_PIN, ON);
+    // vTaskDelay(250 / portTICK_PERIOD_MS);
+    // digitalWrite(POWER_PIN, OFF);
     
-    // vTaskDelay(5000 / portTICK_PERIOD_MS); //Wait 5 seconds before starting.
-    // while (true)
-    // {
-    //     // TRACE("Power check pin: %d", digitalRead(POWER_CHECK_PIN));
-    //     if (digitalRead(POWER_CHECK_PIN) == LOW)
-    //     {
-            
-    //     }
-    //     vTaskDelay(5000 / portTICK_PERIOD_MS);
-    // }
+    vTaskDelay(5000 / portTICK_PERIOD_MS); //Wait 5 seconds before starting.
+    while (true)
+    {
+        // TRACE("Power check pin: %d", digitalRead(POWER_CHECK_PIN));
+        if (digitalRead(POWER_CHECK_PIN) == LOW)
+        {
+                TRACE("Powering on");
+                digitalWrite(POWER_PIN, ON);
+                vTaskDelay(250 / portTICK_PERIOD_MS);
+                digitalWrite(POWER_PIN, OFF);
+        }
+        vTaskDelay(5000 / portTICK_PERIOD_MS);
+    }
 }
 
 void debug_setup(void* param)
 {
     TRACE("Debug setup started.");
 
+    #if 1
+    gpio_config_t powerPinConfig = {
+        .pin_bit_mask = 1ULL << POWER_PIN,
+        .mode = GPIO_MODE_OUTPUT,
+        .pull_up_en = GPIO_PULLUP_DISABLE,
+        .pull_down_en = GPIO_PULLDOWN_ENABLE,
+        .intr_type = GPIO_INTR_DISABLE
+    };
+    gpio_config_t powerCheckPinConfig = {
+        .pin_bit_mask = 1ULL << POWER_CHECK_PIN,
+        .mode = GPIO_MODE_INPUT,
+        .pull_up_en = GPIO_PULLUP_DISABLE,
+        .pull_down_en = GPIO_PULLDOWN_ENABLE,
+        // .intr_type = GPIO_INTR_LOW_LEVEL //GPIO_INTR_NEGEDGE
+        // .intr_type = GPIO_INTR_NEGEDGE
+        .intr_type = GPIO_INTR_DISABLE
+    };
+    assert(gpio_config(&powerPinConfig) == ESP_OK);
+    assert(gpio_config(&powerCheckPinConfig) == ESP_OK);
+    xTaskCreate(Power, "Power", 2048, NULL, 1, NULL);
+    // gpio_install_isr_service(0);
+    // assert(gpio_isr_handler_add(POWER_CHECK_PIN, Power, NULL) == ESP_OK);
+    // if (digitalRead(POWER_CHECK_PIN) == LOW)
+    //     Power(NULL);
+    #endif
+
     #if 0
     _debugServer = new AsyncWebServer(81);
 
     IPAddress ipAddress;
     WiFi.mode(WIFI_STA);
+    // IPAddress ip(192, 168, 0, 158);
+    // IPAddress subnet(255, 255, 254, 0);
+    // IPAddress gateway(192, 168, 1, 254);
+    // WiFi.config(ip, gateway, subnet);
     WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
-    IPAddress ip(192, 168, 0, 199);
-    IPAddress subnet(255, 255, 254, 0);
-    IPAddress gateway(192, 168, 1, 254);
-    WiFi.config(ip, gateway, subnet);
+    //https://github.com/esphome/issues/issues/4893
+    WiFi.setTxPower(WIFI_POWER_8_5dBm);
     if (WiFi.waitForConnectResult() != WL_CONNECTED)
     {
         TRACE("STA Failed!");
@@ -139,27 +173,6 @@ void debug_setup(void* param)
     _debugServer->begin();
 
     TRACE("Debug server started at %s", ipAddress.toString().c_str());
-    #endif
-
-    #if 1
-    gpio_config_t powerPinConfig = {
-        .pin_bit_mask = 1ULL << POWER_PIN,
-        .mode = GPIO_MODE_OUTPUT,
-        .pull_up_en = GPIO_PULLUP_DISABLE,
-        .pull_down_en = GPIO_PULLDOWN_ENABLE,
-        .intr_type = GPIO_INTR_DISABLE
-    };
-    gpio_config_t powerCheckPinConfig = {
-        .pin_bit_mask = 1ULL << POWER_CHECK_PIN,
-        .mode = GPIO_MODE_INPUT,
-        .pull_up_en = GPIO_PULLUP_DISABLE,
-        .pull_down_en = GPIO_PULLDOWN_ENABLE,
-        .intr_type = GPIO_INTR_LOW_LEVEL
-    };
-    assert(gpio_config(&powerPinConfig) == ESP_OK);
-    assert(gpio_config(&powerCheckPinConfig) == ESP_OK);
-    gpio_install_isr_service(0);
-    assert(gpio_isr_handler_add(POWER_CHECK_PIN, PowerCallback, NULL) == ESP_OK);
     #endif
 
     //Delayed logs.
@@ -221,18 +234,19 @@ void setup()
         .pull_down_en = GPIO_PULLDOWN_ENABLE,
         .intr_type = GPIO_INTR_DISABLE
     };
-    gpio_config_t intPinconfig = {
+    gpio_config_t intPinConfig = {
         .pin_bit_mask = 1ULL << CAN1_INT_PIN,
         .mode = GPIO_MODE_INPUT,
         .pull_up_en = GPIO_PULLUP_ENABLE, //Use the internal pullup resistor as the trigger state of the MCP2515 is LOW.
         .pull_down_en = GPIO_PULLDOWN_DISABLE,
         .intr_type = GPIO_INTR_NEGEDGE //Trigger on the falling edge.
+        // .intr_type = GPIO_INTR_LOW_LEVEL
     };
     assert(gpio_config(&mosiPinConfig) == ESP_OK);
     assert(gpio_config(&misoPinConfig) == ESP_OK);
     assert(gpio_config(&sckPinConfig) == ESP_OK);
     assert(gpio_config(&csPinConfig) == ESP_OK);
-    assert(gpio_config(&intPinconfig) == ESP_OK);
+    assert(gpio_config(&intPinConfig) == ESP_OK);
 
     spi_bus_config_t bus_config = {
         .mosi_io_num = MOSI_PIN,
