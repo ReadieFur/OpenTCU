@@ -4,44 +4,20 @@
 #include <driver/spi_master.h>
 #include <driver/spi_common.h>
 #include <driver/twai.h>
-#include "CAN/ACan.hpp"
+#include "CAN/ACan.h"
 #include "CAN/SpiCan.hpp"
 #include "CAN/TwaiCan.hpp"
-#include <Arduino.h> //TODO: Remove this dependency.
 #include "Helpers.h"
 #ifdef DEBUG
 #include <esp_log.h>
-#include <ESPAsyncWebServer.h>
-#include <WiFi.h>
-#include <WebSerialLite.h>
 #endif
 
-// #define CAN_FREQUENCY 250000 //Bits per second.
-// #define BIT_SPEED 1.0 / CAN_FREQUENCY
-// //Calculate the maximum number of bits that a message can contain.
-// //https://en.wikipedia.org/wiki/CAN_bus
-// #define FRAME_SIZE 1 + 29 + 1 + 1 + 18 + 1 + 2 + 4 + 64 + 15 + 1 + 1 + 1 + 7
-// //Calculate the maximum amount of time it would take to send a message.
-// #define MAX_MESSAGE_TIME FRAME_SIZE * BIT_SPEED
-// //Add a multiplier of 2 to account for processing time.
-// #define MAX_MESSAGE_TIME_MARGIN MAX_MESSAGE_TIME * 2
-// //Convert the value from seconds to microseconds.
-// #define MAX_MESSAGE_TIME_MARGIN_US MAX_MESSAGE_TIME_MARGIN * 1000000
-// //Define the timeout in ticks.
-// #define CAN_TIMEOUT_TICKS pdUS_TO_TICKS(MAX_MESSAGE_TIME_MARGIN_US)
-// #define CAN_TIMEOUT_TICKS pdUS_TO_TICKS((((1 + 29 + 1 + 1 + 18 + 1 + 2 + 4 + 64 + 15 + 1 + 1 + 1 + 7) * (1.0 / 250000)) * 2) * 1000000)
-//There was supposed to be some logic behind this value but I don't really know what I'm doing so I've just set an arbitrary value for now.
 #define CAN_TIMEOUT_TICKS pdMS_TO_TICKS(50)
-
 #define RELAY_TASK_STACK_SIZE 1024 * 2.5
 #define RELAY_TASK_PRIORITY configMAX_PRIORITIES - 10
 
 SpiCan* spiCAN;
 TwaiCan* twaiCAN;
-
-#if DEBUG
-AsyncWebServer* _debugServer;
-#endif
 
 struct SRelayTaskParameters
 {
@@ -49,7 +25,7 @@ struct SRelayTaskParameters
     ACan* canB;
 };
 
-//TODO: Add concurrency protection (devices cannot read and write at the same time).
+
 void RelayTask(void* param)
 {
     SRelayTaskParameters* params = static_cast<SRelayTaskParameters*>(param);
@@ -88,12 +64,12 @@ void Power(void* arg)
     while (true)
     {
         // TRACE("Power check pin: %d", digitalRead(POWER_CHECK_PIN));
-        if (digitalRead(POWER_CHECK_PIN) == LOW)
+        if (gpio_get_level(POWER_CHECK_PIN) == 0)
         {
             TRACE("Powering on");
-            digitalWrite(POWER_PIN, ON);
+            gpio_set_level(POWER_PIN, 1);
             vTaskDelay(250 / portTICK_PERIOD_MS);
-            digitalWrite(POWER_PIN, OFF);
+            gpio_set_level(POWER_PIN, 0);
         }
         vTaskDelay(5000 / portTICK_PERIOD_MS);
     }
@@ -170,7 +146,7 @@ void debug_setup(void* param)
 }
 #endif
 
-void setup()
+extern "C" void app_main()
 {
     //Used to indicate that the program has started.
     gpio_config_t ledPinConfig = {
@@ -181,7 +157,7 @@ void setup()
         .intr_type = GPIO_INTR_DISABLE
     };
     assert(gpio_config(&ledPinConfig) == ESP_OK);
-    digitalWrite(LED_PIN, ON);
+    gpio_set_level(LED_PIN, 1);
 
     #ifdef DEBUG
     esp_log_level_set("*", ESP_LOG_VERBOSE);
@@ -306,10 +282,5 @@ void setup()
     #pragma endregion
 
     //Signal that the program has setup.
-    digitalWrite(LED_PIN, OFF);
-}
-
-void loop()
-{
-    vTaskDelete(NULL);
+    gpio_set_level(LED_PIN, 0);
 }
