@@ -6,6 +6,7 @@
 #include <esp_intr_alloc.h>
 #include <esp_attr.h>
 #include <freertos/semphr.h>
+#include <freertos/queue.h>
 #include <driver/gpio.h>
 #include "ACan.hpp"
 #include "Helpers.h"
@@ -19,8 +20,8 @@ private:
     spi_device_handle_t device;
     MCP2515* mcp2515;
     gpio_num_t interruptPin;
-    volatile SemaphoreHandle_t interruptSemaphore = xSemaphoreCreateBinary();
-    volatile bool canRead = false;
+    // volatile QueueHandle_t interruptQueue = xQueueCreate(2, sizeof(void));
+    volatile SemaphoreHandle_t interruptSemaphore = xSemaphoreCreateCounting(2, 0);
 
     static esp_err_t MCPErrorToESPError(MCP2515::ERROR error)
     {
@@ -43,8 +44,10 @@ private:
     static void IRAM_ATTR OnInterrupt(void* arg)
     {
         #if DEBUG
-        ESP_DRAM_LOGV("SpiCan", "OnInterrupt");
+        // isr_log_v("SpiCan", "OnInterrupt");
         #endif
+
+        BaseType_t higherPriorityTaskWoken = pdFALSE;
 
         //No need to check the arg type given I know what it is (optimization).
         // //Check if the arg is an instance of SpiCan.
@@ -52,8 +55,13 @@ private:
         //     return;
 
         //Notify the task that a message has been received.
-        static_cast<SpiCan*>(arg)->canRead = true;
-        xSemaphoreGiveFromISR(static_cast<SpiCan*>(arg)->interruptSemaphore, NULL);
+        // xQueueSendFromISR(static_cast<SpiCan*>(arg)->interruptQueue, NULL, NULL);
+        isr_log_v("xSemaphoreGiveFromISR: %d, %d", xSemaphoreGiveFromISR(static_cast<SpiCan*>(arg)->interruptSemaphore, &higherPriorityTaskWoken), uxSemaphoreGetCount(static_cast<SpiCan*>(arg)->interruptSemaphore));
+
+        //If a higher priority task was woken, yield to it.
+        //I don't really understand the purpose of this, but it seems to be a common practice.
+        if (higherPriorityTaskWoken == pdTRUE)
+            portYIELD_FROM_ISR();
     }
 
 public:
@@ -82,8 +90,14 @@ public:
         if (esp_err_t res = gpio_isr_handler_add(interruptPin, OnInterrupt, this) != ESP_OK)
             throw std::runtime_error("Failed to add ISR handler: " + std::to_string(res));
 
+        // vTaskDelay(10000 / portTICK_PERIOD_MS);
         //Read the initial state of the interrupt pin.
-        canRead = gpio_get_level(interruptPin) == 0;
+        TRACE("Initial interrupt pin state: %d", gpio_get_level(interruptPin));
+        if (gpio_get_level(interruptPin) == LOW)
+        {
+            // xQueueSend(interruptQueue, NULL, 0);
+            xSemaphoreGive(interruptSemaphore);
+        }
     }
 
     ~SpiCan()
@@ -146,9 +160,8 @@ public:
         TRACE("SPI Status: RX: %d, ERR: %d, ERR Flags: %d %d %d %d %d %d %d %d, INT: %d, INT Mask: %d %d %d %d %d %d %d %d",
             a, b, rx0Ovr, rx1Ovr, txBO, txEP, rxEP, txWAR, rxWAR, ewarn,
             d, rx0if, rx1if, tx0if, tx1if, tx2if, errif, wakif, merrf);
-
-        TRACE("Interrupt Pin State: %d, Internal read state: %d", gpio_get_level(interruptPin), canRead);
         #endif
+        // TRACE("Interrupt Pin State: %d, Internal read state: %d", gpio_get_level(interruptPin), canRead);
 
         //Check if we need to wait for a message to be received.
         //First do a live check of the interrupt pin, if that is high then fall back to the interrupt semaphore.
@@ -157,40 +170,80 @@ public:
         // canRead = gpio_get_level(interruptPin) == 0;
         // xSemaphoreGive(driverMutex);
         //See the line: if (result != MCP2515::ERROR_OK)
-        if (gpio_get_level(interruptPin) != 0 && !canRead)
+        // if (gpio_get_level(interruptPin) != 0 && !canRead)
+        // if (!canRead)
+        // {
+        //     TRACE("SPI Wait");
+        //     //Wait in a "non-blocking" by allowing the CPU to do other things while waiting for a message.
+        //     BaseType_t res = xSemaphoreTake(interruptSemaphore, timeout);
+        //     //Check if we timed out.
+        //     if (res == pdFALSE)
+        //     {
+        //         TRACE("SPI Wait Timeout");
+        //         return ESP_ERR_TIMEOUT;
+        //     }
+        // }
+        // if (xQueueReceive(interruptQueue, NULL, timeout) != pdTRUE)
+        //     return ESP_ERR_TIMEOUT;
+        
+        if (gpio_get_level(interruptPin) == 1)
         {
-            // TRACE("SPI Wait");
-            //Wait in a "non-blocking" by allowing the CPU to do other things while waiting for a message.
-            BaseType_t res = xSemaphoreTake(interruptSemaphore, timeout);
-            //Check if we timed out.
-            if (res == pdFALSE)
+            TRACE("SPI Wait: %d, %d", uxSemaphoreGetCount(interruptSemaphore), gpio_get_level(interruptPin));
+            if (xSemaphoreTake(interruptSemaphore, timeout) != pdTRUE)
             {
-                // TRACE("SPI Wait Timeout");
+                TRACE("SPI Wait Timeout");
                 return ESP_ERR_TIMEOUT;
             }
         }
 
-        // TRACE("SPI Read");
+        TRACE("SPI Read");
         can_frame frame;
         //Lock the driver from other operations while we read the message.
         if (xSemaphoreTake(driverMutex, timeout) != pdTRUE)
         {
-            // TRACE("SPI Read Timeout");
+            TRACE("SPI Read Timeout");
             return ESP_ERR_TIMEOUT;
         }
-        MCP2515::ERROR result = mcp2515->readMessage(&frame);
+        // MCP2515::ERROR result = mcp2515->readMessage(&frame);
         // TRACE("SPI Read Done");
-        canRead = mcp2515->checkReceive();
+        // canRead = false;
+        // canRead = mcp2515->checkReceive();
+        // mcp2515->clearInterrupts();
         // TRACE("Has more messages: %d", canRead);
+
+        //https://github.com/autowp/arduino-canhacker/blob/master/CanHacker.cpp#L216-L271
+        uint8_t interruptFlags = mcp2515->getInterrupts();
+
+        if (interruptFlags & MCP2515::CANINTF_ERRIF)
+            mcp2515->clearRXnOVR();
+
+        MCP2515::ERROR readResult;
+        if (interruptFlags & MCP2515::CANINTF_RX0IF)
+            readResult = mcp2515->readMessage(MCP2515::RXB0, &frame);
+        else if (interruptFlags & MCP2515::CANINTF_RX1IF)
+            readResult = mcp2515->readMessage(MCP2515::RXB1, &frame);
+        else
+            readResult = MCP2515::ERROR_NOMSG;
+
+        if (interruptFlags & MCP2515::CANINTF_WAKIF)
+            mcp2515->clearInterrupts();
+
+        if (interruptFlags & MCP2515::CANINTF_ERRIF)
+            mcp2515->clearMERR();
+
+        if (interruptFlags & MCP2515::CANINTF_MERRF)
+            mcp2515->clearInterrupts();
+
         xSemaphoreGive(driverMutex);
-        if (result != MCP2515::ERROR_OK)
+        if (readResult != MCP2515::ERROR_OK)
         {
             //At some point in this development I broke the interrupt and it seems it never fires now.
             //As a result of I am using gpio_get_level. However an issue has occurred where I can reach this point and read empty messages (error code 5).
             //I would like to fix this as we are wasting CPU cycles with this bug.
-            // TRACE("SPI Read Error: %d", result);
-            return MCPErrorToESPError(result);
+            TRACE("SPI Read Error: %d", readResult);
+            return MCPErrorToESPError(readResult);
         }
+        TRACE("SPI Read Success");
 
         message->id = frame.can_id & (frame.can_id & CAN_EFF_FLAG ? CAN_EFF_MASK : CAN_SFF_MASK);
         message->length = frame.can_dlc;
