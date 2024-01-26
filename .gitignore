@@ -16,3 +16,4 @@ bin/
 packages/
 __pycache__/
 build/
+Thumbs.db
