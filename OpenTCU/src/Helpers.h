@@ -4,13 +4,6 @@
 #include <freertos/FreeRTOS.h>
 #include <freertos/portmacro.h>
 
-#ifdef DEBUG
-#include <WebSerialLite.h>
-#endif
-
-#define ON 0x00
-#define OFF 0x01
-
 //Log method should do a simple log to the serial.
 // ESP_LOGI(__FILE__, format, ##__VA_ARGS__);
 #define LOG(format, ...) \
@@ -22,9 +15,9 @@
 // printf("[%s:%d] " format, __FILE__, __LINE__, ##__VA_ARGS__);
 // ESP_LOGV(__FILE__ ":" __LINE__, format, ##__VA_ARGS__); 
 #define TRACE(format, ...) \
-    ESP_LOGV(pcTaskGetTaskName(NULL), format, ##__VA_ARGS__); \
-    WebSerial.printf("[%s:%d] " format, __FILE__, __LINE__, ##__VA_ARGS__); \
-    WebSerial.println();
+    ESP_LOGV(pcTaskGetTaskName(NULL), format, ##__VA_ARGS__);
+    // WebSerial.printf("[%s:%d] " format, __FILE__, __LINE__, ##__VA_ARGS__);
+    // WebSerial.println();
 #else
 #define TRACE(format, ...)
 #endif

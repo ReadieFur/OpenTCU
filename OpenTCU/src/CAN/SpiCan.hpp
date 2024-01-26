@@ -8,7 +8,8 @@
 #include <freertos/semphr.h>
 #include <freertos/queue.h>
 #include <driver/gpio.h>
-#include "ACan.hpp"
+#include "ACan.h"
+#include "SCanMessage.h"
 #include "Helpers.h"
 #if DEBUG
 #include <esp_log.h>
@@ -83,7 +84,7 @@ public:
 
         //Read the initial state of the interrupt pin.
         TRACE("Initial interrupt pin state: %d", gpio_get_level(interruptPin));
-        if (gpio_get_level(interruptPin) == LOW)
+        if (gpio_get_level(interruptPin) == 0)
         {
             xSemaphoreGive(interruptSemaphore);
         }

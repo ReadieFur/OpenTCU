@@ -2,13 +2,11 @@
 
 //https://stackoverflow.com/questions/9756893/how-to-implement-interfaces-in-c
 
-#include <cstdint>
 #include <esp_err.h>
 #include <freertos/portmacro.h>
 #include <freertos/semphr.h>
-#include "SCanMessage.hpp"
+#include "SCanMessage.h"
 
-//TODO: Add concurrency safety.
 class ACan
 {
 protected:
