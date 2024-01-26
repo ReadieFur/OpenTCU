@@ -54,7 +54,10 @@ public:
 
         // TRACE("TWAI Write");
         if (xSemaphoreTake(driverMutex, timeout) != pdTRUE)
+        {
+            TRACE("TWAI Write Timeout");
             return ESP_ERR_TIMEOUT;
+        }
         esp_err_t res = twai_transmit(&twaiMessage, timeout);
         // TRACE("TWAI Write Done");
         xSemaphoreGive(driverMutex);
@@ -81,7 +84,10 @@ public:
         uint32_t alerts;
         // TRACE("TWAI Wait");
         if (esp_err_t err = twai_read_alerts(&alerts, timeout) != ESP_OK)
+        {
+            TRACE("TWAI Wait Timeout: %d", err);
             return err;
+        }
         // TRACE("TWAI Wait Done");
 
         twai_message_t twaiMessage;
@@ -93,7 +99,11 @@ public:
         // TRACE("TWAI Read Done");
         xSemaphoreGive(driverMutex);
         if (err != ESP_OK)
+        {
+            TRACE("TWAI Read Error: %d", err);
             return err;
+        }
+        // TRACE("TWAI Read Success");
 
         message->id = twaiMessage.identifier;
         message->length = twaiMessage.data_length_code;

@@ -31,7 +31,7 @@
 // #define CAN_TIMEOUT_TICKS pdUS_TO_TICKS(MAX_MESSAGE_TIME_MARGIN_US)
 // #define CAN_TIMEOUT_TICKS pdUS_TO_TICKS((((1 + 29 + 1 + 1 + 18 + 1 + 2 + 4 + 64 + 15 + 1 + 1 + 1 + 7) * (1.0 / 250000)) * 2) * 1000000)
 //There was supposed to be some logic behind this value but I don't really know what I'm doing so I've just set an arbitrary value for now.
-#define CAN_TIMEOUT_TICKS pdMS_TO_TICKS(100)
+#define CAN_TIMEOUT_TICKS pdMS_TO_TICKS(50)
 
 #define RELAY_TASK_STACK_SIZE 1024 * 2.5
 #define RELAY_TASK_PRIORITY configMAX_PRIORITIES - 10
@@ -56,31 +56,27 @@ void RelayTask(void* param)
     ACan* canA = params->canA;
     ACan* canB = params->canB;
     delete params;
-    // #if DEBUG
-    // //Get task name.
-    // char* taskName = pcTaskGetTaskName(NULL);
-    // #endif
     while (true)
     {
-        #ifdef DEBUG
-        while (digitalRead(POWER_CHECK_PIN) == LOW)
-            vTaskDelay(CAN_TIMEOUT_TICKS);
-        #endif
         SCanMessage message;
         // TRACE("Waiting for message");
-        //Wait indefinitely for a message to be received.
-        //TODO: Fix catching missed interrupts (can cause the program to hang). Two solutions both to be implemented are to add a timeout to the read operation and to fix the interrupt watchers themselves.
-        if (canA->Receive(&message, CAN_TIMEOUT_TICKS) == ESP_OK)
+        if (esp_err_t receiveResult = canA->Receive(&message, CAN_TIMEOUT_TICKS) == ESP_OK)
         {
             // TRACE("Got message");
             //Relay the message to the other CAN bus.
-            // canB->Send(message, CAN_TIMEOUT_TICKS);
-            // TRACE("Relayed message: %d, %d", message.id, message.length);
-            // printf("\n");
+            esp_err_t sendResult = canB->Send(message, CAN_TIMEOUT_TICKS);
+            if (sendResult != ESP_OK)
+            {
+                TRACE("Failed to relay message: %x", sendResult);
+            }
+            else
+            {
+                TRACE("Relayed message: %d, %d", message.id, message.length);
+            }
         }
         else
         {
-            // TRACE("Timeout");
+            // TRACE("Timeout: %x", receiveResult);
         }
     }
 }
@@ -88,21 +84,16 @@ void RelayTask(void* param)
 #ifdef DEBUG
 void Power(void* arg)
 {
-    // ESP_DRAM_LOGV("Powering on");
-    // digitalWrite(POWER_PIN, ON);
-    // vTaskDelay(250 / portTICK_PERIOD_MS);
-    // digitalWrite(POWER_PIN, OFF);
-    
     vTaskDelay(5000 / portTICK_PERIOD_MS); //Wait 5 seconds before starting.
     while (true)
     {
         // TRACE("Power check pin: %d", digitalRead(POWER_CHECK_PIN));
         if (digitalRead(POWER_CHECK_PIN) == LOW)
         {
-                TRACE("Powering on");
-                digitalWrite(POWER_PIN, ON);
-                vTaskDelay(250 / portTICK_PERIOD_MS);
-                digitalWrite(POWER_PIN, OFF);
+            TRACE("Powering on");
+            digitalWrite(POWER_PIN, ON);
+            vTaskDelay(250 / portTICK_PERIOD_MS);
+            digitalWrite(POWER_PIN, OFF);
         }
         vTaskDelay(5000 / portTICK_PERIOD_MS);
     }
@@ -125,17 +116,11 @@ void debug_setup(void* param)
         .mode = GPIO_MODE_INPUT,
         .pull_up_en = GPIO_PULLUP_DISABLE,
         .pull_down_en = GPIO_PULLDOWN_ENABLE,
-        // .intr_type = GPIO_INTR_LOW_LEVEL //GPIO_INTR_NEGEDGE
-        // .intr_type = GPIO_INTR_NEGEDGE
         .intr_type = GPIO_INTR_DISABLE
     };
     assert(gpio_config(&powerPinConfig) == ESP_OK);
     assert(gpio_config(&powerCheckPinConfig) == ESP_OK);
     xTaskCreate(Power, "Power", 2048, NULL, 1, NULL);
-    // gpio_install_isr_service(0);
-    // assert(gpio_isr_handler_add(POWER_CHECK_PIN, Power, NULL) == ESP_OK);
-    // if (digitalRead(POWER_CHECK_PIN) == LOW)
-    //     Power(NULL);
     #endif
 
     #if 0
@@ -188,7 +173,6 @@ void debug_setup(void* param)
 void setup()
 {
     //Used to indicate that the program has started.
-    // pinMode(LED_PIN, OUTPUT);
     gpio_config_t ledPinConfig = {
         .pin_bit_mask = 1ULL << LED_PIN,
         .mode = GPIO_MODE_OUTPUT,
@@ -318,7 +302,7 @@ void setup()
     //Create high priority tasks to handle CAN relay tasks.
     //I am creating the parameters on the heap just incase this method returns before the task starts which will result in an error.
     xTaskCreate(RelayTask, "SPI->TWAI", RELAY_TASK_STACK_SIZE, new SRelayTaskParameters { spiCAN, twaiCAN }, RELAY_TASK_PRIORITY, NULL);
-    // xTaskCreate(RelayTask, "TWAI->SPI", RELAY_TASK_STACK_SIZE, new SRelayTaskParameters { twaiCAN, spiCAN }, RELAY_TASK_PRIORITY, NULL);
+    xTaskCreate(RelayTask, "TWAI->SPI", RELAY_TASK_STACK_SIZE, new SRelayTaskParameters { twaiCAN, spiCAN }, RELAY_TASK_PRIORITY, NULL);
     #pragma endregion
 
     //Signal that the program has setup.
