@@ -1,1 +1,3 @@
-In order for the `esp32-mcp2515` library to work the `CMakeLists.txt` file for that repository must have the `REQUIRES` statement changed from `mcp2515` to `driver`.
+## CMakeLists changes:
+### `esp32-mcp2515`:
+- `REQUIRES` statement changed from `mcp2515` to `driver`.

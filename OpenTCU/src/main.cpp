@@ -10,6 +10,7 @@
 #include "Helpers.h"
 #ifdef DEBUG
 #include <esp_log.h>
+#include <SmartLeds.h>
 #endif
 
 #define CAN_TIMEOUT_TICKS pdMS_TO_TICKS(50)
@@ -24,7 +25,6 @@ struct SRelayTaskParameters
     ACan* canA;
     ACan* canB;
 };
-
 
 void RelayTask(void* param)
 {
@@ -52,18 +52,27 @@ void RelayTask(void* param)
         }
         else
         {
-            // TRACE("Timeout: %x", receiveResult);
+            TRACE("Timeout: %x", receiveResult);
         }
     }
 }
 
 #ifdef DEBUG
+SmartLed led(LED_WS2812, 1, LED_PIN, 0, SingleBuffer);
+
+void SetLed(uint8_t r, uint8_t g, uint8_t b)
+{
+    led[0] = Rgb{r, g, b};
+    // led.show();
+    led.wait();
+}
+
 void Power(void* arg)
 {
     vTaskDelay(5000 / portTICK_PERIOD_MS); //Wait 5 seconds before starting.
     while (true)
     {
-        // TRACE("Power check pin: %d", digitalRead(POWER_CHECK_PIN));
+        TRACE("Power check pin: %d", gpio_get_level(POWER_CHECK_PIN));
         if (gpio_get_level(POWER_CHECK_PIN) == 0)
         {
             TRACE("Powering on");
@@ -75,11 +84,11 @@ void Power(void* arg)
     }
 }
 
-void debug_setup(void* param)
+void DebugSetup(void* param)
 {
     TRACE("Debug setup started.");
 
-    #if 1
+    #if 0
     gpio_config_t powerPinConfig = {
         .pin_bit_mask = 1ULL << POWER_PIN,
         .mode = GPIO_MODE_OUTPUT,
@@ -146,7 +155,7 @@ void debug_setup(void* param)
 }
 #endif
 
-extern "C" void app_main()
+void setup()
 {
     //Used to indicate that the program has started.
     gpio_config_t ledPinConfig = {
@@ -157,11 +166,15 @@ extern "C" void app_main()
         .intr_type = GPIO_INTR_DISABLE
     };
     assert(gpio_config(&ledPinConfig) == ESP_OK);
+    #ifdef DEBUG
+    SetLed(50, 50, 50);
+    #else
     gpio_set_level(LED_PIN, 1);
+    #endif
 
     #ifdef DEBUG
     esp_log_level_set("*", ESP_LOG_VERBOSE);
-    xTaskCreate(debug_setup, "DebugSetup", 4096, NULL, 1, NULL); //Low priority task as it is imperative that the CAN bus is setup first.
+    xTaskCreate(DebugSetup, "DebugSetup", 4096, NULL, 1, NULL); //Low priority task as it is imperative that the CAN bus is setup first.
     #endif
 
     #pragma region Setup SPI CAN
@@ -282,5 +295,25 @@ extern "C" void app_main()
     #pragma endregion
 
     //Signal that the program has setup.
+    #ifdef DEBUG
+    SetLed(0, 0, 0);
+    #else
     gpio_set_level(LED_PIN, 0);
+    #endif
+
+    //app_main IS allowed to return according to the ESP32 and FreeRTOS documentation.
 }
+
+void loop()
+{
+    vTaskDelete(NULL);
+}
+
+#ifndef ARDUINO
+extern "C" void app_main()
+{
+    setup();
+    // while (true)
+    //     loop();
+}
+#endif
