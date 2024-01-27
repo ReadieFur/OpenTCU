@@ -9,6 +9,7 @@
 #include "CAN/TwaiCan.hpp"
 #include "Helpers.h"
 #ifdef DEBUG
+#define LOG_LOCAL_LEVEL ESP_LOG_VERBOSE
 #include <esp_log.h>
 #include <SmartLeds.h>
 #endif
@@ -52,7 +53,7 @@ void RelayTask(void* param)
         }
         else
         {
-            TRACE("Timeout: %x", receiveResult);
+            // TRACE("Timeout: %x", receiveResult);
         }
     }
 }
