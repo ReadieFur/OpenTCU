@@ -158,6 +158,9 @@ void DebugSetup(void* param)
 void setup()
 {
     //Used to indicate that the program has started.
+    #ifdef DEBUG
+    SetLed(0, 0, 255);
+    #else
     gpio_config_t ledPinConfig = {
         .pin_bit_mask = 1ULL << LED_PIN,
         .mode = GPIO_MODE_OUTPUT,
@@ -166,9 +169,6 @@ void setup()
         .intr_type = GPIO_INTR_DISABLE
     };
     assert(gpio_config(&ledPinConfig) == ESP_OK);
-    #ifdef DEBUG
-    SetLed(0, 0, 255);
-    #else
     gpio_set_level(LED_PIN, 1);
     #endif
 
