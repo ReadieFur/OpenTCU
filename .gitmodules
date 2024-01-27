@@ -4,3 +4,6 @@
 # [submodule "OpenTCU/lib/WebSerialLite"]
 # 	path = OpenTCU/lib/WebSerialLite
 # 	url = https://github.com/asjdf/WebSerialLite.git
+[submodule "SmartLeds"] ;Required to drive my dev board LED.
+	path = OpenTCU/components/SmartLeds-3.1.2
+	url = https://github.com/RoboticsBrno/SmartLeds.git
