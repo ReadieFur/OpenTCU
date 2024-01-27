@@ -9,7 +9,6 @@
 #include "CAN/TwaiCan.hpp"
 #include "Helpers.h"
 #ifdef DEBUG
-#define LOG_LOCAL_LEVEL ESP_LOG_VERBOSE
 #include <esp_log.h>
 #include <SmartLeds.h>
 #endif
@@ -59,13 +58,13 @@ void RelayTask(void* param)
 }
 
 #ifdef DEBUG
-SmartLed led(LED_WS2812, 1, LED_PIN, 0, SingleBuffer);
+SmartLed led(LED_WS2812B, 1, LED_PIN, 0, DoubleBuffer);
 
 void SetLed(uint8_t r, uint8_t g, uint8_t b)
 {
     led[0] = Rgb{r, g, b};
-    // led.show();
-    led.wait();
+    led.show();
+    // led.wait();
 }
 
 void Power(void* arg)
@@ -168,7 +167,7 @@ void setup()
     };
     assert(gpio_config(&ledPinConfig) == ESP_OK);
     #ifdef DEBUG
-    SetLed(50, 50, 50);
+    SetLed(0, 0, 255);
     #else
     gpio_set_level(LED_PIN, 1);
     #endif
@@ -297,7 +296,7 @@ void setup()
 
     //Signal that the program has setup.
     #ifdef DEBUG
-    SetLed(0, 0, 0);
+    // SetLed(0, 0, 0);
     #else
     gpio_set_level(LED_PIN, 0);
     #endif

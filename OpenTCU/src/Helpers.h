@@ -1,5 +1,12 @@
 #pragma once
 
+#ifdef DEBUG
+#ifdef LOG_LOCAL_LEVEL
+#undef LOG_LOCAL_LEVEL
+#endif
+#define LOG_LOCAL_LEVEL ESP_LOG_VERBOSE
+#endif
+
 #include <esp_log.h>
 #include <freertos/FreeRTOS.h>
 #include <freertos/portmacro.h>
