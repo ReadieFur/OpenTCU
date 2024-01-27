@@ -58,13 +58,12 @@ void RelayTask(void* param)
 }
 
 #ifdef DEBUG
-SmartLed led(LED_WS2812B, 1, LED_PIN, 0, DoubleBuffer);
+SmartLed led(LED_WS2812, 1, LED_PIN, 0, DoubleBuffer);
 
 void SetLed(uint8_t r, uint8_t g, uint8_t b)
 {
     led[0] = Rgb{r, g, b};
     led.show();
-    // led.wait();
 }
 
 void Power(void* arg)
@@ -159,7 +158,7 @@ void setup()
 {
     //Used to indicate that the program has started.
     #ifdef DEBUG
-    SetLed(0, 0, 50);
+    SetLed(0, 0, 25);
     #else
     gpio_config_t ledPinConfig = {
         .pin_bit_mask = 1ULL << LED_PIN,
