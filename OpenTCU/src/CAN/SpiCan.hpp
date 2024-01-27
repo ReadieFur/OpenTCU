@@ -110,7 +110,7 @@ public:
         // TRACE("SPI Write");
         if (xSemaphoreTake(driverMutex, timeout) != pdTRUE)
         {
-            TRACE("SPI Write Timeout");
+            // TRACE("SPI Write Timeout");
             return ESP_ERR_TIMEOUT;
         }
         MCP2515::ERROR res = mcp2515->sendMessage(&frame);
@@ -162,7 +162,7 @@ public:
             //Wait in a "non-blocking" manner by allowing the CPU to do other things while waiting for a message.
             if (xSemaphoreTake(interruptSemaphore, timeout) != pdTRUE)
             {
-                TRACE("SPI Wait Timeout");
+                // TRACE("SPI Wait Timeout");
                 return ESP_ERR_TIMEOUT;
             }
         }
@@ -177,7 +177,7 @@ public:
         //Lock the driver from other operations while we read the message.
         if (xSemaphoreTake(driverMutex, timeout) != pdTRUE)
         {
-            TRACE("SPI Read Timeout");
+            // TRACE("SPI Read Timeout");
             return ESP_ERR_TIMEOUT;
         }
 
