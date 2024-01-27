@@ -159,7 +159,7 @@ void setup()
 {
     //Used to indicate that the program has started.
     #ifdef DEBUG
-    SetLed(0, 0, 255);
+    SetLed(0, 0, 50);
     #else
     gpio_config_t ledPinConfig = {
         .pin_bit_mask = 1ULL << LED_PIN,
@@ -296,7 +296,7 @@ void setup()
 
     //Signal that the program has setup.
     #ifdef DEBUG
-    // SetLed(0, 0, 0);
+    SetLed(0, 0, 0);
     #else
     gpio_set_level(LED_PIN, 0);
     #endif
