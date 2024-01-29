@@ -10,7 +10,6 @@
 #include "Helpers.h"
 #ifdef DEBUG
 #include <esp_log.h>
-#include <SmartLeds.h>
 #endif
 
 #define CAN_TIMEOUT_TICKS pdMS_TO_TICKS(50)
@@ -58,14 +57,6 @@ void RelayTask(void* param)
 }
 
 #ifdef DEBUG
-SmartLed led(LED_WS2812, 1, LED_PIN, 0, DoubleBuffer);
-
-void SetLed(uint8_t r, uint8_t g, uint8_t b)
-{
-    led[0] = Rgb{r, g, b};
-    led.show();
-}
-
 void Power(void* arg)
 {
     vTaskDelay(5000 / portTICK_PERIOD_MS); //Wait 5 seconds before starting.
@@ -85,7 +76,7 @@ void Power(void* arg)
 
 void DebugSetup(void* param)
 {
-    TRACE("Debug setup started.");
+    INFO("Debug setup started.");
 
     #if 0
     gpio_config_t powerPinConfig = {
@@ -148,70 +139,16 @@ void DebugSetup(void* param)
     vTaskDelay(5000 / portTICK_PERIOD_MS);
     TRACE("CAN timeout set to %d ticks", CAN_TIMEOUT_TICKS);
 
-    TRACE("Debug setup finished.");
+    INFO("Debug setup finished.");
     vTaskDelete(NULL);
 }
 #endif
-
-void loop()
-{
-    #ifndef CAN_TEST
-    vTaskDelete(NULL);
-    #else
-    vTaskDelay(5000 / portTICK_PERIOD_MS);
-
-    #pragma region SPI->TWAI test
-    //Send on SPI CAN.
-    SCanMessage spiTxMessage;
-    spiTxMessage.id = 0x123;
-    spiTxMessage.length = 1;
-    spiTxMessage.data[0] = 0x12;
-    spiCAN->Send(spiTxMessage, CAN_TIMEOUT_TICKS);
-
-    //Receive on TWAI CAN.
-    SCanMessage twaiRxMessage;
-    twaiCAN->Receive(&twaiRxMessage, CAN_TIMEOUT_TICKS);
-
-    //Check if the message is the same as the one sent.
-    if (twaiRxMessage.id == spiTxMessage.id && twaiRxMessage.length == spiTxMessage.length && twaiRxMessage.data[0] == spiTxMessage.data[0])
-    {
-        TRACE("SPI->TWAI test passed.");
-    }
-    else
-    {
-        TRACE("SPI->TWAI test failed.");
-    }
-    #pragma endregion
-
-    #pragma region TWAI->SPI test
-    //Send on TWAI CAN.
-    SCanMessage twaiTxMessage;
-    twaiTxMessage.id = 0x321;
-    twaiTxMessage.length = 1;
-    twaiTxMessage.data[0] = 0x21;
-    twaiCAN->Send(twaiTxMessage, CAN_TIMEOUT_TICKS);
-
-    //Receive on SPI CAN.
-    SCanMessage spiRxMessage;
-    spiCAN->Receive(&spiRxMessage, CAN_TIMEOUT_TICKS);
-
-    //Check if the message is the same as the one sent.
-    if (spiRxMessage.id == twaiTxMessage.id && spiRxMessage.length == twaiTxMessage.length && spiRxMessage.data[0] == twaiTxMessage.data[0])
-    {
-        TRACE("TWAI->SPI test passed.");
-    }
-    else
-    {
-        TRACE("TWAI->SPI test failed.");
-    }
-    #endif
-}
 
 void setup()
 {
     //Used to indicate that the program has started.
     #ifdef DEBUG
-    SetLed(0, 0, 25);
+    LED(0, 0, 1);
     #else
     gpio_config_t ledPinConfig = {
         .pin_bit_mask = 1ULL << LED_PIN,
@@ -267,13 +204,13 @@ void setup()
         .intr_type = GPIO_INTR_NEGEDGE //Trigger on the falling edge.
         // .intr_type = GPIO_INTR_LOW_LEVEL
     };
-    assert(gpio_config(&mosiPinConfig) == ESP_OK);
-    assert(gpio_config(&misoPinConfig) == ESP_OK);
-    assert(gpio_config(&sckPinConfig) == ESP_OK);
-    assert(gpio_config(&csPinConfig) == ESP_OK);
-    assert(gpio_config(&intPinConfig) == ESP_OK);
+    ASSERT(gpio_config(&mosiPinConfig) == ESP_OK);
+    ASSERT(gpio_config(&misoPinConfig) == ESP_OK);
+    ASSERT(gpio_config(&sckPinConfig) == ESP_OK);
+    ASSERT(gpio_config(&csPinConfig) == ESP_OK);
+    ASSERT(gpio_config(&intPinConfig) == ESP_OK);
 
-    spi_bus_config_t bus_config = {
+    spi_bus_config_t busConfig = {
         .mosi_io_num = MOSI_PIN,
         .miso_io_num = MISO_PIN,
         .sclk_io_num = SCK_PIN,
@@ -282,7 +219,7 @@ void setup()
         .max_transfer_sz = SOC_SPI_MAXIMUM_BUFFER_SIZE,
     };
     //SPI2_HOST is the only SPI bus that can be used as GPSPI on the C3.
-    assert(spi_bus_initialize(SPI2_HOST, &bus_config, SPI_DMA_CH_AUTO) == ESP_OK);
+    ASSERT(spi_bus_initialize(SPI2_HOST, &busConfig, SPI_DMA_CH_AUTO) == ESP_OK);
 
     spi_device_interface_config_t dev_config = {
         .mode = 0,
@@ -291,14 +228,18 @@ void setup()
         .queue_size = 2, //2 as per the specification: https://ww1.microchip.com/downloads/en/DeviceDoc/MCP2515-Stand-Alone-CAN-Controller-with-SPI-20001801J.pdf
     };
     spi_device_handle_t spiDevice;
-    assert(spi_bus_add_device(SPI2_HOST, &dev_config, &spiDevice) == ESP_OK);
+    ASSERT(spi_bus_add_device(SPI2_HOST, &dev_config, &spiDevice) == ESP_OK);
 
+    #ifdef CONFIG_COMPILER_CXX_EXCEPTIONS
     try { spiCAN = new SpiCan(spiDevice, CAN_250KBPS, MCP_8MHZ, CAN1_INT_PIN); }
     catch(const std::exception& e)
     {
-        LOG(e.what());
-        assert(false);
+        ERROR("%s", e.what());
+        ASSERT(false);
     }
+    #else
+    spiCAN = new SpiCan(spiDevice, CAN_250KBPS, MCP_8MHZ, CAN1_INT_PIN);
+    #endif
     #pragma endregion
 
     #pragma region Setup TWAI CAN
@@ -317,9 +258,10 @@ void setup()
         .pull_down_en = GPIO_PULLDOWN_ENABLE,
         .intr_type = GPIO_INTR_DISABLE
     };
-    assert(gpio_config(&txPinConfig) == ESP_OK);
-    assert(gpio_config(&rxPinConfig) == ESP_OK);
+    ASSERT(gpio_config(&txPinConfig) == ESP_OK);
+    ASSERT(gpio_config(&rxPinConfig) == ESP_OK);
 
+    #ifdef CONFIG_COMPILER_CXX_EXCEPTIONS
     try
     {
         twaiCAN = new TwaiCan(
@@ -334,33 +276,42 @@ void setup()
     }
     catch(const std::exception& e)
     {
-        LOG(e.what());
-        assert(false);
+        ERROR("%s", e.what());
+        ASSERT(false);
     }
+    #else
+    twaiCAN = new TwaiCan(
+        TWAI_GENERAL_CONFIG_DEFAULT(
+            CAN2_TX_PIN,
+            CAN2_RX_PIN,
+            TWAI_MODE_NORMAL
+        ),
+        TWAI_TIMING_CONFIG_250KBITS(),
+        TWAI_FILTER_CONFIG_ACCEPT_ALL()
+    );
+    #endif
     #pragma endregion
 
     #pragma region CAN task setup
     //Create high priority tasks to handle CAN relay tasks.
     //I am creating the parameters on the heap just incase this method returns before the task starts which will result in an error.
-    #ifndef CAN_TEST
     xTaskCreate(RelayTask, "SPI->TWAI", RELAY_TASK_STACK_SIZE, new SRelayTaskParameters { spiCAN, twaiCAN }, RELAY_TASK_PRIORITY, NULL);
     xTaskCreate(RelayTask, "TWAI->SPI", RELAY_TASK_STACK_SIZE, new SRelayTaskParameters { twaiCAN, spiCAN }, RELAY_TASK_PRIORITY, NULL);
-    #endif
     #pragma endregion
 
     //Signal that the program has setup.
     #ifdef DEBUG
-    SetLed(0, 0, 0);
+    LED(0, 0, 0);
     #else
     gpio_set_level(LED_PIN, 0);
     #endif
 
-    #ifdef CAN_TEST
-    while (true)
-        loop();
-    #endif
-
     //app_main IS allowed to return according to the ESP32 and FreeRTOS documentation.
+}
+
+void loop()
+{
+    vTaskDelete(NULL);
 }
 
 #ifndef ARDUINO
