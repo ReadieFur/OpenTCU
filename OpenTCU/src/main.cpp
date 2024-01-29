@@ -58,7 +58,7 @@ void CanDump(void* arg)
         SCanDump dump;
         if (xQueueReceive(_debugQueue, &dump, portMAX_DELAY) == pdTRUE)
         {
-            // printf("[CAN] Direction: %s, id: %#x, length: %d, isExtended: %d, isRemote: %d, d0: %#x, d1: %#x, d2: %#x, d3: %#x, d4: %#x, d5: %#x, d6: %#x, d7: %#x\n",
+            // printf("[CAN] Direction: %s, id: %#x, isExtended: %d, isRemote: %d, length: %d, d0: %#x, d1: %#x, d2: %#x, d3: %#x, d4: %#x, d5: %#x, d6: %#x, d7: %#x\n",
             printf("[CAN]%d,%d,%x,%d,%d,%d,%x,%x,%x,%x,%x,%x,%x,%x\n",
                 dump.timestamp,
                 dump.isSPI,
