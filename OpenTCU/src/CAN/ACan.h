@@ -7,7 +7,7 @@
 #include <freertos/semphr.h>
 #include "SCanMessage.h"
 
-// #define USE_DRIVER_LOCK
+#define USE_DRIVER_LOCK
 
 class ACan
 {
@@ -16,6 +16,8 @@ protected:
     volatile SemaphoreHandle_t driverMutex = xSemaphoreCreateMutex();
     #endif
 public:
+    virtual ~ACan() = default;
     virtual esp_err_t Send(SCanMessage message, TickType_t timeout = 0) = 0;
     virtual esp_err_t Receive(SCanMessage* message, TickType_t timeout = 0) = 0;
+    virtual esp_err_t GetStatus(uint32_t* status, TickType_t timeout = 0) = 0;
 };

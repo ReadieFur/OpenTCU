@@ -65,35 +65,46 @@ public:
         //Keep a reference to the device (required for the MCP2515 library otherwise it will crash the device).
         //We are passing an instance here so that the instance does not need to be stored outside of this class.
         this->device = device;
+        this->interruptPin = interruptPin;
+
         mcp2515 = new MCP2515(&this->device);
+
+        #ifdef CONFIG_COMPILER_CXX_EXCEPTIONS
         if (uint8_t res = mcp2515->reset() != MCP2515::ERROR_OK)
             throw std::runtime_error("Failed to reset MCP2515: " + std::to_string(res));
         if (uint8_t res = mcp2515->setBitrate(speed, clock) != MCP2515::ERROR_OK)
             throw std::runtime_error("Failed to set bitrate: " + std::to_string(res));
         if (uint8_t res = mcp2515->setNormalMode() != MCP2515::ERROR_OK) //TODO: Allow the user to change this setting.
             throw std::runtime_error("Failed to set normal mode: " + std::to_string(res));
+        #else
+        ASSERT(mcp2515->reset() == MCP2515::ERROR_OK);
+        ASSERT(mcp2515->setBitrate(speed, clock) == MCP2515::ERROR_OK);
+        ASSERT(mcp2515->setNormalMode() == MCP2515::ERROR_OK);
+        #endif
 
-        if (interruptPin == GPIO_NUM_NC)
-            throw std::runtime_error("Interrupt pin cannot be GPIO_NUM_NC.");
-        this->interruptPin = interruptPin;
         //It seems like this method returns an error all of the time, however it is safe to call again. If something truly bad happens we will likely throw in the next stage.
         //https://esp32.com/viewtopic.php?t=13167
         gpio_install_isr_service(0);
+        #if CONFIG_COMPILER_CXX_EXCEPTIONS
         if (esp_err_t res = gpio_isr_handler_add(interruptPin, OnInterrupt, this) != ESP_OK)
             throw std::runtime_error("Failed to add ISR handler: " + std::to_string(res));
+        #else
+        ASSERT(gpio_isr_handler_add(interruptPin, OnInterrupt, this) == ESP_OK);
+        #endif
 
         //Read the initial state of the interrupt pin.
         TRACE("Initial interrupt pin state: %d", gpio_get_level(interruptPin));
         if (gpio_get_level(interruptPin) == 0)
-        {
             xSemaphoreGive(interruptSemaphore);
-        }
     }
 
     ~SpiCan()
     {
         gpio_isr_handler_remove(interruptPin);
+        
+        mcp2515->reset();
         delete mcp2515;
+
         //Release the semaphore incase it is taken (this will cause an error if something is waiting on it, but it's best to error and catch rather than hang).
         xSemaphoreGive(interruptSemaphore);
     }
@@ -107,11 +118,11 @@ public:
         for (int i = 0; i < message.length; i++)
             frame.data[i] = message.data[i];
 
-        // TRACE("SPI Write");
+        // TRACE("SPI Write: %x, %d, %d, %d, %x", frame.can_id, frame.can_dlc, frame.can_id & CAN_EFF_FLAG, frame.can_id & CAN_RTR_FLAG, frame.data[0]);
         #ifdef USE_DRIVER_LOCK
         if (xSemaphoreTake(driverMutex, timeout) != pdTRUE)
         {
-            // TRACE("SPI Write Timeout");
+            TRACE("SPI Write Timeout");
             return ESP_ERR_TIMEOUT;
         }
         #endif
@@ -182,29 +193,30 @@ public:
         //Lock the driver from other operations while we read the message.
         if (xSemaphoreTake(driverMutex, timeout) != pdTRUE)
         {
-            // TRACE("SPI Read Timeout");
+            TRACE("SPI Read Timeout");
             return ESP_ERR_TIMEOUT;
         }
         #endif
 
         //https://github.com/autowp/arduino-canhacker/blob/master/CanHacker.cpp#L216-L271
+        //https://ww1.microchip.com/downloads/en/DeviceDoc/MCP2515-Stand-Alone-CAN-Controller-with-SPI-20001801J.pdf#54
         uint8_t interruptFlags = mcp2515->getInterrupts();
 
-        if (interruptFlags & MCP2515::CANINTF_ERRIF)
+        if (interruptFlags & MCP2515::CANINTF_ERRIF) //Error Interrupt Flag bit is set.
             mcp2515->clearRXnOVR();
 
         MCP2515::ERROR readResult;
-        if (interruptFlags & MCP2515::CANINTF_RX0IF)
+        if (interruptFlags & MCP2515::CANINTF_RX0IF) //Receive Buffer 0 Full Interrupt Flag bit is set.
             readResult = mcp2515->readMessage(MCP2515::RXB0, &frame);
-        else if (interruptFlags & MCP2515::CANINTF_RX1IF)
+        else if (interruptFlags & MCP2515::CANINTF_RX1IF) //Receive Buffer 1 Full Interrupt Flag bit is set.
             readResult = mcp2515->readMessage(MCP2515::RXB1, &frame);
         else
             readResult = MCP2515::ERROR_NOMSG;
-        // if (interruptFlags & MCP2515::CANINTF_WAKIF)
+        // if (interruptFlags & MCP2515::CANINTF_WAKIF) Wake-up Interrupt Flag bit is set.
         //     mcp2515->clearInterrupts();
         if (interruptFlags & MCP2515::CANINTF_ERRIF)
             mcp2515->clearMERR();
-        if (interruptFlags & MCP2515::CANINTF_MERRF)
+        if (interruptFlags & MCP2515::CANINTF_MERRF) //Message Error Interrupt Flag bit is set.
             mcp2515->clearInterrupts();
 
         #ifdef USE_DRIVER_LOCK
@@ -218,7 +230,7 @@ public:
             TRACE("SPI Read Error: %d", readResult);
             return MCPErrorToESPError(readResult);
         }
-        // TRACE("SPI Read Success");
+        // TRACE("SPI Read Success: %x, %d, %d, %d, %x", frame.can_id, frame.can_dlc, frame.can_id & CAN_EFF_FLAG, frame.can_id & CAN_RTR_FLAG, frame.data[0]);
 
         message->id = frame.can_id & (frame.can_id & CAN_EFF_FLAG ? CAN_EFF_MASK : CAN_SFF_MASK);
         message->length = frame.can_dlc;
@@ -226,6 +238,37 @@ public:
         message->isRemote = frame.can_id & CAN_RTR_FLAG;
         for (int i = 0; i < message->length; i++)
             message->data[i] = frame.data[i];
+
+        return ESP_OK;
+    }
+
+    esp_err_t GetStatus(uint32_t* status, TickType_t timeout = 0)
+    {
+        // TRACE("SPI Status");
+        #ifdef USE_DRIVER_LOCK
+        if (xSemaphoreTake(driverMutex, timeout) != pdTRUE)
+        {
+            // TRACE("SPI Status Timeout");
+            return ESP_ERR_TIMEOUT;
+        }
+        #endif
+        *status = mcp2515->getInterrupts();
+        // TRACE("SPI Status Done");
+        #ifdef USE_DRIVER_LOCK
+        xSemaphoreGive(driverMutex);
+        #endif
+
+        #if defined(DEBUG) && 0
+        TRACE("SPI Status: %d %d %d %d %d %d %d %d",
+            *status & MCP2515::CANINTF_RX0IF, //If the result is non-zero then the interrupt has fired.
+            *status & MCP2515::CANINTF_RX1IF,
+            *status & MCP2515::CANINTF_TX0IF,
+            *status & MCP2515::CANINTF_TX1IF,
+            *status & MCP2515::CANINTF_TX2IF,
+            *status & MCP2515::CANINTF_ERRIF,
+            *status & MCP2515::CANINTF_WAKIF,
+            *status & MCP2515::CANINTF_MERRF);
+        #endif
 
         return ESP_OK;
     }
