@@ -78,7 +78,7 @@ void DebugSetup(void* param)
 {
     INFO("Debug setup started.");
 
-    #if 0
+    #if 1
     gpio_config_t powerPinConfig = {
         .pin_bit_mask = 1ULL << POWER_PIN,
         .mode = GPIO_MODE_OUTPUT,
