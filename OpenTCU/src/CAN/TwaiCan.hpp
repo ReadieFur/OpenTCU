@@ -53,14 +53,18 @@ public:
             twaiMessage.data[i] = message.data[i];
 
         // TRACE("TWAI Write");
+        #ifdef USE_DRIVER_LOCK
         if (xSemaphoreTake(driverMutex, timeout) != pdTRUE)
         {
             // TRACE("TWAI Write Timeout");
             return ESP_ERR_TIMEOUT;
         }
+        #endif
         esp_err_t res = twai_transmit(&twaiMessage, timeout);
         // TRACE("TWAI Write Done");
+        #ifdef USE_DRIVER_LOCK
         xSemaphoreGive(driverMutex);
+        #endif
 
         return res;
     }
@@ -88,21 +92,30 @@ public:
             // TRACE("TWAI Wait Timeout: %d", err);
             return err;
         }
+        //We don't need to check the alert type because we have only subscribed to the RX_DATA alert.
+        // else if (!(alerts & TWAI_ALERT_RX_DATA))
+        // {
+        //     // TRACE("TWAI Wait Timeout: %d", alerts);
+        //     return ESP_ERR_INVALID_RESPONSE;
+        // }
         // TRACE("TWAI Wait Done");
 
         twai_message_t twaiMessage;
         // TRACE("TWAI Read");
+        #ifdef USE_DRIVER_LOCK
         if (xSemaphoreTake(driverMutex, timeout) != pdTRUE)
             return ESP_ERR_TIMEOUT;
-        //We shouldn't wait for a message to be received so set the timeout to be minimal.
-        esp_err_t err = twai_receive(&twaiMessage, pdMS_TO_TICKS(1));
+        #endif
+        esp_err_t err = twai_receive(&twaiMessage, timeout);
         // TRACE("TWAI Read Done");
+        #ifdef USE_DRIVER_LOCK
         xSemaphoreGive(driverMutex);
         if (err != ESP_OK)
         {
             // TRACE("TWAI Read Error: %d", err);
             return err;
         }
+        #endif
         // TRACE("TWAI Read Success");
 
         message->id = twaiMessage.identifier;
