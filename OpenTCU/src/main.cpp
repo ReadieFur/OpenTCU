@@ -8,9 +8,6 @@
 #include "CAN/SpiCan.hpp"
 #include "CAN/TwaiCan.hpp"
 #include "Helpers.h"
-#ifdef DEBUG
-#include <esp_log.h>
-#endif
 
 #define CAN_TIMEOUT_TICKS pdMS_TO_TICKS(50)
 #define RELAY_TASK_STACK_SIZE 1024 * 2.5
@@ -25,44 +22,70 @@ struct SRelayTaskParameters
     ACan* canB;
 };
 
-void RelayTask(void* param)
+#ifdef DEBUG
+#include <esp_log.h>
+#include <freertos/queue.h>
+
+#define CAN_DUMP
+
+#ifdef CAN_DUMP
+#include <esp_task_wdt.h>
+
+struct SCanDump
 {
-    SRelayTaskParameters* params = static_cast<SRelayTaskParameters*>(param);
-    ACan* canA = params->canA;
-    ACan* canB = params->canB;
-    delete params;
+    uint32_t timestamp;
+    bool isSPI;
+    SCanMessage message;
+};
+
+QueueHandle_t _debugQueue = xQueueCreate(100, sizeof(SCanDump));
+
+void CanDump(void* arg)
+{
+    // //Disable the watchdog timer as this method seems to cause the idle task to hang.
+    // //This isn't ideal but won't be used for production so it'll make do for now.
+    // //https://docs.espressif.com/projects/esp-idf/en/latest/esp32/api-reference/system/wdts.html
+    // esp_task_wdt_config_t config = {
+    //     .timeout_ms = 0,
+    //     .idle_core_mask = 0,
+    //     .trigger_panic = false
+    // };
+    // esp_task_wdt_reconfigure(&config);
+    // // esp_task_wdt_deinit();
+
     while (true)
     {
-        SCanMessage message;
-        // TRACE("Waiting for message");
-        if (esp_err_t receiveResult = canA->Receive(&message, CAN_TIMEOUT_TICKS) == ESP_OK)
+        SCanDump dump;
+        if (xQueueReceive(_debugQueue, &dump, portMAX_DELAY) == pdTRUE)
         {
-            // TRACE("Got message");
-            //Relay the message to the other CAN bus.
-            esp_err_t sendResult = canB->Send(message, CAN_TIMEOUT_TICKS);
-            if (sendResult != ESP_OK)
-            {
-                TRACE("Failed to relay message: %x", sendResult);
-            }
-            else
-            {
-                TRACE("Relayed message: %d, %d", message.id, message.length);
-            }
-        }
-        else
-        {
-            // TRACE("Timeout: %x", receiveResult);
+            // printf("[CAN] Direction: %s, id: %#x, length: %d, isExtended: %d, isRemote: %d, d0: %#x, d1: %#x, d2: %#x, d3: %#x, d4: %#x, d5: %#x, d6: %#x, d7: %#x\n",
+            printf("[CAN]%d,%d,%x,%d,%d,%d,%x,%x,%x,%x,%x,%x,%x,%x\n",
+                dump.timestamp,
+                dump.isSPI,
+                dump.message.id,
+                dump.message.isExtended,
+                dump.message.isRemote,
+                dump.message.length,
+                dump.message.data[0],
+                dump.message.data[1],
+                dump.message.data[2],
+                dump.message.data[3],
+                dump.message.data[4],
+                dump.message.data[5],
+                dump.message.data[6],
+                dump.message.data[7]
+            );
         }
     }
 }
+#endif
 
-#ifdef DEBUG
 void Power(void* arg)
 {
     vTaskDelay(5000 / portTICK_PERIOD_MS); //Wait 5 seconds before starting.
     while (true)
     {
-        TRACE("Power check pin: %d", gpio_get_level(POWER_CHECK_PIN));
+        // TRACE("Power check pin: %d", gpio_get_level(POWER_CHECK_PIN));
         if (gpio_get_level(POWER_CHECK_PIN) == 0)
         {
             TRACE("Powering on");
@@ -77,6 +100,10 @@ void Power(void* arg)
 void DebugSetup(void* param)
 {
     INFO("Debug setup started.");
+
+    #ifdef CAN_DUMP
+    xTaskCreate(CanDump, "CanDump", 4096, NULL, 1, NULL);
+    #endif
 
     #if 1
     gpio_config_t powerPinConfig = {
@@ -143,6 +170,54 @@ void DebugSetup(void* param)
     vTaskDelete(NULL);
 }
 #endif
+
+void RelayTask(void* param)
+{
+    SRelayTaskParameters* params = static_cast<SRelayTaskParameters*>(param);
+    ACan* canA = params->canA;
+    ACan* canB = params->canB;
+    delete params;
+
+    #ifdef CAN_DUMP
+    bool isSPI = pcTaskGetTaskName(NULL)[0] == 'S';
+    #endif
+
+    while (true)
+    {
+        SCanMessage message;
+        // TRACE("Waiting for message");
+        if (esp_err_t receiveResult = canA->Receive(&message, CAN_TIMEOUT_TICKS) == ESP_OK)
+        {
+            // TRACE("Got message");
+            //Relay the message to the other CAN bus.
+            esp_err_t sendResult = canB->Send(message, CAN_TIMEOUT_TICKS);
+            if (sendResult != ESP_OK)
+            {
+                TRACE("Failed to relay message: %x", sendResult);
+            }
+            else
+            {
+                // TRACE("Relayed message: %d, %d", message.id, message.length);
+            }
+
+            #ifdef CAN_DUMP
+            SCanDump dump = {
+                .timestamp = xTaskGetTickCount(),
+                .isSPI = isSPI,
+                .message = message
+            };
+            if (BaseType_t queueResult = xQueueSend(_debugQueue, &dump, 0) != pdTRUE)
+            {
+                TRACE("Failed to add to dump queue: %d", queueResult);
+            }
+            #endif
+        }
+        else
+        {
+            // TRACE("Timeout: %x", receiveResult);
+        }
+    }
+}
 
 void setup()
 {
