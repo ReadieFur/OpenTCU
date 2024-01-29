@@ -17,3 +17,4 @@ packages/
 __pycache__/
 build/
 Thumbs.db
+.stignore
