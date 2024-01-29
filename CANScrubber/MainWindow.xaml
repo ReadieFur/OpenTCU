@@ -4,15 +4,22 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:CANScrubber"
-        mc:Ignorable="d"
-        Title="MainWindow" Height="450" Width="800">
+        mc:Ignorable="d" WindowStartupLocation="CenterScreen"
+        Title="MainWindow" Height="720" Width="800">
     <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
         </Grid.RowDefinitions>
-        <Button Grid.Row="0" Content="Open File" Click="Button_Click"/>
+        <Grid>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+            <Button Grid.Column="0" Content="Open File" Click="Button_Click"/>
+            <CheckBox Grid.Column="1" x:Name="decimalCheckbox" Content="Decimal" Checked="decimalCheckbox_Checked" Unchecked="decimalCheckbox_Checked"/>
+        </Grid>
         <Slider x:Name="slider" Grid.Row="1" Minimum="0" Maximum="100" ValueChanged="Slider_ValueChanged" Value="100"/>
         <DataGrid x:Name="DG1" Grid.Row="2" ItemsSource="{Binding}" CanUserSortColumns="True" AutoGenerateColumns="True" LoadingRow="DG1_LoadingRow"/>
     </Grid>

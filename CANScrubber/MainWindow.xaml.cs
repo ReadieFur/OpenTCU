@@ -5,8 +5,6 @@ using System.IO;
 using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Data;
-using Newtonsoft.Json;
 
 namespace CANScrubber
 {
@@ -15,18 +13,15 @@ namespace CANScrubber
     /// </summary>
     public partial class MainWindow : Window
     {
-        class Json
-        {
-            public double timestamp { get; set; }
-            public int id { get; set; }
-            public List<string> data { get; set; }
-        }
-
         class Row
         {
             public int timestamp { get; set; }
             public int id { get; set; }
             public string data { get; set; }
+            public bool isSPI { get; set; }
+            public bool isExtended { get; set; }
+            public bool isRemote { get; set; }
+            public int length { get; set; }
         }
 
         private string activeFile = null;
@@ -46,8 +41,8 @@ namespace CANScrubber
         {
             //Open file picker
             Microsoft.Win32.OpenFileDialog dlg = new Microsoft.Win32.OpenFileDialog();
-            dlg.DefaultExt = ".dump";
-            dlg.Filter = "CAN Dump Files (*.dump)|*.dump";
+            dlg.DefaultExt = ".txt";
+            dlg.Filter = "CAN Dump Files (*.txt)|*.txt";
             bool? result = dlg.ShowDialog();
             if (result == true)
             {
@@ -97,16 +92,32 @@ namespace CANScrubber
             List<Row> newRows = new List<Row>();
             foreach (string line in data.Split(new[] { '\n' }, StringSplitOptions.RemoveEmptyEntries))
             {
-                Json json = JsonConvert.DeserializeObject<Json>(line);
-                if (json is null)
+                string[] parts = line.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries);
+                if (parts.Length != 14)
                     continue;
 
-                newRows.Add(new Row()
+                List<string> dataParts = new List<string>();
+                for (int i = 6; i < int.Parse(parts[5]) + 6; i++)
                 {
-                    timestamp = TimeSpan.FromMilliseconds(json.timestamp * 1000).Milliseconds,
-                    id = json.id,
-                    data = string.Join(" ", json.data)
-                });
+                    string value = parts[i];
+                    //Data is in hex, pad with 0s where needed.
+                    if (parts[i].Length == 1)
+                        value = "0" + value;
+                    dataParts.Add(value);
+                }
+
+                Row row = new Row()
+                {
+                    timestamp = int.Parse(parts[0]),
+                    isSPI = parts[1] == "1",
+                    id = int.Parse(parts[2], System.Globalization.NumberStyles.HexNumber),
+                    isExtended = parts[3] == "1",
+                    isRemote = parts[4] == "1",
+                    length = int.Parse(parts[5]),
+                    data = string.Join(" ", dataParts)
+                };
+
+                newRows.Add(row);
             }
 
             newRows.Sort((a, b) => a.timestamp.CompareTo(b.timestamp));
@@ -121,6 +132,8 @@ namespace CANScrubber
                 if (row.timestamp > lastTimestamp)
                     lastTimestamp = row.timestamp;
             }
+
+            SortRows();
         }
 
         private void MoveToFrame(double index)
@@ -141,8 +154,11 @@ namespace CANScrubber
                 rows.Add(new Row()
                 {
                     timestamp = 0,
+                    isSPI = row.isSPI,
                     id = row.id,
-                    data = string.Empty
+                    isExtended = row.isExtended,
+                    isRemote = row.isRemote,
+                    length = row.length,
                 });
             }
 
@@ -170,7 +186,29 @@ namespace CANScrubber
             IReadOnlyList<Row> sortedRows = rows.OrderBy(r => r.id).ToList();
             rows.Clear();
             foreach (Row row in sortedRows)
-                rows.Add(row);
+            {
+                //Clone the row.
+                Row _row = new Row()
+                {
+                    timestamp = row.timestamp,
+                    isSPI = row.isSPI,
+                    id = row.id,
+                    isExtended = row.isExtended,
+                    isRemote = row.isRemote,
+                    length = row.length,
+                    data = row.data
+                };
+
+                if (decimalCheckbox.IsChecked == true)
+                {
+                    string[] data = _row.data.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
+                    for (int i = 0; i < data.Length; i++)
+                        data[i] = int.Parse(data[i], System.Globalization.NumberStyles.HexNumber).ToString();
+                    _row.data = string.Join(" ", data);
+                }
+
+                rows.Add(_row);
+            }
         }
 
         private void Slider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
@@ -182,6 +220,12 @@ namespace CANScrubber
 
         private void DG1_LoadingRow(object sender, DataGridRowEventArgs e)
         {
+        }
+
+        private void decimalCheckbox_Checked(object sender, RoutedEventArgs e)
+        {
+            MoveToFrame(slider.Value);
+            SortRows();
         }
     }
 }
