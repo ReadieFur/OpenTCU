@@ -165,6 +165,7 @@ namespace CANScrubber
             SortRows();
         }
 
+        //TODO: Add a "whats changed" column to make it easier to see what values have changed (or use colours).
         private void UpdateRow(Row row)
         {
             int existingIndex = rows.IndexOf(rows.FirstOrDefault(r => r.id == row.id));
