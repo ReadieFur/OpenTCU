@@ -146,13 +146,66 @@ void DebugSetup(void* param)
 
     //Delayed logs.
     vTaskDelay(5000 / portTICK_PERIOD_MS);
-    // TRACE("CAN timeout %fus", MAX_MESSAGE_TIME_MARGIN_US);
     TRACE("CAN timeout set to %d ticks", CAN_TIMEOUT_TICKS);
 
     TRACE("Debug setup finished.");
     vTaskDelete(NULL);
 }
 #endif
+
+void loop()
+{
+    #ifndef CAN_TEST
+    vTaskDelete(NULL);
+    #else
+    vTaskDelay(5000 / portTICK_PERIOD_MS);
+
+    #pragma region SPI->TWAI test
+    //Send on SPI CAN.
+    SCanMessage spiTxMessage;
+    spiTxMessage.id = 0x123;
+    spiTxMessage.length = 1;
+    spiTxMessage.data[0] = 0x12;
+    spiCAN->Send(spiTxMessage, CAN_TIMEOUT_TICKS);
+
+    //Receive on TWAI CAN.
+    SCanMessage twaiRxMessage;
+    twaiCAN->Receive(&twaiRxMessage, CAN_TIMEOUT_TICKS);
+
+    //Check if the message is the same as the one sent.
+    if (twaiRxMessage.id == spiTxMessage.id && twaiRxMessage.length == spiTxMessage.length && twaiRxMessage.data[0] == spiTxMessage.data[0])
+    {
+        TRACE("SPI->TWAI test passed.");
+    }
+    else
+    {
+        TRACE("SPI->TWAI test failed.");
+    }
+    #pragma endregion
+
+    #pragma region TWAI->SPI test
+    //Send on TWAI CAN.
+    SCanMessage twaiTxMessage;
+    twaiTxMessage.id = 0x321;
+    twaiTxMessage.length = 1;
+    twaiTxMessage.data[0] = 0x21;
+    twaiCAN->Send(twaiTxMessage, CAN_TIMEOUT_TICKS);
+
+    //Receive on SPI CAN.
+    SCanMessage spiRxMessage;
+    spiCAN->Receive(&spiRxMessage, CAN_TIMEOUT_TICKS);
+
+    //Check if the message is the same as the one sent.
+    if (spiRxMessage.id == twaiTxMessage.id && spiRxMessage.length == twaiTxMessage.length && spiRxMessage.data[0] == twaiTxMessage.data[0])
+    {
+        TRACE("TWAI->SPI test passed.");
+    }
+    else
+    {
+        TRACE("TWAI->SPI test failed.");
+    }
+    #endif
+}
 
 void setup()
 {
@@ -289,8 +342,10 @@ void setup()
     #pragma region CAN task setup
     //Create high priority tasks to handle CAN relay tasks.
     //I am creating the parameters on the heap just incase this method returns before the task starts which will result in an error.
+    #ifndef CAN_TEST
     xTaskCreate(RelayTask, "SPI->TWAI", RELAY_TASK_STACK_SIZE, new SRelayTaskParameters { spiCAN, twaiCAN }, RELAY_TASK_PRIORITY, NULL);
     xTaskCreate(RelayTask, "TWAI->SPI", RELAY_TASK_STACK_SIZE, new SRelayTaskParameters { twaiCAN, spiCAN }, RELAY_TASK_PRIORITY, NULL);
+    #endif
     #pragma endregion
 
     //Signal that the program has setup.
@@ -300,12 +355,12 @@ void setup()
     gpio_set_level(LED_PIN, 0);
     #endif
 
-    //app_main IS allowed to return according to the ESP32 and FreeRTOS documentation.
-}
+    #ifdef CAN_TEST
+    while (true)
+        loop();
+    #endif
 
-void loop()
-{
-    vTaskDelete(NULL);
+    //app_main IS allowed to return according to the ESP32 and FreeRTOS documentation.
 }
 
 #ifndef ARDUINO
