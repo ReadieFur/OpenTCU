@@ -108,14 +108,18 @@ public:
             frame.data[i] = message.data[i];
 
         // TRACE("SPI Write");
+        #ifdef USE_DRIVER_LOCK
         if (xSemaphoreTake(driverMutex, timeout) != pdTRUE)
         {
             // TRACE("SPI Write Timeout");
             return ESP_ERR_TIMEOUT;
         }
+        #endif
         MCP2515::ERROR res = mcp2515->sendMessage(&frame);
         // TRACE("SPI Write Done");
+        #ifdef USE_DRIVER_LOCK
         xSemaphoreGive(driverMutex);
+        #endif
         
         return MCPErrorToESPError(res);
     }
@@ -174,12 +178,14 @@ public:
 
         // TRACE("SPI Read");
         can_frame frame;
+        #ifdef USE_DRIVER_LOCK
         //Lock the driver from other operations while we read the message.
         if (xSemaphoreTake(driverMutex, timeout) != pdTRUE)
         {
             // TRACE("SPI Read Timeout");
             return ESP_ERR_TIMEOUT;
         }
+        #endif
 
         //https://github.com/autowp/arduino-canhacker/blob/master/CanHacker.cpp#L216-L271
         uint8_t interruptFlags = mcp2515->getInterrupts();
@@ -194,17 +200,16 @@ public:
             readResult = mcp2515->readMessage(MCP2515::RXB1, &frame);
         else
             readResult = MCP2515::ERROR_NOMSG;
-
-        if (interruptFlags & MCP2515::CANINTF_WAKIF)
-            mcp2515->clearInterrupts();
-
+        // if (interruptFlags & MCP2515::CANINTF_WAKIF)
+        //     mcp2515->clearInterrupts();
         if (interruptFlags & MCP2515::CANINTF_ERRIF)
             mcp2515->clearMERR();
-
         if (interruptFlags & MCP2515::CANINTF_MERRF)
             mcp2515->clearInterrupts();
 
+        #ifdef USE_DRIVER_LOCK
         xSemaphoreGive(driverMutex);
+        #endif
         if (readResult != MCP2515::ERROR_OK)
         {
             //At some point in this development I broke the interrupt and it seems it never fires now.
