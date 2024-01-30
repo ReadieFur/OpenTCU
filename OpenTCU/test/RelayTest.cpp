@@ -1,4 +1,4 @@
-#define VERY_VERBOSE
+#define VERBOSENESS 9
 
 #include <freertos/FreeRTOS.h>
 #include <Helpers.hpp>
@@ -23,6 +23,7 @@ void setup()
 {
     esp_log_level_set("*", ESP_LOG_VERBOSE);
     BusMaster::Init();
+    BusMaster::Stop();
 }
 
 #ifndef MANUAL_CONFIGURATION
@@ -130,10 +131,10 @@ extern "C" void app_main(void)
     setup();
     #endif
     UNITY_BEGIN();
-    RUN_TEST([]() { TwoWayTest("SPI->TWAI", BusMaster::spiCAN, BusMaster::twaiCAN); });
-    RUN_TEST([]() { TwoWayTest("TWAI->SPI", BusMaster::twaiCAN, BusMaster::spiCAN); });
-    RUN_TEST([]() { FourWayTest("SPI->SPI", BusMaster::spiCAN, BusMaster::twaiCAN); });
-    RUN_TEST([]() { FourWayTest("TWAI->SPI", BusMaster::twaiCAN, BusMaster::spiCAN); });
+    RUN_TEST([]() { TwoWayTest("SPI->TWAI", BusMaster::spiCan, BusMaster::twaiCan); });
+    RUN_TEST([]() { TwoWayTest("TWAI->SPI", BusMaster::twaiCan, BusMaster::spiCan); });
+    RUN_TEST([]() { FourWayTest("SPI->SPI", BusMaster::spiCan, BusMaster::twaiCan); });
+    RUN_TEST([]() { FourWayTest("TWAI->SPI", BusMaster::twaiCan, BusMaster::spiCan); });
     UNITY_END();
     #ifdef MANUAL_CONFIGURATION
     teardown();

@@ -17,6 +17,7 @@ void setup()
 
     //Initialize the CAN bus.
     BusMaster::Init();
+    BusMaster::Start();
 
     //Signal that the program has setup.
     Helpers::SetLed(false);

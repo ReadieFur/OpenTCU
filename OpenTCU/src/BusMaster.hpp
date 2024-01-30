@@ -11,6 +11,9 @@
 #include "CAN/TwaiCan.hpp"
 #include "Helpers.hpp"
 #include "Debug.hpp"
+#ifdef DEBUG
+#include <vector>
+#endif
 
 #define CAN_TIMEOUT_TICKS pdMS_TO_TICKS(50)
 #define RELAY_TASK_STACK_SIZE 1024 * 2.5
@@ -20,7 +23,8 @@ class BusMaster
 {
 private:
     static bool _initialized;
-    static spi_device_handle_t* _spiDevice;
+    static bool _running; //I should add a semaphore here but it's not worth it for now.
+    static spi_device_handle_t _spiDevice;
 
     struct SRelayTaskParameters
     {
@@ -28,10 +32,20 @@ private:
         ACan* canB;
     };
 
-    static void InterceptMessage(SCanMessage* message)
+    static esp_err_t InterceptMessage(SCanMessage* message)
     {
         // TRACE("Got message");
         //TODO: Implement.
+
+        #ifdef DEBUG
+        if (std::find(idsToDrop.begin(), idsToDrop.end(), message->id) != idsToDrop.end())
+        {
+            // TRACE("Dropping message: %d", message->id);
+            return ESP_FAIL;
+        }
+        #endif
+
+        return ESP_OK;
     }
 
     static void RelayTask(void* param)
@@ -51,7 +65,11 @@ private:
             // TRACE("Waiting for message");
             if (esp_err_t receiveResult = canA->Receive(&message, CAN_TIMEOUT_TICKS) == ESP_OK)
             {
-                InterceptMessage(&message);
+                if (esp_err_t interceptResult = InterceptMessage(&message) != ESP_OK)
+                {
+                    TRACE("Failed to process message (%x): %x", message.id, interceptResult);
+                    continue;
+                }
 
                 //Relay the message to the other CAN bus.
                 esp_err_t sendResult = canB->Send(message, CAN_TIMEOUT_TICKS);
@@ -87,8 +105,13 @@ private:
         }
     }
 public:
-    static SpiCan* spiCAN;
-    static TwaiCan* twaiCAN;
+    static SpiCan* spiCan;
+    static TwaiCan* twaiCan;
+    static TaskHandle_t spiToTwaiTaskHandle;
+    static TaskHandle_t twaiToSpiTaskHandle;
+    #ifdef DEBUG
+    static std::vector<uint32_t> idsToDrop;
+    #endif
 
     static void Init()
     {
@@ -193,7 +216,7 @@ public:
         #ifdef CONFIG_COMPILER_CXX_EXCEPTIONS
         try
         {
-            twaiCAN = new TwaiCan(
+            twaiCan = new TwaiCan(
                 TWAI_GENERAL_CONFIG_DEFAULT(
                     TWAI_TX_PIN,
                     TWAI_RX_PIN,
@@ -220,13 +243,6 @@ public:
         );
         #endif
         #pragma endregion
-
-        #pragma region CAN task setup
-        //Create high priority tasks to handle CAN relay tasks.
-        //I am creating the parameters on the heap just incase this method returns before the task starts which will result in an error.
-        xTaskCreate(RelayTask, "SPI->TWAI", RELAY_TASK_STACK_SIZE, new SRelayTaskParameters { spiCAN, twaiCAN }, RELAY_TASK_PRIORITY, NULL);
-        xTaskCreate(RelayTask, "TWAI->SPI", RELAY_TASK_STACK_SIZE, new SRelayTaskParameters { twaiCAN, spiCAN }, RELAY_TASK_PRIORITY, NULL);
-        #pragma endregion
     }
 
     static void Destroy()
@@ -235,19 +251,49 @@ public:
             return;
         _initialized = false;
 
-        delete spiCAN;
-        spiCAN = nullptr;
+        if (_running)
+            Stop();
 
-        delete twaiCAN;
-        twaiCAN = nullptr;
+        delete spiCan;
+        spiCan = nullptr;
 
-        spi_bus_remove_device(*_spiDevice);
+        delete twaiCan;
+        twaiCan = nullptr;
+
+        spi_bus_remove_device(_spiDevice);
         spi_bus_free(SPI2_HOST);
-        delete _spiDevice;
+    }
+
+    static void Start()
+    {
+        if (_running)
+            return;
+        _running = true;
+        #pragma region CAN task setup
+        //Create high priority tasks to handle CAN relay tasks.
+        //I am creating the parameters on the heap just incase this method returns before the task starts which will result in an error.
+        ASSERT(xTaskCreate(RelayTask, "SPI->TWAI", RELAY_TASK_STACK_SIZE, new SRelayTaskParameters { spiCan, twaiCan }, RELAY_TASK_PRIORITY, &spiToTwaiTaskHandle) == pdPASS);
+        ASSERT(xTaskCreate(RelayTask, "TWAI->SPI", RELAY_TASK_STACK_SIZE, new SRelayTaskParameters { twaiCan, spiCan }, RELAY_TASK_PRIORITY, &twaiToSpiTaskHandle) == pdPASS);
+        #pragma endregion
+    }
+
+    static void Stop()
+    {
+        if (!_running)
+            return;
+        _running = false;
+        vTaskDelete(spiToTwaiTaskHandle);
+        vTaskDelete(twaiToSpiTaskHandle);
     }
 };
 
 bool BusMaster::_initialized = false;
-spi_device_handle_t* BusMaster::_spiDevice = nullptr;
-SpiCan* BusMaster::spiCAN = nullptr;
-TwaiCan* BusMaster::twaiCAN = nullptr;
+bool BusMaster::_running = false;
+spi_device_handle_t BusMaster::_spiDevice;
+SpiCan* BusMaster::spiCan = nullptr;
+TwaiCan* BusMaster::twaiCan = nullptr;
+TaskHandle_t BusMaster::spiToTwaiTaskHandle;
+TaskHandle_t BusMaster::twaiToSpiTaskHandle;
+#ifdef DEBUG
+std::vector<uint32_t> BusMaster::idsToDrop;
+#endif
