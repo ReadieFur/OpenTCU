@@ -30,6 +30,7 @@ private:
 
     static void InterceptMessage(SCanMessage* message)
     {
+        // TRACE("Got message");
         //TODO: Implement.
     }
 
