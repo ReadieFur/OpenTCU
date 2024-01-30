@@ -2,23 +2,27 @@
 
 #ifdef DEBUG
 #include <freertos/FreeRTOS.h>
+#include "Helpers.hpp"
 #include <freertos/task.h>
 #include <driver/gpio.h>
 #include <esp_task_wdt.h>
 #include <freertos/queue.h>
 #include "CAN/SCanMessage.h"
-#include "Helpers.hpp"
+#include <WiFi.h>
+#include <ESPAsyncWebServer.h>
+#include <WebSerialLite.h>
 
 // #define DISABLE_WATCHDOG_TIMER
 // #define VERY_VERBOSE
 #define ENABLE_CAN_DUMP
 #define ENABLE_POWER_CHECK
-// #define ENABLE_DEBUG_SERVER
+#define ENABLE_DEBUG_SERVER
 
 class Debug
 {
 private:
-    static bool initialized;
+    static bool _initialized;
+    static AsyncWebServer* _debugServer;
 
     static void CanDump(void* arg)
     {
@@ -160,15 +164,16 @@ public:
 
     static void Init()
     {
-        if (initialized)
+        if (_initialized)
             return;
-        initialized = true;
+        _initialized = true;
 
         esp_log_level_set("*", ESP_LOG_VERBOSE);
         xTaskCreate(InitTask, "DebugSetup", 4096, NULL, 1, NULL); //Low priority task as it is imperative that the CAN bus is setup first.
     }
 };
 
-bool Debug::initialized = false;
+bool Debug::_initialized = false;
+AsyncWebServer* Debug::_debugServer = nullptr;
 QueueHandle_t Debug::canDumpQueue = xQueueCreate(100, sizeof(Debug::SCanDump));
 #endif
