@@ -10,7 +10,7 @@
 #include <driver/gpio.h>
 #include "ACan.h"
 #include "SCanMessage.h"
-#include "Helpers.h"
+#include "Helpers.hpp"
 #if DEBUG
 #include <esp_log.h>
 #endif
@@ -43,7 +43,7 @@ private:
 
     static void IRAM_ATTR OnInterrupt(void* arg)
     {
-        #if defined(DEBUG) && 0
+        #ifdef VERY_VERBOSE
         isr_log_v("SpiCan", "OnInterrupt");
         #endif
 
@@ -92,8 +92,10 @@ public:
         ASSERT(gpio_isr_handler_add(interruptPin, OnInterrupt, this) == ESP_OK);
         #endif
 
+        #ifdef VERY_VERBOSE
         //Read the initial state of the interrupt pin.
         TRACE("Initial interrupt pin state: %d", gpio_get_level(interruptPin));
+        #endif
         if (gpio_get_level(interruptPin) == 0)
             xSemaphoreGive(interruptSemaphore);
     }
@@ -118,7 +120,10 @@ public:
         for (int i = 0; i < message.length; i++)
             frame.data[i] = message.data[i];
 
-        // TRACE("SPI Write: %x, %d, %d, %d, %x", frame.can_id, frame.can_dlc, frame.can_id & CAN_EFF_FLAG, frame.can_id & CAN_RTR_FLAG, frame.data[0]);
+        #ifdef VERY_VERBOSE
+        TRACE("SPI Write: %x, %d, %d, %d, %x", frame.can_id, frame.can_dlc, frame.can_id & CAN_EFF_FLAG, frame.can_id & CAN_RTR_FLAG, frame.data[0]);
+        #endif
+        
         #ifdef USE_DRIVER_LOCK
         if (xSemaphoreTake(driverMutex, timeout) != pdTRUE)
         {
@@ -127,7 +132,11 @@ public:
         }
         #endif
         MCP2515::ERROR res = mcp2515->sendMessage(&frame);
-        // TRACE("SPI Write Done");
+        
+        #ifdef VERY_VERBOSE
+        TRACE("SPI Write Done");
+        #endif
+        
         #ifdef USE_DRIVER_LOCK
         xSemaphoreGive(driverMutex);
         #endif
@@ -137,47 +146,19 @@ public:
 
     esp_err_t Receive(SCanMessage* message, TickType_t timeout = 0)
     {
-        #if defined(DEBUG) && 0
-        //Get status.
-        uint8_t a = mcp2515->checkReceive();
-        uint8_t b = mcp2515->checkError();
-        uint8_t c = mcp2515->getErrorFlags();
-        uint8_t d = mcp2515->getInterrupts();
-        uint8_t e = mcp2515->getInterruptMask();
-
-        //Convert error flags to enum values.
-        bool rx0Ovr = c & MCP2515::EFLG_RX0OVR;
-        bool rx1Ovr = c & MCP2515::EFLG_RX1OVR;
-        bool txBO = c & MCP2515::EFLG_TXBO;
-        bool txEP = c & MCP2515::EFLG_TXEP;
-        bool rxEP = c & MCP2515::EFLG_RXEP;
-        bool txWAR = c & MCP2515::EFLG_TXWAR;
-        bool rxWAR = c & MCP2515::EFLG_RXWAR;
-        bool ewarn = c & MCP2515::EFLG_EWARN;
-
-        //CANINTF
-        bool rx0if = e & MCP2515::CANINTF_RX0IF;
-        bool rx1if = e & MCP2515::CANINTF_RX1IF;
-        bool tx0if = e & MCP2515::CANINTF_TX0IF;
-        bool tx1if = e & MCP2515::CANINTF_TX1IF;
-        bool tx2if = e & MCP2515::CANINTF_TX2IF;
-        bool errif = e & MCP2515::CANINTF_ERRIF;
-        bool wakif = e & MCP2515::CANINTF_WAKIF;
-        bool merrf = e & MCP2515::CANINTF_MERRF;
-
-        TRACE("SPI Status: RX: %d, ERR: %d, ERR Flags: %d %d %d %d %d %d %d %d, INT: %d, INT Mask: %d %d %d %d %d %d %d %d",
-            a, b, rx0Ovr, rx1Ovr, txBO, txEP, rxEP, txWAR, rxWAR, ewarn,
-            d, rx0if, rx1if, tx0if, tx1if, tx2if, errif, wakif, merrf);
-        #endif
-        
         //Check if we need to wait for a message to be received.
         if (gpio_get_level(interruptPin) == 1)
         {
-            // TRACE("SPI Wait: %d, %d", uxSemaphoreGetCount(interruptSemaphore), gpio_get_level(interruptPin));
+            #ifdef VERY_VERBOSE
+            TRACE("SPI Wait: %d, %d", uxSemaphoreGetCount(interruptSemaphore), gpio_get_level(interruptPin));
+            #endif
+
             //Wait in a "non-blocking" manner by allowing the CPU to do other things while waiting for a message.
             if (xSemaphoreTake(interruptSemaphore, timeout) != pdTRUE)
             {
-                // TRACE("SPI Wait Timeout");
+                #ifdef VERY_VERBOSE
+                TRACE("SPI Wait Timeout");
+                #endif
                 return ESP_ERR_TIMEOUT;
             }
         }
@@ -187,8 +168,10 @@ public:
             xSemaphoreTake(interruptSemaphore, 0);
         }
 
-        // TRACE("SPI Read");
-        can_frame frame;
+        #ifdef VERY_VERBOSE
+        TRACE("SPI Read");
+        #endif
+
         #ifdef USE_DRIVER_LOCK
         //Lock the driver from other operations while we read the message.
         if (xSemaphoreTake(driverMutex, timeout) != pdTRUE)
@@ -205,6 +188,7 @@ public:
         if (interruptFlags & MCP2515::CANINTF_ERRIF) //Error Interrupt Flag bit is set.
             mcp2515->clearRXnOVR();
 
+        can_frame frame;
         MCP2515::ERROR readResult;
         if (interruptFlags & MCP2515::CANINTF_RX0IF) //Receive Buffer 0 Full Interrupt Flag bit is set.
             readResult = mcp2515->readMessage(MCP2515::RXB0, &frame);
@@ -212,6 +196,7 @@ public:
             readResult = mcp2515->readMessage(MCP2515::RXB1, &frame);
         else
             readResult = MCP2515::ERROR_NOMSG;
+        //I shouldn't need to check this flag as we shouldn't ever be in a sleep mode (for now).
         // if (interruptFlags & MCP2515::CANINTF_WAKIF) Wake-up Interrupt Flag bit is set.
         //     mcp2515->clearInterrupts();
         if (interruptFlags & MCP2515::CANINTF_ERRIF)
@@ -222,6 +207,7 @@ public:
         #ifdef USE_DRIVER_LOCK
         xSemaphoreGive(driverMutex);
         #endif
+
         if (readResult != MCP2515::ERROR_OK)
         {
             //At some point in this development I broke the interrupt and it seems it never fires now.
@@ -230,7 +216,10 @@ public:
             TRACE("SPI Read Error: %d", readResult);
             return MCPErrorToESPError(readResult);
         }
-        // TRACE("SPI Read Success: %x, %d, %d, %d, %x", frame.can_id, frame.can_dlc, frame.can_id & CAN_EFF_FLAG, frame.can_id & CAN_RTR_FLAG, frame.data[0]);
+
+        #ifdef VERY_VERBOSE
+        TRACE("SPI Read Success: %x, %d, %d, %d, %x", frame.can_id, frame.can_dlc, frame.can_id & CAN_EFF_FLAG, frame.can_id & CAN_RTR_FLAG, frame.data[0]);
+        #endif
 
         message->id = frame.can_id & (frame.can_id & CAN_EFF_FLAG ? CAN_EFF_MASK : CAN_SFF_MASK);
         message->length = frame.can_dlc;
@@ -244,21 +233,21 @@ public:
 
     esp_err_t GetStatus(uint32_t* status, TickType_t timeout = 0)
     {
-        // TRACE("SPI Status");
         #ifdef USE_DRIVER_LOCK
         if (xSemaphoreTake(driverMutex, timeout) != pdTRUE)
         {
-            // TRACE("SPI Status Timeout");
+            #ifdef VERY_VERBOSE
+            TRACE("SPI Status Timeout");
+            #endif
             return ESP_ERR_TIMEOUT;
         }
         #endif
         *status = mcp2515->getInterrupts();
-        // TRACE("SPI Status Done");
         #ifdef USE_DRIVER_LOCK
         xSemaphoreGive(driverMutex);
         #endif
 
-        #if defined(DEBUG) && 0
+        #if defined(VERY_VERBOSE)
         TRACE("SPI Status: %d %d %d %d %d %d %d %d",
             *status & MCP2515::CANINTF_RX0IF, //If the result is non-zero then the interrupt has fired.
             *status & MCP2515::CANINTF_RX1IF,
