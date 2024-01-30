@@ -98,35 +98,35 @@ public:
         #pragma region Setup SPI CAN
         //Configure the pins, all pins should be written low to start with.
         gpio_config_t mosiPinConfig = {
-            .pin_bit_mask = 1ULL << MOSI_PIN,
+            .pin_bit_mask = 1ULL << SPI_MOSI_PIN,
             .mode = GPIO_MODE_OUTPUT,
             .pull_up_en = GPIO_PULLUP_DISABLE,
             .pull_down_en = GPIO_PULLDOWN_ENABLE,
             .intr_type = GPIO_INTR_DISABLE
         };
         gpio_config_t misoPinConfig = {
-            .pin_bit_mask = 1ULL << MISO_PIN,
+            .pin_bit_mask = 1ULL << SPI_MISO_PIN,
             .mode = GPIO_MODE_INPUT,
             .pull_up_en = GPIO_PULLUP_DISABLE,
             .pull_down_en = GPIO_PULLDOWN_ENABLE,
             .intr_type = GPIO_INTR_DISABLE
         };
         gpio_config_t sckPinConfig = {
-            .pin_bit_mask = 1ULL << SCK_PIN,
+            .pin_bit_mask = 1ULL << SPI_SCK_PIN,
             .mode = GPIO_MODE_OUTPUT,
             .pull_up_en = GPIO_PULLUP_DISABLE,
             .pull_down_en = GPIO_PULLDOWN_ENABLE,
             .intr_type = GPIO_INTR_DISABLE
         };
         gpio_config_t csPinConfig = {
-            .pin_bit_mask = 1ULL << CAN1_CS_PIN,
+            .pin_bit_mask = 1ULL << SPI_CS_PIN,
             .mode = GPIO_MODE_OUTPUT,
             .pull_up_en = GPIO_PULLUP_DISABLE,
             .pull_down_en = GPIO_PULLDOWN_ENABLE,
             .intr_type = GPIO_INTR_DISABLE
         };
         gpio_config_t intPinConfig = {
-            .pin_bit_mask = 1ULL << CAN1_INT_PIN,
+            .pin_bit_mask = 1ULL << SPI_INT_PIN,
             .mode = GPIO_MODE_INPUT,
             .pull_up_en = GPIO_PULLUP_ENABLE, //Use the internal pullup resistor as the trigger state of the MCP2515 is LOW.
             .pull_down_en = GPIO_PULLDOWN_DISABLE,
@@ -139,9 +139,9 @@ public:
         ASSERT(gpio_config(&intPinConfig) == ESP_OK);
 
         spi_bus_config_t busConfig = {
-            .mosi_io_num = MOSI_PIN,
-            .miso_io_num = MISO_PIN,
-            .sclk_io_num = SCK_PIN,
+            .mosi_io_num = SPI_MOSI_PIN,
+            .miso_io_num = SPI_MISO_PIN,
+            .sclk_io_num = SPI_SCK_PIN,
             .quadwp_io_num = -1,
             .quadhd_io_num = -1,
             .max_transfer_sz = SOC_SPI_MAXIMUM_BUFFER_SIZE,
@@ -152,35 +152,35 @@ public:
         spi_device_interface_config_t dev_config = {
             .mode = 0,
             .clock_speed_hz = SPI_MASTER_FREQ_8M, //Match the SPI CAN controller.
-            .spics_io_num = CAN1_CS_PIN,
+            .spics_io_num = SPI_CS_PIN,
             .queue_size = 2, //2 as per the specification: https://ww1.microchip.com/downloads/en/DeviceDoc/MCP2515-Stand-Alone-CAN-Controller-with-SPI-20001801J.pdf
         };
         spiDevice = new spi_device_handle_t;
         ASSERT(spi_bus_add_device(SPI2_HOST, &dev_config, spiDevice) == ESP_OK);
 
         #ifdef CONFIG_COMPILER_CXX_EXCEPTIONS
-        try { spiCAN = new SpiCan(spiDevice, CAN_250KBPS, MCP_8MHZ, CAN1_INT_PIN); }
+        try { spiCAN = new SpiCan(*spiDevice, CAN_250KBPS, MCP_8MHZ, SPI_INT_PIN); }
         catch(const std::exception& e)
         {
             ERROR("%s", e.what());
             ASSERT(false);
         }
         #else
-        spiCAN = new SpiCan(*spiDevice, CAN_250KBPS, MCP_8MHZ, CAN1_INT_PIN);
+        spiCAN = new SpiCan(*spiDevice, CAN_250KBPS, MCP_8MHZ, SPI_INT_PIN);
         #endif
         #pragma endregion
 
         #pragma region Setup TWAI CAN
         //Configure GPIO.
         gpio_config_t txPinConfig = {
-            .pin_bit_mask = 1ULL << CAN2_TX_PIN,
+            .pin_bit_mask = 1ULL << TWAI_TX_PIN,
             .mode = GPIO_MODE_OUTPUT,
             .pull_up_en = GPIO_PULLUP_DISABLE,
             .pull_down_en = GPIO_PULLDOWN_ENABLE,
             .intr_type = GPIO_INTR_DISABLE
         };
         gpio_config_t rxPinConfig = {
-            .pin_bit_mask = 1ULL << CAN2_RX_PIN,
+            .pin_bit_mask = 1ULL << TWAI_RX_PIN,
             .mode = GPIO_MODE_INPUT,
             .pull_up_en = GPIO_PULLUP_DISABLE,
             .pull_down_en = GPIO_PULLDOWN_ENABLE,
@@ -194,8 +194,8 @@ public:
         {
             twaiCAN = new TwaiCan(
                 TWAI_GENERAL_CONFIG_DEFAULT(
-                    CAN2_TX_PIN,
-                    CAN2_RX_PIN,
+                    TWAI_TX_PIN,
+                    TWAI_RX_PIN,
                     TWAI_MODE_NORMAL
                 ),
                 TWAI_TIMING_CONFIG_250KBITS(),
@@ -210,8 +210,8 @@ public:
         #else
         twaiCAN = new TwaiCan(
             TWAI_GENERAL_CONFIG_DEFAULT(
-                CAN2_TX_PIN,
-                CAN2_RX_PIN,
+                TWAI_TX_PIN,
+                TWAI_RX_PIN,
                 TWAI_MODE_NORMAL
             ),
             TWAI_TIMING_CONFIG_250KBITS(),

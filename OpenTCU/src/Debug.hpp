@@ -66,14 +66,14 @@ private:
         while (true)
         {
             #ifdef VERY_VERBOSE
-            TRACE("Power check pin: %d", gpio_get_level(POWER_CHECK_PIN));
+            TRACE("Power check pin: %d", gpio_get_level(BIKE_POWER_CHECK_PIN));
             #endif
-            if (gpio_get_level(POWER_CHECK_PIN) == 0)
+            if (gpio_get_level(BIKE_POWER_CHECK_PIN) == 0)
             {
                 TRACE("Powering on");
-                gpio_set_level(POWER_PIN, 1);
+                gpio_set_level(BIKE_POWER_PIN, 1);
                 vTaskDelay(250 / portTICK_PERIOD_MS);
-                gpio_set_level(POWER_PIN, 0);
+                gpio_set_level(BIKE_POWER_PIN, 0);
             }
             vTaskDelay(5000 / portTICK_PERIOD_MS);
         }
@@ -89,14 +89,14 @@ private:
 
         #ifdef ENABLE_POWER_CHECK
         gpio_config_t powerPinConfig = {
-            .pin_bit_mask = 1ULL << POWER_PIN,
+            .pin_bit_mask = 1ULL << BIKE_POWER_PIN,
             .mode = GPIO_MODE_OUTPUT,
             .pull_up_en = GPIO_PULLUP_DISABLE,
             .pull_down_en = GPIO_PULLDOWN_ENABLE,
             .intr_type = GPIO_INTR_DISABLE
         };
         gpio_config_t powerCheckPinConfig = {
-            .pin_bit_mask = 1ULL << POWER_CHECK_PIN,
+            .pin_bit_mask = 1ULL << BIKE_POWER_CHECK_PIN,
             .mode = GPIO_MODE_INPUT,
             .pull_up_en = GPIO_PULLUP_DISABLE,
             .pull_down_en = GPIO_PULLDOWN_ENABLE,

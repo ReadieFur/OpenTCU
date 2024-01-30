@@ -10,6 +10,7 @@
 #include <esp_log.h>
 #include <freertos/FreeRTOS.h>
 #include <freertos/portmacro.h>
+#include <driver/gpio.h>
 
 #ifdef DEBUG
 #include <SmartLeds.h>
@@ -101,7 +102,9 @@ public:
     }
 };
 
+#ifdef DEBUG
 SmartLed Helpers::_led(LED_WS2812, 1, LED_PIN, 0, DoubleBuffer);
+#endif
 
 #define LOG_WRAPPER(level, format, ...) Helpers::Log(level, pcTaskGetTaskName(NULL), format, ##__VA_ARGS__);
 
