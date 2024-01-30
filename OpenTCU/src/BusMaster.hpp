@@ -79,7 +79,7 @@ private:
                 }
                 else
                 {
-                    #ifdef VERY_VERBOSE
+                    #if VERBOSENESS >= 1
                     TRACE("Relayed message: %d, %d", message.id, message.length);
                     #endif
                 }
@@ -98,8 +98,8 @@ private:
             }
             else
             {
-                #ifdef VERY_VERBOSE
-                // TRACE("Timeout: %x", receiveResult);
+                #if VERBOSENESS >= 3
+                TRACE("Timeout: %x", receiveResult);
                 #endif
             }
         }
@@ -179,11 +179,10 @@ public:
             .spics_io_num = SPI_CS_PIN,
             .queue_size = 2, //2 as per the specification: https://ww1.microchip.com/downloads/en/DeviceDoc/MCP2515-Stand-Alone-CAN-Controller-with-SPI-20001801J.pdf
         };
-        _spiDevice = new spi_device_handle_t;
-        ASSERT(spi_bus_add_device(SPI2_HOST, &dev_config, _spiDevice) == ESP_OK);
+        ASSERT(spi_bus_add_device(SPI2_HOST, &dev_config, &_spiDevice) == ESP_OK);
 
         #ifdef CONFIG_COMPILER_CXX_EXCEPTIONS
-        try { spiCAN = new SpiCan(*_spiDevice, CAN_250KBPS, MCP_8MHZ, SPI_INT_PIN); }
+        try { spiCan = new SpiCan(_spiDevice, CAN_250KBPS, MCP_8MHZ, SPI_INT_PIN); }
         catch(const std::exception& e)
         {
             ERROR("%s", e.what());
