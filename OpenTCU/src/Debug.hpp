@@ -1,6 +1,6 @@
 #pragma once
 
-#ifdef DEBUG
+#ifdef _DEBUG
 #include <freertos/FreeRTOS.h>
 #include "Helpers.hpp"
 #include <freertos/task.h>
@@ -80,13 +80,11 @@ private:
         vTaskDelay(5000 / portTICK_PERIOD_MS); //Wait 5 seconds before starting.
         while (true)
         {
-            #if VERBOSENESS >= 2
             TRACE("Power check pin: %d", gpio_get_level(BIKE_POWER_CHECK_PIN));
-            #endif
             if (gpio_get_level(BIKE_POWER_CHECK_PIN) == 0)
             {
         #endif
-                TRACE("Powering on");
+                DEBUG("Powering on");
                 gpio_set_level(BIKE_POWER_PIN, 1);
                 vTaskDelay(250 / portTICK_PERIOD_MS);
                 gpio_set_level(BIKE_POWER_PIN, 0);
@@ -179,7 +177,7 @@ private:
         #pragma endregion
 
         #pragma region Send messages
-        TRACE("Injecting %d messages.", messages.size());
+        DEBUG("Injecting %d messages.", messages.size());
 
         //Raise task priority at this stage.
         vTaskPrioritySet(NULL, RELAY_TASK_PRIORITY);
@@ -223,7 +221,7 @@ private:
             else
                 sendResult = BusMaster::twaiCan->Send(message.message, CAN_TIMEOUT_TICKS);
             if (sendResult != ESP_OK)
-                TRACE("Failed to inject message: %x", sendResult);
+                WARN("Failed to inject message: %x", sendResult);
         }
 
         #ifdef INJECT_PAUSES_RELAY_TASKS
@@ -237,7 +235,7 @@ private:
         //Lower task priority at this stage.
         vTaskPrioritySet(NULL, 1);
 
-        TRACE("Finished injecting messages.");
+        DEBUG("Finished injecting messages.");
         #pragma endregion
 
         vTaskDelete(NULL);
@@ -253,6 +251,8 @@ private:
 
     static void InitTask(void* param)
     {
+        printf("Log level set to %d\n", esp_log_level_get("*"));
+
         INFO("Debug setup started.");
 
         #ifdef ENABLE_CAN_DUMP
@@ -304,7 +304,7 @@ private:
         WiFi.setTxPower(WIFI_POWER_8_5dBm);
         if (WiFi.waitForConnectResult() != WL_CONNECTED)
         {
-            TRACE("STA Failed!");
+            ERROR("STA Failed!");
 
             //Create AP using mac address.
             uint8_t mac[6];
@@ -329,7 +329,7 @@ private:
 
         _debugServer->begin();
 
-        TRACE("Debug server started at %s", ipAddress.toString().c_str());
+        DEBUG("Debug server started at %s", ipAddress.toString().c_str());
         #endif
 
         INFO("Debug setup finished.");
@@ -352,7 +352,7 @@ public:
             return;
         _initialized = true;
 
-        esp_log_level_set("*", ESP_LOG_VERBOSE);
+        esp_log_level_set("*", LOG_LEVEL);
         xTaskCreate(InitTask, "DebugSetup", 4096, NULL, 1, NULL); //Low priority task as it is imperative that the CAN bus is setup first.
     }
 };

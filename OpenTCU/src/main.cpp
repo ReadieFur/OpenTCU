@@ -1,8 +1,8 @@
-#include <freertos/FreeRTOS.h> //Has to always be the first included header.
-#ifdef DEBUG
+#ifdef _DEBUG
 #include "Debug.hpp"
 #endif
-#include "Helpers.hpp"
+#include "Helpers.hpp" //Include this first so that it takes priority of the ESP-IDF logging macros.
+#include <freertos/FreeRTOS.h> //Has to always be the first included FreeRTOS related header.
 #include "BusMaster.hpp"
 
 void setup()
@@ -11,7 +11,7 @@ void setup()
     Helpers::ConfigureLED();
     Helpers::SetLed(0, 0, 1);
 
-    #ifdef DEBUG
+    #ifdef _DEBUG
     Debug::Init();
     #endif
 

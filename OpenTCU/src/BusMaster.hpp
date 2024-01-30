@@ -11,7 +11,7 @@
 #include "CAN/TwaiCan.hpp"
 #include "Helpers.hpp"
 #include "Debug.hpp"
-#ifdef DEBUG
+#ifdef _DEBUG
 #include <vector>
 #endif
 
@@ -37,10 +37,10 @@ private:
         // TRACE("Got message");
         //TODO: Implement.
 
-        #ifdef DEBUG
+        #ifdef _DEBUG
         if (std::find(idsToDrop.begin(), idsToDrop.end(), message->id) != idsToDrop.end())
         {
-            // TRACE("Dropping message: %d", message->id);
+            TRACE("Dropping message: %d", message->id);
             return ESP_FAIL;
         }
         #endif
@@ -67,7 +67,7 @@ private:
             {
                 if (esp_err_t interceptResult = InterceptMessage(&message) != ESP_OK)
                 {
-                    TRACE("Failed to process message (%x): %x", message.id, interceptResult);
+                    ERROR("Failed to process message (%x): %x", message.id, interceptResult);
                     continue;
                 }
 
@@ -75,13 +75,11 @@ private:
                 esp_err_t sendResult = canB->Send(message, CAN_TIMEOUT_TICKS);
                 if (sendResult != ESP_OK)
                 {
-                    TRACE("Failed to relay message: %x", sendResult);
+                    ERROR("Failed to relay message: %x", sendResult);
                 }
                 else
                 {
-                    #if VERBOSENESS >= 1
                     TRACE("Relayed message: %d, %d", message.id, message.length);
-                    #endif
                 }
 
                 #ifdef ENABLE_CAN_DUMP
@@ -92,15 +90,13 @@ private:
                 };
                 if (BaseType_t queueResult = xQueueSend(Debug::canDumpQueue, &dump, 0) != pdTRUE)
                 {
-                    TRACE("Failed to add to dump queue: %d", queueResult);
+                    WARN("Failed to add to dump queue: %d", queueResult);
                 }
                 #endif
             }
             else
             {
-                #if VERBOSENESS >= 3
-                TRACE("Timeout: %x", receiveResult);
-                #endif
+                // TRACE("Timeout: %x", receiveResult);
             }
         }
     }
@@ -109,7 +105,7 @@ public:
     static TwaiCan* twaiCan;
     static TaskHandle_t spiToTwaiTaskHandle;
     static TaskHandle_t twaiToSpiTaskHandle;
-    #ifdef DEBUG
+    #ifdef _DEBUG
     static std::vector<uint32_t> idsToDrop;
     #endif
 
@@ -293,6 +289,6 @@ SpiCan* BusMaster::spiCan = nullptr;
 TwaiCan* BusMaster::twaiCan = nullptr;
 TaskHandle_t BusMaster::spiToTwaiTaskHandle;
 TaskHandle_t BusMaster::twaiToSpiTaskHandle;
-#ifdef DEBUG
+#ifdef _DEBUG
 std::vector<uint32_t> BusMaster::idsToDrop;
 #endif
