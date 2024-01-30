@@ -60,9 +60,7 @@ public:
         for (int i = 0; i < message.length; i++)
             twaiMessage.data[i] = message.data[i];
 
-        #if VERBOSENESS >= 3
         TRACE("TWAI Write: %x, %d, %d, %d, %x", twaiMessage.identifier, twaiMessage.data_length_code, twaiMessage.extd, twaiMessage.rtr, twaiMessage.data[0]);
-        #endif
 
         #ifdef USE_DRIVER_LOCK
         if (xSemaphoreTake(_driverMutex, timeout) != pdTRUE)
@@ -76,9 +74,14 @@ public:
         xSemaphoreGive(_driverMutex);
         #endif
 
-        #if VERBOSENESS >= 3
-        TRACE("TWAI Write Done");
-        #endif
+        if (res != ESP_OK)
+        {
+            ERROR("TWAI Write Error: %d", res);
+        }
+        else
+        {
+            TRACE("TWAI Write Done");
+        }
 
         return res;
     }
@@ -86,16 +89,12 @@ public:
     esp_err_t Receive(SCanMessage* message, TickType_t timeout)
     {
         //Use the read alerts function to wait for a message to be received (instead of locking on the twai_receive function).
-        #if VERBOSENESS >= 3
         TRACE("TWAI Wait");
-        #endif
 
         uint32_t alerts;
         if (esp_err_t err = twai_read_alerts(&alerts, timeout) != ESP_OK)
         {
-            #if VERBOSENESS >= 3
             TRACE("TWAI Wait Timeout: %d", err);
-            #endif
             return err;
         }
         //We don't need to check the alert type because we have only subscribed to the RX_DATA alert.
@@ -105,9 +104,7 @@ public:
         //     return ESP_ERR_INVALID_RESPONSE;
         // }
 
-        #if VERBOSENESS >= 3
         TRACE("TWAI Read");
-        #endif
 
         #ifdef USE_DRIVER_LOCK
         if (xSemaphoreTake(_driverMutex, timeout) != pdTRUE)
@@ -123,13 +120,11 @@ public:
 
         if (err != ESP_OK)
         {
-            TRACE("TWAI Read Error: %d", err);
+            ERROR("TWAI Read Error: %d", err);
             return err;
         }
 
-        #if VERBOSENESS >= 3
         TRACE("TWAI Read Done: %x, %d, %d, %d, %x", twaiMessage.identifier, twaiMessage.data_length_code, twaiMessage.extd, twaiMessage.rtr, twaiMessage.data[0]);
-        #endif
 
         message->id = twaiMessage.identifier;
         message->length = twaiMessage.data_length_code;
@@ -146,9 +141,7 @@ public:
         #ifdef USE_DRIVER_LOCK
         if (xSemaphoreTake(_driverMutex, timeout) != pdTRUE)
         {
-            #if VERBOSENESS >= 3
             TRACE("TWAI Status Timeout");
-            #endif
             return ESP_ERR_TIMEOUT;
         }
         #endif
@@ -160,7 +153,6 @@ public:
         xSemaphoreGive(_driverMutex);
         #endif
 
-        #if VERBOSENESS >= 3
         TRACE("TWAI Status: %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d",
             *status & TWAI_ALERT_TX_IDLE,
             *status & TWAI_ALERT_TX_SUCCESS,
@@ -183,7 +175,6 @@ public:
             *status & TWAI_ALERT_NONE,
             *status & TWAI_ALERT_AND_LOG
         );
-        #endif
 
         return res;
     }

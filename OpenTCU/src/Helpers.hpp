@@ -1,13 +1,18 @@
 #pragma once
 
-#ifdef DEBUG
-#define VERBOSENESS 0
+#ifdef _DEBUG
+#define LOG_LEVEL ESP_LOG_DEBUG
+#endif
+
+#ifdef _TEST
+#define LOG_LEVEL ESP_LOG_VERBOSE
+#endif
+
+#if defined(_DEBUG) || defined(_TEST)
 #ifdef LOG_LOCAL_LEVEL
 #undef LOG_LOCAL_LEVEL
 #endif
-#define LOG_LOCAL_LEVEL ESP_LOG_VERBOSE
-#else
-#define VERBOSENESS 0
+#define LOG_LOCAL_LEVEL LOG_LEVEL
 #endif
 
 #include <esp_log.h>
@@ -15,7 +20,7 @@
 #include <freertos/portmacro.h>
 #include <driver/gpio.h>
 
-#ifdef DEBUG
+#ifdef _DEBUG
 #include "Debug.hpp"
 #include <SmartLeds.h>
 #include <WebSerialLite.h>
@@ -27,7 +32,7 @@
 class Helpers
 {
 private:
-    #ifdef DEBUG
+    #ifdef _DEBUG
     static SmartLed _led;
     #endif
 
@@ -48,7 +53,7 @@ public:
 
     static void SetLed(bool on)
     {
-        #ifdef DEBUG
+        #ifdef _DEBUG
         _led[0] = Rgb{_CONVERT_LED_VALUE(on ? 1 : 0), _CONVERT_LED_VALUE(on ? 1 : 0), _CONVERT_LED_VALUE(on ? 1 : 0)};
         _led.show();
         #else
@@ -58,7 +63,7 @@ public:
 
     static void SetLed(uint8_t r, uint8_t g, uint8_t b)
     {
-        #ifdef DEBUG
+        #ifdef _DEBUG
         _led[0] = Rgb{_CONVERT_LED_VALUE(r), _CONVERT_LED_VALUE(g), _CONVERT_LED_VALUE(b)};
         _led.show();
         #else
@@ -107,25 +112,25 @@ public:
     }
 };
 
-#ifdef DEBUG
+#ifdef _DEBUG
 SmartLed Helpers::_led(LED_WS2812, 1, LED_PIN, 0, DoubleBuffer);
 #endif
 
 #define LOG_WRAPPER(level, format, ...) Helpers::Log(level, pcTaskGetTaskName(NULL), format, ##__VA_ARGS__);
 
+#define ERROR(format, ...) LOG_WRAPPER(ESP_LOG_ERROR, format, ##__VA_ARGS__);
+#define WARN(format, ...) LOG_WRAPPER(ESP_LOG_WARN, format, ##__VA_ARGS__);
 #define INFO(format, ...) LOG_WRAPPER(ESP_LOG_INFO, format, ##__VA_ARGS__);
 
-#define ERROR(format, ...) LOG_WRAPPER(ESP_LOG_ERROR, format, ##__VA_ARGS__);
-
-#define WARN(format, ...) LOG_WRAPPER(ESP_LOG_WARN, format, ##__VA_ARGS__);
-
-#ifdef DEBUG
+#ifdef _DEBUG
+#define DEBUG(format, ...) LOG_WRAPPER(ESP_LOG_DEBUG, "[%s:%d] " format, __FILE__, __LINE__, ##__VA_ARGS__);
 #define TRACE(format, ...) LOG_WRAPPER(ESP_LOG_VERBOSE, "[%s:%d] " format, __FILE__, __LINE__, ##__VA_ARGS__);
 #else
+#define DEBUG(format, ...)
 #define TRACE(format, ...)
 #endif
 
-#ifdef DEBUG
+#ifdef _DEBUG
 #define ASSERT(condition) Helpers::Assert(pcTaskGetTaskName(NULL), condition, "[%s:%d] Assertion failed: %s", __FILE__, __LINE__, #condition);
 #else
 #define ASSERT(condition) Helpers::Assert(pcTaskGetTaskName(NULL), condition, "Assertion failed: %s", #condition);

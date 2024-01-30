@@ -1,4 +1,4 @@
-#define VERBOSENESS 9
+#define _TEST
 
 #include <freertos/FreeRTOS.h>
 #include <Helpers.hpp>
