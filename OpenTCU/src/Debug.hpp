@@ -12,9 +12,8 @@
 #include <ESPAsyncWebServer.h>
 #include <WebSerialLite.h>
 
-// #define DISABLE_WATCHDOG_TIMER
 // #define VERY_VERBOSE
-#define ENABLE_CAN_DUMP
+// #define ENABLE_CAN_DUMP
 #define ENABLE_POWER_CHECK
 #define ENABLE_DEBUG_SERVER
 
@@ -26,7 +25,7 @@ private:
 
     static void CanDump(void* arg)
     {
-        #ifdef DISABLE_WATCHDOG_TIMER
+        #if 0
         //Disable the watchdog timer as this method seems to cause the idle task to hang.
         //This isn't ideal but won't be used for production so it'll make do for now.
         //https://docs.espressif.com/projects/esp-idf/en/latest/esp32/api-reference/system/wdts.html
