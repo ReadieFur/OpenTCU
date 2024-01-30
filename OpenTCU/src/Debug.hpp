@@ -11,6 +11,7 @@
 #include <WiFi.h>
 #include <ESPAsyncWebServer.h>
 #include <WebSerialLite.h>
+#include <SPIFFS.h>
 #include "BusMaster.hpp"
 
 // #define VERY_VERBOSE
@@ -89,6 +90,11 @@ private:
     }
     #endif
 
+    static void HandleInject(AsyncWebServerRequest *request)
+    {
+        //TODO.
+    }
+
     static void InitTask(void* param)
     {
         INFO("Debug setup started.");
@@ -158,6 +164,17 @@ private:
         }
 
         WebSerial.begin(_debugServer);
+
+        #pragma region Inject endpoint
+        ASSERT(SPIFFS.begin(true));
+
+        //UI
+        _debugServer->on("/inject", [](AsyncWebServerRequest *request) { request->send(SPIFFS, "/inject.html", String(), false); });
+
+        //API
+        _debugServer->on("/api/inject", HTTP_POST, HandleInject);
+        #pragma endregion
+
         _debugServer->begin();
 
         TRACE("Debug server started at %s", ipAddress.toString().c_str());
