@@ -11,10 +11,11 @@
 #include <WiFi.h>
 #include <ESPAsyncWebServer.h>
 #include <WebSerialLite.h>
+#include "BusMaster.hpp"
 
 // #define VERY_VERBOSE
 // #define ENABLE_CAN_DUMP
-#define ENABLE_POWER_CHECK
+#define ENABLE_POWER_CHECK 0 //Undefine to disable power check, 0 for task based, 1 for interrupt based.
 #define ENABLE_DEBUG_SERVER
 
 class Debug
@@ -63,8 +64,10 @@ private:
         }
     }
 
+    #ifdef ENABLE_POWER_CHECK
     static void PowerCheck(void* arg)
     {
+        #if ENABLE_POWER_CHECK == 0
         vTaskDelay(5000 / portTICK_PERIOD_MS); //Wait 5 seconds before starting.
         while (true)
         {
@@ -73,14 +76,18 @@ private:
             #endif
             if (gpio_get_level(BIKE_POWER_CHECK_PIN) == 0)
             {
+        #endif
                 TRACE("Powering on");
                 gpio_set_level(BIKE_POWER_PIN, 1);
                 vTaskDelay(250 / portTICK_PERIOD_MS);
                 gpio_set_level(BIKE_POWER_PIN, 0);
+        #if ENABLE_POWER_CHECK == 0
             }
             vTaskDelay(5000 / portTICK_PERIOD_MS);
         }
+        #endif
     }
+    #endif
 
     static void InitTask(void* param)
     {
@@ -103,18 +110,29 @@ private:
             .mode = GPIO_MODE_INPUT,
             .pull_up_en = GPIO_PULLUP_DISABLE,
             .pull_down_en = GPIO_PULLDOWN_ENABLE,
+            #if ENABLE_POWER_CHECK == 0
             .intr_type = GPIO_INTR_DISABLE
+            #else
+            .intr_type = GPIO_INTR_NEGEDGE
+            #endif
         };
         assert(gpio_config(&powerPinConfig) == ESP_OK);
         assert(gpio_config(&powerCheckPinConfig) == ESP_OK);
+        gpio_install_isr_service(0);
+        #if ENABLE_POWER_CHECK == 0
         xTaskCreate(PowerCheck, "PowerCheck", 2048, NULL, 1, NULL);
+        #else
+        assert(gpio_isr_handler_add(BIKE_POWER_CHECK_PIN, PowerCheck, NULL) == ESP_OK);
+        if (gpio_get_level(BIKE_POWER_CHECK_PIN) == 0)
+            PowerCheck(NULL);
+        #endif
         #endif
 
         #ifdef ENABLE_DEBUG_SERVER
         _debugServer = new AsyncWebServer(80);
 
         IPAddress ipAddress;
-        WiFi.mode(WIFI_STA);
+        WiFi.mode(WIFI_AP_STA);
         // IPAddress ip(192, 168, 0, 158);
         // IPAddress subnet(255, 255, 254, 0);
         // IPAddress gateway(192, 168, 1, 254);
@@ -126,8 +144,6 @@ private:
         {
             TRACE("STA Failed!");
 
-            //Create AP instead.
-            WiFi.mode(WIFI_AP);
             //Create AP using mac address.
             uint8_t mac[6];
             WiFi.macAddress(mac);
