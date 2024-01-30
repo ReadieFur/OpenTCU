@@ -7,7 +7,7 @@
 #include <stdexcept>
 #include "SCanMessage.h"
 #include "ACan.h"
-#include "Helpers.h"
+#include "Helpers.hpp"
 
 class TwaiCan : public ACan
 {
@@ -60,7 +60,10 @@ public:
         for (int i = 0; i < message.length; i++)
             twaiMessage.data[i] = message.data[i];
 
-        // TRACE("TWAI Write: %x, %d, %d, %d, %x", twaiMessage.identifier, twaiMessage.data_length_code, twaiMessage.extd, twaiMessage.rtr, twaiMessage.data[0]);
+        #ifdef VERY_VERBOSE
+        TRACE("TWAI Write: %x, %d, %d, %d, %x", twaiMessage.identifier, twaiMessage.data_length_code, twaiMessage.extd, twaiMessage.rtr, twaiMessage.data[0]);
+        #endif
+
         #ifdef USE_DRIVER_LOCK
         if (xSemaphoreTake(driverMutex, timeout) != pdTRUE)
         {
@@ -69,9 +72,12 @@ public:
         }
         #endif
         esp_err_t res = twai_transmit(&twaiMessage, timeout);
-        // TRACE("TWAI Write Done");
         #ifdef USE_DRIVER_LOCK
         xSemaphoreGive(driverMutex);
+        #endif
+
+        #ifdef VERY_VERBOSE
+        TRACE("TWAI Write Done");
         #endif
 
         return res;
@@ -79,25 +85,17 @@ public:
 
     esp_err_t Receive(SCanMessage* message, TickType_t timeout)
     {
-        #if defined(DEBUG) && 0
-        //Get status.
-        twai_status_info_t status;
-        if (esp_err_t err = twai_get_status_info(&status) != ESP_OK)
-        {
-            TRACE("Failed to get TWAI status: %d", err);
-        }
-        else
-        {
-            TRACE("TWAI Status: %d, %d, %d, %d, %d, %d, %d, %d, %d, %d", status.state, status.msgs_to_tx, status.msgs_to_rx, status.tx_error_counter, status.rx_error_counter, status.tx_failed_count, status.rx_missed_count, status.rx_overrun_count, status.arb_lost_count, status.bus_error_count);
-        }
+        //Use the read alerts function to wait for a message to be received (instead of locking on the twai_receive function).
+        #ifdef VERY_VERBOSE
+        TRACE("TWAI Wait");
         #endif
 
-        //Use the read alerts function to wait for a message to be received (instead of locking on the twai_receive function).
         uint32_t alerts;
-        // TRACE("TWAI Wait");
         if (esp_err_t err = twai_read_alerts(&alerts, timeout) != ESP_OK)
         {
-            // TRACE("TWAI Wait Timeout: %d", err);
+            #ifdef VERY_VERBOSE
+            TRACE("TWAI Wait Timeout: %d", err);
+            #endif
             return err;
         }
         //We don't need to check the alert type because we have only subscribed to the RX_DATA alert.
@@ -106,25 +104,32 @@ public:
         //     // TRACE("TWAI Wait Timeout: %d", alerts);
         //     return ESP_ERR_INVALID_RESPONSE;
         // }
-        // TRACE("TWAI Wait Done");
 
-        twai_message_t twaiMessage;
-        // TRACE("TWAI Read");
+        #ifdef VERY_VERBOSE
+        TRACE("TWAI Read");
+        #endif
+
         #ifdef USE_DRIVER_LOCK
         if (xSemaphoreTake(driverMutex, timeout) != pdTRUE)
             return ESP_ERR_TIMEOUT;
         #endif
+
+        twai_message_t twaiMessage;
         esp_err_t err = twai_receive(&twaiMessage, timeout);
-        // TRACE("TWAI Read Done: %x, %d, %d, %d, %x", twaiMessage.identifier, twaiMessage.data_length_code, twaiMessage.extd, twaiMessage.rtr, twaiMessage.data[0]);
+
         #ifdef USE_DRIVER_LOCK
         xSemaphoreGive(driverMutex);
+        #endif
+
         if (err != ESP_OK)
         {
             TRACE("TWAI Read Error: %d", err);
             return err;
         }
+
+        #ifdef VERY_VERBOSE
+        TRACE("TWAI Read Done: %x, %d, %d, %d, %x", twaiMessage.identifier, twaiMessage.data_length_code, twaiMessage.extd, twaiMessage.rtr, twaiMessage.data[0]);
         #endif
-        // TRACE("TWAI Read Success");
 
         message->id = twaiMessage.identifier;
         message->length = twaiMessage.data_length_code;
@@ -138,22 +143,24 @@ public:
     
     esp_err_t GetStatus(uint32_t* status, TickType_t timeout)
     {
-        // TRACE("TWAI Status");
         #ifdef USE_DRIVER_LOCK
         if (xSemaphoreTake(driverMutex, timeout) != pdTRUE)
         {
-            // TRACE("TWAI Status Timeout");
+            #ifdef VERY_VERBOSE
+            TRACE("TWAI Status Timeout");
+            #endif
             return ESP_ERR_TIMEOUT;
         }
         #endif
+        
         // esp_err_t res = twai_get_status_info((twai_status_info_t*)status);
         esp_err_t res = twai_read_alerts(status, timeout);
-        // TRACE("TWAI Status Done");
+
         #ifdef USE_DRIVER_LOCK
         xSemaphoreGive(driverMutex);
         #endif
 
-        #if defined(DEBUG) && 0
+        #if defined(VERY_VERBOSE)
         TRACE("TWAI Status: %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d",
             *status & TWAI_ALERT_TX_IDLE,
             *status & TWAI_ALERT_TX_SUCCESS,
