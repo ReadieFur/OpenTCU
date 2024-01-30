@@ -12,15 +12,15 @@
 class TwaiCan : public ACan
 {
 private:
-    static bool initialized;
+    static bool _initialized;
 
 public:
     TwaiCan(twai_general_config_t generalConfig, twai_timing_config_t timingConfig, twai_filter_config_t filterConfig) : ACan()
     {
         #ifdef CONFIG_COMPILER_CXX_EXCEPTIONS
-        if (initialized)
+        if (_initialized)
             throw std::runtime_error("Singleton class TwaiCan can only be initialized once.");
-        initialized = true;
+        _initialized = true;
 
         if (esp_err_t err = twai_driver_install(&generalConfig, &timingConfig, &filterConfig) != ESP_OK)
             throw std::runtime_error("Failed to install TWAI driver: " + std::to_string(err));
@@ -41,12 +41,12 @@ public:
 
     ~TwaiCan()
     {
-        if (!initialized)
+        if (!_initialized)
             return;
 
         twai_stop();
         twai_driver_uninstall();
-        initialized = false;
+        _initialized = false;
     }
 
     esp_err_t Send(SCanMessage message, TickType_t timeout)
@@ -65,7 +65,7 @@ public:
         #endif
 
         #ifdef USE_DRIVER_LOCK
-        if (xSemaphoreTake(driverMutex, timeout) != pdTRUE)
+        if (xSemaphoreTake(_driverMutex, timeout) != pdTRUE)
         {
             TRACE("TWAI Write Timeout");
             return ESP_ERR_TIMEOUT;
@@ -73,7 +73,7 @@ public:
         #endif
         esp_err_t res = twai_transmit(&twaiMessage, timeout);
         #ifdef USE_DRIVER_LOCK
-        xSemaphoreGive(driverMutex);
+        xSemaphoreGive(_driverMutex);
         #endif
 
         #ifdef VERY_VERBOSE
@@ -110,7 +110,7 @@ public:
         #endif
 
         #ifdef USE_DRIVER_LOCK
-        if (xSemaphoreTake(driverMutex, timeout) != pdTRUE)
+        if (xSemaphoreTake(_driverMutex, timeout) != pdTRUE)
             return ESP_ERR_TIMEOUT;
         #endif
 
@@ -118,7 +118,7 @@ public:
         esp_err_t err = twai_receive(&twaiMessage, timeout);
 
         #ifdef USE_DRIVER_LOCK
-        xSemaphoreGive(driverMutex);
+        xSemaphoreGive(_driverMutex);
         #endif
 
         if (err != ESP_OK)
@@ -144,7 +144,7 @@ public:
     esp_err_t GetStatus(uint32_t* status, TickType_t timeout)
     {
         #ifdef USE_DRIVER_LOCK
-        if (xSemaphoreTake(driverMutex, timeout) != pdTRUE)
+        if (xSemaphoreTake(_driverMutex, timeout) != pdTRUE)
         {
             #ifdef VERY_VERBOSE
             TRACE("TWAI Status Timeout");
@@ -157,7 +157,7 @@ public:
         esp_err_t res = twai_read_alerts(status, timeout);
 
         #ifdef USE_DRIVER_LOCK
-        xSemaphoreGive(driverMutex);
+        xSemaphoreGive(_driverMutex);
         #endif
 
         #if defined(VERY_VERBOSE)
@@ -189,4 +189,4 @@ public:
     }
 };
 
-bool TwaiCan::initialized = false;
+bool TwaiCan::_initialized = false;

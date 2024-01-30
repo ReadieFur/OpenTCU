@@ -18,10 +18,10 @@
 class SpiCan : public ACan
 {
 private:
-    spi_device_handle_t device;
-    MCP2515* mcp2515;
-    gpio_num_t interruptPin;
-    volatile SemaphoreHandle_t interruptSemaphore = xSemaphoreCreateCounting(2, 0); //2 because the MCP2515 has two buffers (RX0 and RX1).
+    spi_device_handle_t _device;
+    MCP2515* _mcp2515;
+    gpio_num_t _interruptPin;
+    volatile SemaphoreHandle_t _interruptSemaphore = xSemaphoreCreateCounting(2, 0); //2 because the MCP2515 has two buffers (RX0 and RX1).
 
     static esp_err_t MCPErrorToESPError(MCP2515::ERROR error)
     {
@@ -51,7 +51,7 @@ private:
 
         //No need to check the arg type given I know what it is (optimization).
         //Notify the task that a message has been received.
-        xSemaphoreGiveFromISR(static_cast<SpiCan*>(arg)->interruptSemaphore, &higherPriorityTaskWoken);
+        xSemaphoreGiveFromISR(static_cast<SpiCan*>(arg)->_interruptSemaphore, &higherPriorityTaskWoken);
 
         //If a higher priority task was woken, yield to it.
         //I don't really understand the purpose of this, but it seems to be a common practice.
@@ -64,17 +64,17 @@ public:
     {
         //Keep a reference to the device (required for the MCP2515 library otherwise it will crash the device).
         //We are passing an instance here so that the instance does not need to be stored outside of this class.
-        this->device = device;
-        this->interruptPin = interruptPin;
+        this->_device = device;
+        this->_interruptPin = interruptPin;
 
-        mcp2515 = new MCP2515(&this->device);
+        _mcp2515 = new MCP2515(&this->_device);
 
         #ifdef CONFIG_COMPILER_CXX_EXCEPTIONS
-        if (uint8_t res = mcp2515->reset() != MCP2515::ERROR_OK)
+        if (uint8_t res = _mcp2515->reset() != MCP2515::ERROR_OK)
             throw std::runtime_error("Failed to reset MCP2515: " + std::to_string(res));
-        if (uint8_t res = mcp2515->setBitrate(speed, clock) != MCP2515::ERROR_OK)
+        if (uint8_t res = _mcp2515->setBitrate(speed, clock) != MCP2515::ERROR_OK)
             throw std::runtime_error("Failed to set bitrate: " + std::to_string(res));
-        if (uint8_t res = mcp2515->setNormalMode() != MCP2515::ERROR_OK) //TODO: Allow the user to change this setting.
+        if (uint8_t res = _mcp2515->setNormalMode() != MCP2515::ERROR_OK) //TODO: Allow the user to change this setting.
             throw std::runtime_error("Failed to set normal mode: " + std::to_string(res));
         #else
         ASSERT(mcp2515->reset() == MCP2515::ERROR_OK);
@@ -97,18 +97,18 @@ public:
         TRACE("Initial interrupt pin state: %d", gpio_get_level(interruptPin));
         #endif
         if (gpio_get_level(interruptPin) == 0)
-            xSemaphoreGive(interruptSemaphore);
+            xSemaphoreGive(_interruptSemaphore);
     }
 
     ~SpiCan()
     {
-        gpio_isr_handler_remove(interruptPin);
+        gpio_isr_handler_remove(_interruptPin);
         
-        mcp2515->reset();
-        delete mcp2515;
+        _mcp2515->reset();
+        delete _mcp2515;
 
         //Release the semaphore incase it is taken (this will cause an error if something is waiting on it, but it's best to error and catch rather than hang).
-        xSemaphoreGive(interruptSemaphore);
+        xSemaphoreGive(_interruptSemaphore);
     }
 
     esp_err_t Send(SCanMessage message, TickType_t timeout = 0)
@@ -125,20 +125,20 @@ public:
         #endif
         
         #ifdef USE_DRIVER_LOCK
-        if (xSemaphoreTake(driverMutex, timeout) != pdTRUE)
+        if (xSemaphoreTake(_driverMutex, timeout) != pdTRUE)
         {
             TRACE("SPI Write Timeout");
             return ESP_ERR_TIMEOUT;
         }
         #endif
-        MCP2515::ERROR res = mcp2515->sendMessage(&frame);
+        MCP2515::ERROR res = _mcp2515->sendMessage(&frame);
         
         #ifdef VERY_VERBOSE
         TRACE("SPI Write Done");
         #endif
         
         #ifdef USE_DRIVER_LOCK
-        xSemaphoreGive(driverMutex);
+        xSemaphoreGive(_driverMutex);
         #endif
         
         return MCPErrorToESPError(res);
@@ -147,14 +147,14 @@ public:
     esp_err_t Receive(SCanMessage* message, TickType_t timeout = 0)
     {
         //Check if we need to wait for a message to be received.
-        if (gpio_get_level(interruptPin) == 1)
+        if (gpio_get_level(_interruptPin) == 1)
         {
             #ifdef VERY_VERBOSE
             TRACE("SPI Wait: %d, %d", uxSemaphoreGetCount(interruptSemaphore), gpio_get_level(interruptPin));
             #endif
 
             //Wait in a "non-blocking" manner by allowing the CPU to do other things while waiting for a message.
-            if (xSemaphoreTake(interruptSemaphore, timeout) != pdTRUE)
+            if (xSemaphoreTake(_interruptSemaphore, timeout) != pdTRUE)
             {
                 #ifdef VERY_VERBOSE
                 TRACE("SPI Wait Timeout");
@@ -165,7 +165,7 @@ public:
         else
         {
             //Attempt to decrement the semaphore count but don't wait or check the result (helps prevent overflow).
-            xSemaphoreTake(interruptSemaphore, 0);
+            xSemaphoreTake(_interruptSemaphore, 0);
         }
 
         #ifdef VERY_VERBOSE
@@ -174,7 +174,7 @@ public:
 
         #ifdef USE_DRIVER_LOCK
         //Lock the driver from other operations while we read the message.
-        if (xSemaphoreTake(driverMutex, timeout) != pdTRUE)
+        if (xSemaphoreTake(_driverMutex, timeout) != pdTRUE)
         {
             TRACE("SPI Read Timeout");
             return ESP_ERR_TIMEOUT;
@@ -183,29 +183,29 @@ public:
 
         //https://github.com/autowp/arduino-canhacker/blob/master/CanHacker.cpp#L216-L271
         //https://ww1.microchip.com/downloads/en/DeviceDoc/MCP2515-Stand-Alone-CAN-Controller-with-SPI-20001801J.pdf#54
-        uint8_t interruptFlags = mcp2515->getInterrupts();
+        uint8_t interruptFlags = _mcp2515->getInterrupts();
 
         if (interruptFlags & MCP2515::CANINTF_ERRIF) //Error Interrupt Flag bit is set.
-            mcp2515->clearRXnOVR();
+            _mcp2515->clearRXnOVR();
 
         can_frame frame;
         MCP2515::ERROR readResult;
         if (interruptFlags & MCP2515::CANINTF_RX0IF) //Receive Buffer 0 Full Interrupt Flag bit is set.
-            readResult = mcp2515->readMessage(MCP2515::RXB0, &frame);
+            readResult = _mcp2515->readMessage(MCP2515::RXB0, &frame);
         else if (interruptFlags & MCP2515::CANINTF_RX1IF) //Receive Buffer 1 Full Interrupt Flag bit is set.
-            readResult = mcp2515->readMessage(MCP2515::RXB1, &frame);
+            readResult = _mcp2515->readMessage(MCP2515::RXB1, &frame);
         else
             readResult = MCP2515::ERROR_NOMSG;
         //I shouldn't need to check this flag as we shouldn't ever be in a sleep mode (for now).
         // if (interruptFlags & MCP2515::CANINTF_WAKIF) Wake-up Interrupt Flag bit is set.
         //     mcp2515->clearInterrupts();
         if (interruptFlags & MCP2515::CANINTF_ERRIF)
-            mcp2515->clearMERR();
+            _mcp2515->clearMERR();
         if (interruptFlags & MCP2515::CANINTF_MERRF) //Message Error Interrupt Flag bit is set.
-            mcp2515->clearInterrupts();
+            _mcp2515->clearInterrupts();
 
         #ifdef USE_DRIVER_LOCK
-        xSemaphoreGive(driverMutex);
+        xSemaphoreGive(_driverMutex);
         #endif
 
         if (readResult != MCP2515::ERROR_OK)
@@ -234,7 +234,7 @@ public:
     esp_err_t GetStatus(uint32_t* status, TickType_t timeout = 0)
     {
         #ifdef USE_DRIVER_LOCK
-        if (xSemaphoreTake(driverMutex, timeout) != pdTRUE)
+        if (xSemaphoreTake(_driverMutex, timeout) != pdTRUE)
         {
             #ifdef VERY_VERBOSE
             TRACE("SPI Status Timeout");
@@ -242,9 +242,9 @@ public:
             return ESP_ERR_TIMEOUT;
         }
         #endif
-        *status = mcp2515->getInterrupts();
+        *status = _mcp2515->getInterrupts();
         #ifdef USE_DRIVER_LOCK
-        xSemaphoreGive(driverMutex);
+        xSemaphoreGive(_driverMutex);
         #endif
 
         #if defined(VERY_VERBOSE)
