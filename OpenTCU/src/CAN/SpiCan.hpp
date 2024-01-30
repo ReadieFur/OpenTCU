@@ -43,7 +43,7 @@ private:
 
     static void IRAM_ATTR OnInterrupt(void* arg)
     {
-        #ifdef VERY_VERBOSE
+        #if VERBOSENESS >= 2
         isr_log_v("SpiCan", "OnInterrupt");
         #endif
 
@@ -92,7 +92,7 @@ public:
         ASSERT(gpio_isr_handler_add(interruptPin, OnInterrupt, this) == ESP_OK);
         #endif
 
-        #ifdef VERY_VERBOSE
+        #if VERBOSENESS >= 2
         //Read the initial state of the interrupt pin.
         TRACE("Initial interrupt pin state: %d", gpio_get_level(interruptPin));
         #endif
@@ -120,7 +120,7 @@ public:
         for (int i = 0; i < message.length; i++)
             frame.data[i] = message.data[i];
 
-        #ifdef VERY_VERBOSE
+        #if VERBOSENESS >= 3
         TRACE("SPI Write: %x, %d, %d, %d, %x", frame.can_id, frame.can_dlc, frame.can_id & CAN_EFF_FLAG, frame.can_id & CAN_RTR_FLAG, frame.data[0]);
         #endif
         
@@ -133,7 +133,7 @@ public:
         #endif
         MCP2515::ERROR res = _mcp2515->sendMessage(&frame);
         
-        #ifdef VERY_VERBOSE
+        #if VERBOSENESS >= 3
         TRACE("SPI Write Done");
         #endif
         
@@ -149,14 +149,14 @@ public:
         //Check if we need to wait for a message to be received.
         if (gpio_get_level(_interruptPin) == 1)
         {
-            #ifdef VERY_VERBOSE
+            #if VERBOSENESS >= 3
             TRACE("SPI Wait: %d, %d", uxSemaphoreGetCount(interruptSemaphore), gpio_get_level(interruptPin));
             #endif
 
             //Wait in a "non-blocking" manner by allowing the CPU to do other things while waiting for a message.
             if (xSemaphoreTake(_interruptSemaphore, timeout) != pdTRUE)
             {
-                #ifdef VERY_VERBOSE
+                #if VERBOSENESS >= 3
                 TRACE("SPI Wait Timeout");
                 #endif
                 return ESP_ERR_TIMEOUT;
@@ -168,7 +168,7 @@ public:
             xSemaphoreTake(_interruptSemaphore, 0);
         }
 
-        #ifdef VERY_VERBOSE
+        #if VERBOSENESS >= 3
         TRACE("SPI Read");
         #endif
 
@@ -217,7 +217,7 @@ public:
             return MCPErrorToESPError(readResult);
         }
 
-        #ifdef VERY_VERBOSE
+        #if VERBOSENESS >= 3
         TRACE("SPI Read Success: %x, %d, %d, %d, %x", frame.can_id, frame.can_dlc, frame.can_id & CAN_EFF_FLAG, frame.can_id & CAN_RTR_FLAG, frame.data[0]);
         #endif
 
@@ -236,7 +236,7 @@ public:
         #ifdef USE_DRIVER_LOCK
         if (xSemaphoreTake(_driverMutex, timeout) != pdTRUE)
         {
-            #ifdef VERY_VERBOSE
+            #if VERBOSENESS >= 3
             TRACE("SPI Status Timeout");
             #endif
             return ESP_ERR_TIMEOUT;
@@ -247,7 +247,7 @@ public:
         xSemaphoreGive(_driverMutex);
         #endif
 
-        #if defined(VERY_VERBOSE)
+        #if VERBOSENESS >= 3
         TRACE("SPI Status: %d %d %d %d %d %d %d %d",
             *status & MCP2515::CANINTF_RX0IF, //If the result is non-zero then the interrupt has fired.
             *status & MCP2515::CANINTF_RX1IF,

@@ -60,7 +60,7 @@ public:
         for (int i = 0; i < message.length; i++)
             twaiMessage.data[i] = message.data[i];
 
-        #ifdef VERY_VERBOSE
+        #if VERBOSENESS >= 3
         TRACE("TWAI Write: %x, %d, %d, %d, %x", twaiMessage.identifier, twaiMessage.data_length_code, twaiMessage.extd, twaiMessage.rtr, twaiMessage.data[0]);
         #endif
 
@@ -76,7 +76,7 @@ public:
         xSemaphoreGive(_driverMutex);
         #endif
 
-        #ifdef VERY_VERBOSE
+        #if VERBOSENESS >= 3
         TRACE("TWAI Write Done");
         #endif
 
@@ -86,14 +86,14 @@ public:
     esp_err_t Receive(SCanMessage* message, TickType_t timeout)
     {
         //Use the read alerts function to wait for a message to be received (instead of locking on the twai_receive function).
-        #ifdef VERY_VERBOSE
+        #if VERBOSENESS >= 3
         TRACE("TWAI Wait");
         #endif
 
         uint32_t alerts;
         if (esp_err_t err = twai_read_alerts(&alerts, timeout) != ESP_OK)
         {
-            #ifdef VERY_VERBOSE
+            #if VERBOSENESS >= 3
             TRACE("TWAI Wait Timeout: %d", err);
             #endif
             return err;
@@ -105,7 +105,7 @@ public:
         //     return ESP_ERR_INVALID_RESPONSE;
         // }
 
-        #ifdef VERY_VERBOSE
+        #if VERBOSENESS >= 3
         TRACE("TWAI Read");
         #endif
 
@@ -127,7 +127,7 @@ public:
             return err;
         }
 
-        #ifdef VERY_VERBOSE
+        #if VERBOSENESS >= 3
         TRACE("TWAI Read Done: %x, %d, %d, %d, %x", twaiMessage.identifier, twaiMessage.data_length_code, twaiMessage.extd, twaiMessage.rtr, twaiMessage.data[0]);
         #endif
 
@@ -146,7 +146,7 @@ public:
         #ifdef USE_DRIVER_LOCK
         if (xSemaphoreTake(_driverMutex, timeout) != pdTRUE)
         {
-            #ifdef VERY_VERBOSE
+            #if VERBOSENESS >= 3
             TRACE("TWAI Status Timeout");
             #endif
             return ESP_ERR_TIMEOUT;
@@ -160,7 +160,7 @@ public:
         xSemaphoreGive(_driverMutex);
         #endif
 
-        #if defined(VERY_VERBOSE)
+        #if VERBOSENESS >= 3
         TRACE("TWAI Status: %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d",
             *status & TWAI_ALERT_TX_IDLE,
             *status & TWAI_ALERT_TX_SUCCESS,
