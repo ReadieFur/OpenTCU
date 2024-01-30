@@ -48,7 +48,9 @@
 
                     //#region Convert the timestamp to offsets
                     if (i == 0)
-                    parts[0] = 0;
+                    {
+                        parts[0] = 0;
+                    }
                     else
                     {
                         var prevLine = lines[i - 1];
@@ -58,6 +60,11 @@
                         var offset = time - prevTime;
                         parts[0] = offset;
                     }
+                    //#endregion
+
+                    //#region Remove newline character from the last part
+                    var lastPart = parts[parts.length - 1];
+                    parts[parts.length - 1] = lastPart.substring(0, lastPart.length - 1);
                     //#endregion
                         
                     data.push(parts);
@@ -122,6 +129,7 @@
                 }
                 if (i != fileData.length - 1)
                     data += "\n";
+                    // data += "|";
             }
             console.log(data);
 
