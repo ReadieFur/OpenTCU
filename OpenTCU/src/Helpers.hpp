@@ -13,7 +13,9 @@
 #include <driver/gpio.h>
 
 #ifdef DEBUG
+#include "Debug.hpp"
 #include <SmartLeds.h>
+#include <WebSerialLite.h>
 
 #define _LED_BRIGHTNESS_MULTIPLIER 0.05F
 #define _CONVERT_LED_VALUE(value) static_cast<uint8_t>(((value < 0.0) ? 0 : ((value > 1.0) ? 255 : (value * 255))) * _LED_BRIGHTNESS_MULTIPLIER)
