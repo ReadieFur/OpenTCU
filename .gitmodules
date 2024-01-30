@@ -4,3 +4,12 @@
 [submodule "SmartLeds"] ;Required to drive my dev board LED.
 	path = OpenTCU/components/SmartLeds-3.1.2
 	url = https://github.com/RoboticsBrno/SmartLeds.git
+[submodule "OpenTCU/components/AsyncTCP"]
+	path = OpenTCU/components/AsyncTCP
+	url = https://github.com/me-no-dev/AsyncTCP.git
+[submodule "OpenTCU/components/ESPAsyncWebServer"]
+	path = OpenTCU/components/ESPAsyncWebServer
+	url = https://github.com/me-no-dev/ESPAsyncWebServer.git
+[submodule "OpenTCU/components/WebSerialLite"]
+	path = OpenTCU/components/WebSerialLite
+	url = https://github.com/asjdf/WebSerialLite.git
