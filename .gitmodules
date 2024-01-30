@@ -1,6 +1,3 @@
 [submodule "esp32-mcp2515"]
 	path = OpenTCU/components/esp32-mcp2515
 	url = https://github.com/dedalqq/esp32-mcp2515.git
-[submodule "SmartLeds"] ;Required to drive my dev board LED.
-	path = OpenTCU/components/SmartLeds-3.1.2
-	url = https://github.com/RoboticsBrno/SmartLeds.git
