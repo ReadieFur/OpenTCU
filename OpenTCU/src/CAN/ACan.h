@@ -13,7 +13,7 @@ class ACan
 {
 protected:
     #ifdef USE_DRIVER_LOCK
-    volatile SemaphoreHandle_t driverMutex = xSemaphoreCreateMutex();
+    volatile SemaphoreHandle_t _driverMutex = xSemaphoreCreateMutex();
     #endif
 public:
     virtual ~ACan() = default;

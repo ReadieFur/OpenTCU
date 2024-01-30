@@ -19,8 +19,8 @@
 class BusMaster
 {
 private:
-    static bool initialized;
-    static spi_device_handle_t* spiDevice;
+    static bool _initialized;
+    static spi_device_handle_t* _spiDevice;
 
     struct SRelayTaskParameters
     {
@@ -92,9 +92,9 @@ public:
 
     static void Init()
     {
-        if (initialized)
+        if (_initialized)
             return;
-        initialized = true;
+        _initialized = true;
 
         #pragma region Setup SPI CAN
         //Configure the pins, all pins should be written low to start with.
@@ -156,11 +156,11 @@ public:
             .spics_io_num = SPI_CS_PIN,
             .queue_size = 2, //2 as per the specification: https://ww1.microchip.com/downloads/en/DeviceDoc/MCP2515-Stand-Alone-CAN-Controller-with-SPI-20001801J.pdf
         };
-        spiDevice = new spi_device_handle_t;
-        ASSERT(spi_bus_add_device(SPI2_HOST, &dev_config, spiDevice) == ESP_OK);
+        _spiDevice = new spi_device_handle_t;
+        ASSERT(spi_bus_add_device(SPI2_HOST, &dev_config, _spiDevice) == ESP_OK);
 
         #ifdef CONFIG_COMPILER_CXX_EXCEPTIONS
-        try { spiCAN = new SpiCan(*spiDevice, CAN_250KBPS, MCP_8MHZ, SPI_INT_PIN); }
+        try { spiCAN = new SpiCan(*_spiDevice, CAN_250KBPS, MCP_8MHZ, SPI_INT_PIN); }
         catch(const std::exception& e)
         {
             ERROR("%s", e.what());
@@ -231,9 +231,9 @@ public:
 
     static void Destroy()
     {
-        if (!initialized)
+        if (!_initialized)
             return;
-        initialized = false;
+        _initialized = false;
 
         delete spiCAN;
         spiCAN = nullptr;
@@ -241,13 +241,13 @@ public:
         delete twaiCAN;
         twaiCAN = nullptr;
 
-        spi_bus_remove_device(*spiDevice);
+        spi_bus_remove_device(*_spiDevice);
         spi_bus_free(SPI2_HOST);
-        delete spiDevice;
+        delete _spiDevice;
     }
 };
 
-bool BusMaster::initialized = false;
-spi_device_handle_t* BusMaster::spiDevice = nullptr;
+bool BusMaster::_initialized = false;
+spi_device_handle_t* BusMaster::_spiDevice = nullptr;
 SpiCan* BusMaster::spiCAN = nullptr;
 TwaiCan* BusMaster::twaiCAN = nullptr;
