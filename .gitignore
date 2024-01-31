@@ -20,3 +20,4 @@ Thumbs.db
 *.sync-conflict*
 .stfolder/
 .stignore
+OpenTCU/data/*.txt

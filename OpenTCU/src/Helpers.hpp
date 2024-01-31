@@ -82,8 +82,8 @@ public:
         vsnprintf(buffer, sizeof(buffer), format, args);
         ESP_LOG_LEVEL_LOCAL(level, tag, "%s", buffer);
         
-        #ifdef ENABLE_DEBUG_SERVER
-        if (level == ESP_LOG_VERBOSE)
+        #if defined(ENABLE_DEBUG_SERVER) && 0
+        if (level == ESP_LOG_DEBUG)
             WebSerial.printf("[%s] %s\n", tag, buffer);
         #endif
 
