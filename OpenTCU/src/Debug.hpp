@@ -26,7 +26,6 @@ private:
     static bool _initialized;
     static AsyncWebServer* _debugServer;
     static char* _injectRequestBodyBuffer;
-    static int _injectRequestBodyBufferLength;
 
     struct SCanInject
     {
@@ -98,176 +97,195 @@ private:
     }
     #endif
 
-    // static void InjectTask(void* param)
-    // {
-    //     const char* body = _injectRequestBodyBuffer.c_str();
-    //     _injectRequestBodyBuffer = String();
+    static void InjectTask(void* param)
+    {
+        #pragma region Process data
+        std::vector<SCanInject> messages;
 
-    //     #pragma region Process body
-    //     int lineCount = 0;
-    //     std::vector<SCanInject> messages;
-    //     char* line = strtok((char*)body, "\n");
-    //     while (line != NULL)
-    //     {
-    //         //Parse the line.
-    //         char* token = strtok(line, ",");
-    //         int tokenCount = 0;
-    //         int dataLength = -1;
+        char* linePtr; //Used to save the state between line calls.
+        char* tokenPtr; //Used to save the state between token calls (has to remain top-level).
+        char* line = strtok_r(_injectRequestBodyBuffer, "\n", &linePtr);
+        while (line != nullptr)
+        {
+            //Split the line on commas.
+            char* token = strtok_r(line, ",", &tokenPtr);
+            bool lineIsInvalid = false;
+            SCanInject message;
+            int dataLength = -1;
+            for (int i = 0; i < 14; i++)
+            {
+                if (token == nullptr)
+                {
+                    WARN("Skipping line, not enough tokens.");
+                    lineIsInvalid = true;
+                    break;
+                }
 
-    //         SCanInject message;
-    //         while (token != NULL)
-    //         {
-    //             //Line will have 14 tokens in the order of: delay(numeric), isSPI(numeric), id(hex), isExtended(numeric), isRemote(numeric), length(numeric), data[0](hex), data[1](hex), data[2](hex), data[3](hex), data[4](hex), data[5](hex), data[6](hex), data[7](hex)
-    //             switch (tokenCount)
-    //             {
-    //                 case 0:
-    //                     message.delay = atoi(token);
-    //                     break;
-    //                 case 1:
-    //                     message.isSPI = atoi(token);
-    //                     break;
-    //                 case 2:
-    //                     message.message.id = strtol(token, NULL, 16);
-    //                     break;
-    //                 case 3:
-    //                     message.message.isExtended = atoi(token);
-    //                     break;
-    //                 case 4:
-    //                     message.message.isRemote = atoi(token);
-    //                     break;
-    //                 case 5:
-    //                     message.message.length = atoi(token);
-    //                     dataLength = message.message.length;
-    //                     break;
-    //                 case 6:
-    //                     message.message.data[0] = strtol(token, NULL, 16);
-    //                     break;
-    //                 case 7:
-    //                     message.message.data[1] = strtol(token, NULL, 16);
-    //                     break;
-    //                 case 8:
-    //                     message.message.data[2] = strtol(token, NULL, 16);
-    //                     break;
-    //                 case 9:
-    //                     message.message.data[3] = strtol(token, NULL, 16);
-    //                     break;
-    //                 case 10:
-    //                     message.message.data[4] = strtol(token, NULL, 16);
-    //                     break;
-    //                 case 11:
-    //                     message.message.data[5] = strtol(token, NULL, 16);
-    //                     break;
-    //                 case 12:
-    //                     message.message.data[6] = strtol(token, NULL, 16);
-    //                     break;
-    //                 case 13:
-    //                     message.message.data[7] = strtol(token, NULL, 16);
-    //                     break;
-    //             }
+                //Process the token.
+                switch (i)
+                {
+                    case 0:
+                        message.delay = atoi(token);
+                        break;
+                    case 1:
+                        message.isSPI = atoi(token);
+                        break;
+                    case 2:
+                        message.message.id = strtol(token, NULL, 16);
+                        break;
+                    case 3:
+                        message.message.isExtended = atoi(token);
+                        break;
+                    case 4:
+                        message.message.isRemote = atoi(token);
+                        break;
+                    case 5:
+                        message.message.length = atoi(token);
+                        dataLength = message.message.length;
+                        break;
+                    case 6:
+                        message.message.data[0] = strtol(token, NULL, 16);
+                        break;
+                    case 7:
+                        message.message.data[1] = strtol(token, NULL, 16);
+                        break;
+                    case 8:
+                        message.message.data[2] = strtol(token, NULL, 16);
+                        break;
+                    case 9:
+                        message.message.data[3] = strtol(token, NULL, 16);
+                        break;
+                    case 10:
+                        message.message.data[4] = strtol(token, NULL, 16);
+                        break;
+                    case 11:
+                        message.message.data[5] = strtol(token, NULL, 16);
+                        break;
+                    case 12:
+                        message.message.data[6] = strtol(token, NULL, 16);
+                        break;
+                    case 13:
+                        message.message.data[7] = strtol(token, NULL, 16);
+                        break;
+                }
 
-    //             token = strtok(NULL, ",");
-    //             tokenCount++;
+                //Don't attempt to process more data than what is specified in the data length.
+                if (i >= dataLength + 5)
+                    break;
 
-    //             //Don't process more data than what is specified in the length.
-    //             if (tokenCount >= dataLength + 6)
-    //                 break;
-    //         }
-    //         messages.push_back(message);
-            
-    //         line = strtok(NULL, "\n");
-    //         lineCount++;
-    //     }
-    //     #pragma endregion
+                //Move to the next token.
+                token = strtok_r(nullptr, ",", &tokenPtr);
+            }
 
-    //     #pragma region Send messages
-    //     DEBUG("Injecting %d messages.", messages.size());
+            //Prepare the next line.
+            line = strtok_r(nullptr, "\n", &linePtr);
 
-    //     //Raise task priority at this stage.
-    //     vTaskPrioritySet(NULL, RELAY_TASK_PRIORITY);
+            if (!lineIsInvalid)
+                messages.push_back(message);
+        }
+        #pragma endregion
 
-    //     #ifdef INJECT_PAUSES_RELAY_TASKS
-    //     //Stop the BusMaster tasks.
-    //     vTaskSuspend(BusMaster::spiToTwaiTaskHandle);
-    //     vTaskSuspend(BusMaster::twaiToSpiTaskHandle);
-    //     #else
-    //     for (int i = 0; i < messages.size(); i++)
-    //         BusMaster::idsToDrop.push_back(messages[i].message.id);
-    //     #endif
+        #pragma region Send messages
+        DEBUG("Injecting %d messages...", messages.size());
 
-    //     //Send the messages.
-    //     for (int i = 0; i < messages.size(); i++)
-    //     {
-    //         SCanInject message = messages[i];
-    //         if (message.delay > 0)
-    //             vTaskDelay(message.delay);
+        //Raise task priority at this stage.
+        vTaskPrioritySet(NULL, RELAY_TASK_PRIORITY);
 
-    //         TRACE("Injecting message: %d, %d, %x, %d, %d, %d, %x, %x, %x, %x, %x, %x, %x, %x",
-    //             message.delay,
-    //             message.isSPI,
-    //             message.message.id,
-    //             message.message.isExtended,
-    //             message.message.isRemote,
-    //             message.message.length,
-    //             message.message.data[0],
-    //             message.message.data[1],
-    //             message.message.data[2],
-    //             message.message.data[3],
-    //             message.message.data[4],
-    //             message.message.data[5],
-    //             message.message.data[6],
-    //             message.message.data[7]
-    //         );
+        #ifdef INJECT_PAUSES_RELAY_TASKS
+        //Stop the BusMaster tasks.
+        vTaskSuspend(BusMaster::spiToTwaiTaskHandle);
+        vTaskSuspend(BusMaster::twaiToSpiTaskHandle);
+        #else
+        for (int i = 0; i < messages.size(); i++)
+            BusMaster::idsToDrop.push_back(messages[i].message.id);
+        #endif
 
-    //         esp_err_t sendResult;
-    //         if (message.isSPI)
-    //             sendResult = BusMaster::spiCan->Send(message.message, CAN_TIMEOUT_TICKS);
-    //         else
-    //             sendResult = BusMaster::twaiCan->Send(message.message, CAN_TIMEOUT_TICKS);
-    //         if (sendResult != ESP_OK)
-    //             WARN("Failed to inject message: %x", sendResult);
-    //     }
+        //Send the messages.
+        for (int i = 0; i < messages.size(); i++)
+        {
+            SCanInject message = messages[i];
+            if (message.delay > 0)
+                vTaskDelay(message.delay);
 
-    //     #ifdef INJECT_PAUSES_RELAY_TASKS
-    //     //Resume the BusMaster tasks.
-    //     vTaskResume(BusMaster::spiToTwaiTaskHandle);
-    //     vTaskResume(BusMaster::twaiToSpiTaskHandle);
-    //     #else
-    //     BusMaster::idsToDrop.clear();
-    //     #endif
+            TRACE("Injecting message: %d, %d, %x, %d, %d, %d, %x, %x, %x, %x, %x, %x, %x, %x",
+                message.delay,
+                message.isSPI,
+                message.message.id,
+                message.message.isExtended,
+                message.message.isRemote,
+                message.message.length,
+                message.message.data[0],
+                message.message.data[1],
+                message.message.data[2],
+                message.message.data[3],
+                message.message.data[4],
+                message.message.data[5],
+                message.message.data[6],
+                message.message.data[7]
+            );
 
-    //     //Lower task priority at this stage.
-    //     vTaskPrioritySet(NULL, 1);
+            esp_err_t sendResult;
+            if (message.isSPI)
+                sendResult = BusMaster::spiCan->Send(message.message, CAN_TIMEOUT_TICKS);
+            else
+                sendResult = BusMaster::twaiCan->Send(message.message, CAN_TIMEOUT_TICKS);
+            if (sendResult != ESP_OK)
+                WARN("Failed to inject message: %x", sendResult);
+        }
 
-    //     DEBUG("Finished injecting messages.");
-    //     #pragma endregion
+        #ifdef INJECT_PAUSES_RELAY_TASKS
+        //Resume the BusMaster tasks.
+        vTaskResume(BusMaster::spiToTwaiTaskHandle);
+        vTaskResume(BusMaster::twaiToSpiTaskHandle);
+        #else
+        BusMaster::idsToDrop.clear();
+        #endif
 
-    //     vTaskDelete(NULL);
-    // }
+        //Lower task priority at this stage.
+        vTaskPrioritySet(NULL, 1);
+
+        DEBUG("Finished injecting messages.");
+        #pragma endregion
+
+        delete[] _injectRequestBodyBuffer;
+        _injectRequestBodyBuffer = nullptr;
+        vTaskDelete(NULL);
+    }
 
     static void HandleInject(AsyncWebServerRequest* request)
     {
-        DEBUG("Got inject request.");
-        Dump("Body: %s", _injectRequestBodyBuffer);
+        //Triggers when the body has been fully received.
+        xTaskCreate(InjectTask, "InjectTask", 4096, NULL, 1, NULL);
         request->send(202);
-        // xTaskCreate(InjectTask, "InjectTask", 4096, NULL, 1, NULL);
     }
 
     static void HandleInjectDataPart(AsyncWebServerRequest* request, uint8_t* data, size_t len, size_t index, size_t total)
     {
-        TRACE("Got inject data part.");
-        if (_injectRequestBodyBuffer == nullptr)
+        //Start of body.
+        if (!index)
         {
-            _injectRequestBodyBuffer = new char[len + 1];
-            _injectRequestBodyBufferLength = 0;
+            if (_injectRequestBodyBuffer)
+            {
+                WARN("Inject request already in progress.");
+                request->send(406);
+                return;
+            }
+
+            _injectRequestBodyBuffer = new char[total + 1];
+            if (!_injectRequestBodyBuffer)
+            {
+                ERROR("Failed to allocate memory for inject request body.");
+                request->send(500);
+                return;
+            }
         }
 
-        Dump("Part: %s", _injectRequestBodyBuffer);
-        memcpy(_injectRequestBodyBuffer + _injectRequestBodyBufferLength, data, len);
-        _injectRequestBodyBufferLength += len;
+        //Body data.
+        memcpy(_injectRequestBodyBuffer + index, data, len);
 
-        //Only terminate the string if this is the last part.
-        if (index + 1 == total)
-            _injectRequestBodyBuffer[_injectRequestBodyBufferLength] = '\0';
+        //End of body.
+        if (index + len == total)
+            _injectRequestBodyBuffer[total] = '\0';
     }
 
     static void InitTask(void* param)
@@ -349,36 +367,6 @@ private:
         _debugServer->on("/inject", HTTP_GET, [](AsyncWebServerRequest* request) { request->send(SPIFFS, "/inject.html", String(), false); });
         //https://github.com/me-no-dev/ESPAsyncWebServer/issues/123
         _debugServer->on("/inject", HTTP_POST, HandleInject, NULL, HandleInjectDataPart);
-
-        _debugServer->on(
-            "/postEndpoint",
-            HTTP_POST,
-            [](AsyncWebServerRequest *request) {
-                //get all args.
-                int params = request->params();
-                for (int i = 0; i < params; i++) {
-                    AsyncWebParameter* p = request->getParam(i);
-                    if (p->isFile()) { //p->isPost() is also true
-                        Dump("POST[%s]: %s, size: %u", p->name().c_str(), p->value().c_str(), p->size());
-                    } else if (p->isPost()) {
-                        Dump("POST[%s]: %s", p->name().c_str(), p->value().c_str());
-                    } else {
-                        Dump("GET[%s]: %s", p->name().c_str(), p->value().c_str());
-                    }
-                }
-                request->send(200);
-            },
-            NULL,
-            [](AsyncWebServerRequest* request, uint8_t* data, size_t len, size_t index, size_t total) {
-                if (!index) {
-                    Dump("BodyStart: %u B", total);
-                }
-                Dump("%s", (const char*)data);
-                if (index + len == total) {
-                    Dump("BodyEnd: %u B", total);
-                }
-            }
-        );
         #pragma endregion
 
         _debugServer->begin();
@@ -431,6 +419,5 @@ public:
 bool Debug::_initialized = false;
 AsyncWebServer* Debug::_debugServer = nullptr;
 char* Debug::_injectRequestBodyBuffer = nullptr;
-int Debug::_injectRequestBodyBufferLength = 0;
 QueueHandle_t Debug::canDumpQueue = xQueueCreate(100, sizeof(Debug::SCanDump));
 #endif
