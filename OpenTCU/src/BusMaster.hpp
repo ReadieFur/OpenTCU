@@ -41,7 +41,7 @@ private:
         if (std::find(idsToDrop.begin(), idsToDrop.end(), message->id) != idsToDrop.end())
         {
             TRACE("Dropping message: %d", message->id);
-            return ESP_FAIL;
+            return ESP_ERR_NOT_SUPPORTED;
         }
         #endif
 
@@ -65,9 +65,13 @@ private:
             // TRACE("Waiting for message");
             if (esp_err_t receiveResult = canA->Receive(&message, CAN_TIMEOUT_TICKS) == ESP_OK)
             {
-                if (esp_err_t interceptResult = InterceptMessage(&message) != ESP_OK)
+                switch (esp_err_t interceptResult = InterceptMessage(&message))
                 {
-                    ERROR("Failed to process message (%x): %x", message.id, interceptResult);
+                case ESP_OK:
+                case ESP_ERR_NOT_SUPPORTED:
+                    break;
+                default:
+                    ERROR("Failed to process message '%x': %x", message.id, interceptResult)
                     continue;
                 }
 

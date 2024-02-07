@@ -107,6 +107,8 @@ private:
         char* line = strtok_r(_injectRequestBodyBuffer, "\n", &linePtr);
         while (line != nullptr)
         {
+            TRACE("Processing line: %s", line);
+
             //Split the line on commas.
             char* token = strtok_r(line, ",", &tokenPtr);
             bool lineIsInvalid = false;
@@ -226,9 +228,9 @@ private:
 
             esp_err_t sendResult;
             if (message.isSPI)
-                sendResult = BusMaster::spiCan->Send(message.message, CAN_TIMEOUT_TICKS);
-            else
                 sendResult = BusMaster::twaiCan->Send(message.message, CAN_TIMEOUT_TICKS);
+            else
+                sendResult = BusMaster::spiCan->Send(message.message, CAN_TIMEOUT_TICKS);
             if (sendResult != ESP_OK)
                 WARN("Failed to inject message: %x", sendResult);
         }
