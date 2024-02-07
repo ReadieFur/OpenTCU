@@ -8,7 +8,7 @@
 <body>
     <label for="file_picker">Select dump</label><input type="file" id="file_picker" accept=".txt" name="Select dump"/>
     <br><br>
-    <label for="channel">Channel filter</label>
+    <label for="channel">Channel filter (selected is kept)</label>
     <form id="channel">
         <input type="radio" id="channel_both" name="channel" checked><label for="channel_both">SPI & TWAI</label><br>
         <input type="radio" id="channel_spi" name="channel"><label for="channel_spi">SPI</label><br>
@@ -27,6 +27,7 @@
         var channelTwai = document.getElementById("channel_twai");
         var filePicker = document.getElementById("file_picker");
         var fileData = null;
+        var mutData = null;
 
         filePicker.addEventListener("change", function(event)
         {
@@ -78,14 +79,14 @@
         function FilterByChannel(id)
         {
             var filtered = [];
-            for (var i = 0; i < fileData.length; i++)
+            for (var i = 0; i < mutData.length; i++)
             {
-                var entry = fileData[i];
+                var entry = mutData[i];
                 if (entry[1] == id)
                     continue;
                 filtered.push(entry);
             }
-            fileData = filtered;
+            mutData = filtered;
         }
 
         inject.addEventListener("click", function(event)
@@ -95,6 +96,7 @@
                 alert("Please select a file");
                 return;
             }
+            mutData = fileData;
 
             //#region Filter by channel
             if (channelBoth.checked)
@@ -111,15 +113,15 @@
                 //Remove all entries where [1] is 1.
                 FilterByChannel(1);
             }
-            console.table(fileData);
+            console.table(mutData);
             //#endregion
 
             //#region Inject
             //Convert data to a string.
             var data = "";
-            for (var i = 0; i < fileData.length; i++)
+            for (var i = 0; i < mutData.length; i++)
             {
-                var entry = fileData[i];
+                var entry = mutData[i];
                 for (var j = 0; j < entry.length; j++)
                 {
                     var value = entry[j];
@@ -127,9 +129,8 @@
                     if (j != entry.length - 1)
                         data += ",";
                 }
-                if (i != fileData.length - 1)
+                if (i != mutData.length - 1)
                     data += "\n";
-                    // data += "|";
             }
             console.log(data);
 
@@ -140,9 +141,7 @@
             xhr.onreadystatechange = function()
             {
                 if (xhr.readyState == 4 && xhr.status == 200)
-                {
                     console.log(xhr.responseText);
-                }
             };
             xhr.send(data);
             //#endregion
