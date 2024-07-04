@@ -1,7 +1,7 @@
 #ifdef _DEBUG
 #include "Debug.hpp"
 #endif
-#include "Helpers.hpp" //Include this first so that it takes priority of the ESP-IDF logging macros.
+#include "Helpers.hpp" //Include this first so that it takes priority over the ESP-IDF logging macros.
 #include <freertos/FreeRTOS.h> //Has to always be the first included FreeRTOS related header.
 #include "BusMaster.hpp"
 
@@ -20,9 +20,7 @@ void setup()
     BusMaster::Start();
 
     //Signal that the program has setup.
-    Helpers::SetLed(false);
-
-    //app_main IS allowed to return according to the ESP32 documentation (other FreeRTOS tasks will continue to run).
+    Helpers::SetLed(0, 1, 0);
 }
 
 #ifdef ARDUINO
@@ -30,13 +28,10 @@ void loop()
 {
     vTaskDelete(NULL);
 }
-#endif
-
-#ifndef ARDUINO
+#else
 extern "C" void app_main()
 {
     setup();
-    // while (true)
-    //     loop();
+    //app_main IS allowed to return as per the ESP32 documentation (other FreeRTOS tasks will continue to run).
 }
 #endif
