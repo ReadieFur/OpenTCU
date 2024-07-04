@@ -1,11 +1,9 @@
 #pragma once
 
-#ifdef _DEBUG
-#define LOG_LEVEL ESP_LOG_DEBUG
-#endif
-
-#ifdef _TEST
+#if defined(_TEST)
 #define LOG_LEVEL ESP_LOG_VERBOSE
+#elif defined(_DEBUG)
+#define LOG_LEVEL ESP_LOG_DEBUG
 #endif
 
 #if defined(_DEBUG) || defined(_TEST)
@@ -16,7 +14,7 @@
 #endif
 
 #include <esp_log.h>
-#include <freertos/FreeRTOS.h>
+#include <freertos/FreeRTOS.h> //Has to always be the first included FreeRTOS related header.
 #include <freertos/portmacro.h>
 #include <driver/gpio.h>
 
@@ -27,6 +25,26 @@
 
 #define _LED_BRIGHTNESS_MULTIPLIER 0.05F
 #define _CONVERT_LED_VALUE(value) static_cast<uint8_t>(((value < 0.0) ? 0 : ((value > 1.0) ? 255 : (value * 255))) * _LED_BRIGHTNESS_MULTIPLIER)
+#endif
+
+#define LOG_WRAPPER(level, format, ...) Helpers::Log(level, pcTaskGetTaskName(NULL), format, ##__VA_ARGS__);
+
+#define ERROR(format, ...) LOG_WRAPPER(ESP_LOG_ERROR, format, ##__VA_ARGS__);
+#define WARN(format, ...) LOG_WRAPPER(ESP_LOG_WARN, format, ##__VA_ARGS__);
+#define INFO(format, ...) LOG_WRAPPER(ESP_LOG_INFO, format, ##__VA_ARGS__);
+
+#ifdef _DEBUG
+#define DEBUG(format, ...) LOG_WRAPPER(ESP_LOG_DEBUG, "[%s:%d] " format, __FILE__, __LINE__, ##__VA_ARGS__);
+#define TRACE(format, ...) LOG_WRAPPER(ESP_LOG_VERBOSE, "[%s:%d] " format, __FILE__, __LINE__, ##__VA_ARGS__);
+#else
+#define DEBUG(format, ...)
+#define TRACE(format, ...)
+#endif
+
+#ifdef _DEBUG
+#define ASSERT(condition) Helpers::Assert(pcTaskGetTaskName(NULL), condition, "[%s:%d] Assertion failed: %s", __FILE__, __LINE__, #condition);
+#else
+#define ASSERT(condition) Helpers::Assert(pcTaskGetTaskName(NULL), condition, "Assertion failed: %s", #condition);
 #endif
 
 class Helpers
@@ -114,24 +132,4 @@ public:
 
 #ifdef _DEBUG
 SmartLed Helpers::_led(LED_WS2812, 1, LED_PIN, 0, DoubleBuffer);
-#endif
-
-#define LOG_WRAPPER(level, format, ...) Helpers::Log(level, pcTaskGetTaskName(NULL), format, ##__VA_ARGS__);
-
-#define ERROR(format, ...) LOG_WRAPPER(ESP_LOG_ERROR, format, ##__VA_ARGS__);
-#define WARN(format, ...) LOG_WRAPPER(ESP_LOG_WARN, format, ##__VA_ARGS__);
-#define INFO(format, ...) LOG_WRAPPER(ESP_LOG_INFO, format, ##__VA_ARGS__);
-
-#ifdef _DEBUG
-#define DEBUG(format, ...) LOG_WRAPPER(ESP_LOG_DEBUG, "[%s:%d] " format, __FILE__, __LINE__, ##__VA_ARGS__);
-#define TRACE(format, ...) LOG_WRAPPER(ESP_LOG_VERBOSE, "[%s:%d] " format, __FILE__, __LINE__, ##__VA_ARGS__);
-#else
-#define DEBUG(format, ...)
-#define TRACE(format, ...)
-#endif
-
-#ifdef _DEBUG
-#define ASSERT(condition) Helpers::Assert(pcTaskGetTaskName(NULL), condition, "[%s:%d] Assertion failed: %s", __FILE__, __LINE__, #condition);
-#else
-#define ASSERT(condition) Helpers::Assert(pcTaskGetTaskName(NULL), condition, "Assertion failed: %s", #condition);
 #endif

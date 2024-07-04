@@ -16,7 +16,7 @@
 #include <vector>
 
 // #define ENABLE_CAN_DUMP
-#define ENABLE_POWER_CHECK 0 //Undefine to disable power check, 0 for task based, 1 for interrupt based.
+// #define ENABLE_POWER_CHECK 0 //Undefine to disable power check, 0 for task based, 1 for interrupt based.
 #define ENABLE_DEBUG_SERVER
 // #define INJECT_PAUSES_RELAY_TASKS
 
