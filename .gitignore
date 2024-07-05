@@ -21,3 +21,4 @@ Thumbs.db
 .stfolder/
 .stignore
 OpenTCU/data/*.txt
+*.chitubox
