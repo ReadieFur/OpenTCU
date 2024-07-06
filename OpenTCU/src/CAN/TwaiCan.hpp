@@ -17,7 +17,7 @@ private:
 public:
     TwaiCan(twai_general_config_t generalConfig, twai_timing_config_t timingConfig, twai_filter_config_t filterConfig) : ACan()
     {
-        #ifdef CONFIG_COMPILER_CXX_EXCEPTIONS
+        #if defined(CONFIG_COMPILER_CXX_EXCEPTIONS) && 0
         if (_initialized)
             throw std::runtime_error("Singleton class TwaiCan can only be initialized once.");
         _initialized = true;
@@ -31,8 +31,8 @@ public:
         if (esp_err_t err = twai_reconfigure_alerts(TWAI_ALERT_RX_DATA, NULL) != ESP_OK)
             throw std::runtime_error("Failed to reconfigure TWAI alerts: " + std::to_string(err));
         #else
-        ASSERT(initialized == false);
-        initialized = true;
+        ASSERT(_initialized == false);
+        _initialized = true;
         ASSERT(twai_driver_install(&generalConfig, &timingConfig, &filterConfig) == ESP_OK);
         ASSERT(twai_start() == ESP_OK);
         ASSERT(twai_reconfigure_alerts(TWAI_ALERT_RX_DATA, NULL) == ESP_OK);
