@@ -10,8 +10,8 @@
 #include "CAN/SpiCan.hpp"
 #include "CAN/TwaiCan.hpp"
 #include "Helpers.hpp"
-#ifdef _DEBUG
 #include "Debug.hpp"
+#ifdef _DEBUG
 #include <vector>
 #endif
 
@@ -55,7 +55,7 @@ private:
         ACan* canB = params->canB;
         delete params;
 
-        #if defined(ENABLE_SERIAL_CAN_DUMP) || defined(ENABLE_UWP_CAN_DUMP)
+        #ifdef ENABLE_CAN_DUMP
         bool isSPI = pcTaskGetTaskName(NULL)[0] == 'S';
         #endif
 
@@ -86,7 +86,7 @@ private:
                     TRACE("Relayed message: %d, %d", message.id, message.length);
                 }
 
-                #if defined(ENABLE_SERIAL_CAN_DUMP) || defined(ENABLE_UWP_CAN_DUMP)
+                #ifdef ENABLE_CAN_DUMP
                 Debug::SCanDump dump = {
                     .timestamp = xTaskGetTickCount(),
                     .isSPI = isSPI,

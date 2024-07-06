@@ -29,7 +29,6 @@
 
 #define LOG_WRAPPER(level, format, ...) Helpers::Log(level, pcTaskGetTaskName(NULL), format, ##__VA_ARGS__);
 
-#define FATAL(format, ...) LOG_WRAPPER(ESP_LOG_ERROR, format, ##__VA_ARGS__); abort();
 #define ERROR(format, ...) LOG_WRAPPER(ESP_LOG_ERROR, format, ##__VA_ARGS__);
 #define WARN(format, ...) LOG_WRAPPER(ESP_LOG_WARN, format, ##__VA_ARGS__);
 #define INFO(format, ...) LOG_WRAPPER(ESP_LOG_INFO, format, ##__VA_ARGS__);
@@ -90,33 +89,6 @@ public:
 
     static void Log(esp_log_level_t level, char* tag, const char* format, ...)
     {
-        #ifdef _DEBUG
-        Rgb previousColor = _led[0];
-        Rgb statusColor;
-        switch (level)
-        {
-        case ESP_LOG_ERROR:
-            statusColor = Rgb{_CONVERT_LED_VALUE(1), 0, 0};
-            break;
-        case ESP_LOG_WARN:
-            statusColor = Rgb{_CONVERT_LED_VALUE(1), _CONVERT_LED_VALUE(1), 0};
-            break;
-        case ESP_LOG_INFO:
-            statusColor = Rgb{0, _CONVERT_LED_VALUE(0.75), _CONVERT_LED_VALUE(1)};
-            break;
-        case ESP_LOG_DEBUG:
-            statusColor = Rgb{_CONVERT_LED_VALUE(0.75), 0, _CONVERT_LED_VALUE(1)};
-            break;
-        case ESP_LOG_VERBOSE:
-            statusColor = Rgb{0, _CONVERT_LED_VALUE(1), _CONVERT_LED_VALUE(0.5)};
-            break;
-        default:
-            statusColor = previousColor;
-            break;
-        }
-        SetLed(statusColor.r, statusColor.g, statusColor.b);
-        #endif
-
         va_list args;
         va_start(args, format);
         
@@ -126,24 +98,18 @@ public:
         vsnprintf(buffer, sizeof(buffer), format, args);
         ESP_LOG_LEVEL_LOCAL(level, tag, "%s", buffer);
         
-        #if defined(ENABLE_WIFI_SERVER) && 0
+        #if defined(ENABLE_DEBUG_SERVER) && 0
         if (level == ESP_LOG_DEBUG)
             WebSerial.printf("[%s] %s\n", tag, buffer);
         #endif
 
         va_end(args);
-
-        #if _DEBUG
-        SetLed(previousColor.r, previousColor.g, previousColor.b);
-        #endif
     }
 
     static void Assert(char* tag, bool condition, const char* format, ...)
     {
         if (!condition)
         {
-            SetLed(1, 0, 0);
-
             va_list args;
             va_start(args, format);
             
@@ -154,6 +120,8 @@ public:
             ESP_LOG_LEVEL_LOCAL(ESP_LOG_ERROR, tag, "%s", buffer);
 
             va_end(args);
+
+            SetLed(1, 0, 0);
             
             abort();
         }
