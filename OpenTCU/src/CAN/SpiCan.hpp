@@ -69,7 +69,7 @@ public:
 
         _mcp2515 = new MCP2515(&this->_device);
 
-        #ifdef CONFIG_COMPILER_CXX_EXCEPTIONS
+        #if defined(CONFIG_COMPILER_CXX_EXCEPTIONS) && 0
         if (uint8_t res = _mcp2515->reset() != MCP2515::ERROR_OK)
             throw std::runtime_error("Failed to reset MCP2515: " + std::to_string(res));
         if (uint8_t res = _mcp2515->setBitrate(speed, clock) != MCP2515::ERROR_OK)
@@ -77,15 +77,15 @@ public:
         if (uint8_t res = _mcp2515->setNormalMode() != MCP2515::ERROR_OK) //TODO: Allow the user to change this setting.
             throw std::runtime_error("Failed to set normal mode: " + std::to_string(res));
         #else
-        ASSERT(mcp2515->reset() == MCP2515::ERROR_OK);
-        ASSERT(mcp2515->setBitrate(speed, clock) == MCP2515::ERROR_OK);
-        ASSERT(mcp2515->setNormalMode() == MCP2515::ERROR_OK);
+        ASSERT(_mcp2515->reset() == MCP2515::ERROR_OK);
+        ASSERT(_mcp2515->setBitrate(speed, clock) == MCP2515::ERROR_OK);
+        ASSERT(_mcp2515->setNormalMode() == MCP2515::ERROR_OK);
         #endif
 
         //It seems like this method returns an error all of the time, however it is safe to call again. If something truly bad happens we will likely throw in the next stage.
         //https://esp32.com/viewtopic.php?t=13167
         gpio_install_isr_service(0);
-        #if CONFIG_COMPILER_CXX_EXCEPTIONS
+        #if defined(CONFIG_COMPILER_CXX_EXCEPTIONS) && 0
         if (esp_err_t res = gpio_isr_handler_add(interruptPin, OnInterrupt, this) != ESP_OK)
             throw std::runtime_error("Failed to add ISR handler: " + std::to_string(res));
         #else

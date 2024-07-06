@@ -58,7 +58,6 @@ private:
 public:
     static void ConfigureLED()
     {
-        #ifndef DEBUG
         gpio_config_t ledPinConfig = {
             .pin_bit_mask = 1ULL << LED_PIN,
             .mode = GPIO_MODE_OUTPUT,
@@ -67,8 +66,6 @@ public:
             .intr_type = GPIO_INTR_DISABLE
         };
         assert(gpio_config(&ledPinConfig) == ESP_OK);
-        SetLed(false);
-        #endif
     }
 
     static void SetLed(bool on)

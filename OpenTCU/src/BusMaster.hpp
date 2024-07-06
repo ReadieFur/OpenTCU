@@ -181,7 +181,7 @@ public:
         };
         ASSERT(spi_bus_add_device(SPI2_HOST, &dev_config, &_spiDevice) == ESP_OK);
 
-        #ifdef CONFIG_COMPILER_CXX_EXCEPTIONS
+        #if defined(CONFIG_COMPILER_CXX_EXCEPTIONS) && 0
         try { spiCan = new SpiCan(_spiDevice, CAN_250KBPS, MCP_8MHZ, SPI_INT_PIN); }
         catch(const std::exception& e)
         {
@@ -189,7 +189,7 @@ public:
             ASSERT(false);
         }
         #else
-        spiCAN = new SpiCan(*spiDevice, CAN_250KBPS, MCP_8MHZ, SPI_INT_PIN);
+        spiCan = new SpiCan(_spiDevice, CAN_250KBPS, MCP_8MHZ, SPI_INT_PIN);
         #endif
         #pragma endregion
 
@@ -212,7 +212,7 @@ public:
         ASSERT(gpio_config(&txPinConfig) == ESP_OK);
         ASSERT(gpio_config(&rxPinConfig) == ESP_OK);
 
-        #ifdef CONFIG_COMPILER_CXX_EXCEPTIONS
+        #if defined(CONFIG_COMPILER_CXX_EXCEPTIONS) && 0
         try
         {
             twaiCan = new TwaiCan(
@@ -231,7 +231,7 @@ public:
             ASSERT(false);
         }
         #else
-        twaiCAN = new TwaiCan(
+        twaiCan = new TwaiCan(
             TWAI_GENERAL_CONFIG_DEFAULT(
                 TWAI_TX_PIN,
                 TWAI_RX_PIN,
