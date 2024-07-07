@@ -10,7 +10,6 @@
 #include "CAN/SpiCan.hpp"
 #include "CAN/TwaiCan.hpp"
 #include "Helpers.hpp"
-#include "Debug.hpp"
 #ifdef _DEBUG
 #include <vector>
 #endif
@@ -55,7 +54,7 @@ private:
         ACan* canB = params->canB;
         delete params;
 
-        #ifdef ENABLE_CAN_DUMP
+        #if defined(ENABLE_SERIAL_CAN_DUMP) || (defined(ENABLE_UWP_SERVER) && defined(ENABLE_UWP_CAN_DUMP))
         bool isSPI = pcTaskGetTaskName(NULL)[0] == 'S';
         #endif
 
@@ -86,13 +85,13 @@ private:
                     TRACE("Relayed message: %d, %d", message.id, message.length);
                 }
 
-                #ifdef ENABLE_CAN_DUMP
-                Debug::SCanDump dump = {
+                #if defined(ENABLE_SERIAL_CAN_DUMP) || (defined(ENABLE_UWP_SERVER) && defined(ENABLE_UWP_CAN_DUMP))
+                SCanDump dump = {
                     .timestamp = xTaskGetTickCount(),
                     .isSPI = isSPI,
                     .message = message
                 };
-                if (BaseType_t queueResult = xQueueSend(Debug::canDumpQueue, &dump, 0) != pdTRUE)
+                if (BaseType_t queueResult = xQueueSend(canDumpQueue, &dump, 0) != pdTRUE)
                 {
                     WARN("Failed to add to dump queue: %d", queueResult);
                 }
@@ -111,6 +110,17 @@ public:
     static TaskHandle_t twaiToSpiTaskHandle;
     #ifdef _DEBUG
     static std::vector<uint32_t> idsToDrop;
+    #endif
+
+    #if defined(ENABLE_SERIAL_CAN_DUMP) || (defined(ENABLE_UWP_SERVER) && defined(ENABLE_UWP_CAN_DUMP))
+    static QueueHandle_t canDumpQueue;
+
+    struct SCanDump
+    {
+        uint32_t timestamp;
+        bool isSPI;
+        SCanMessage message;
+    };
     #endif
 
     static void Init()
@@ -295,4 +305,7 @@ TaskHandle_t BusMaster::spiToTwaiTaskHandle;
 TaskHandle_t BusMaster::twaiToSpiTaskHandle;
 #ifdef _DEBUG
 std::vector<uint32_t> BusMaster::idsToDrop;
+#endif
+#if defined(ENABLE_SERIAL_CAN_DUMP) || (defined(ENABLE_UWP_SERVER) && defined(ENABLE_UWP_CAN_DUMP))
+QueueHandle_t BusMaster::canDumpQueue = xQueueCreate(100, sizeof(BusMaster::SCanDump));
 #endif
