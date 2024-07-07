@@ -109,7 +109,7 @@ namespace CANScrubber
                 string hexData = string.Join(" ", dataParts).Replace("\r", "");
                 long dataAsLong = long.Parse(string.Join("", dataParts), System.Globalization.NumberStyles.HexNumber);
                 long[] longs = dataParts.Select(s => long.Parse(s, System.Globalization.NumberStyles.HexNumber)).ToArray();
-                string dataString = $"#:{hexData}\nll:{string.Join(" ", longs)}\nl:{dataAsLong}";
+                string dataString = $"#:{hexData}\n#D:{string.Join(" ", longs)}\nL:{dataAsLong}";
 
                 Row row = new Row()
                 {
