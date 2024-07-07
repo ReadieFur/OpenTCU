@@ -32,7 +32,7 @@ private:
         SCanMessage message;
     };
 
-    #if defined(ENABLE_SERIAL_CAN_DUMP) || (defined(ENABLE_UWP_SERVER) && defined(ENABLE_UWP_CAN_DUMP))
+    #if (defined(ENABLE_SERIAL_CAN_DUMP) && !defined(CAN_DUMP_IMMEDIATE)) || (defined(ENABLE_UWP_SERVER) && defined(ENABLE_UWP_CAN_DUMP))
     static void CanDump(void* arg)
     {
         #if 0
@@ -53,7 +53,7 @@ private:
             BusMaster::SCanDump dump;
             if (xQueueReceive(BusMaster::canDumpQueue, &dump, pdMS_TO_TICKS(200)) == pdTRUE)
             {
-                #if ENABLE_SERIAL_CAN_DUMP
+                #if defined(ENABLE_SERIAL_CAN_DUMP) && !defined(CAN_DUMP_IMMEDIATE)
                 printf("[CAN]%d,%d,%x,%d,%d,%d,%x,%x,%x,%x,%x,%x,%x,%x\n",
                     dump.timestamp,
                     dump.isSPI,
@@ -333,7 +333,7 @@ private:
 
         // esp_log_level_set("DUMP", DEBUG_LOG_LEVEL);
 
-        #if defined(ENABLE_SERIAL_CAN_DUMP) || (defined(ENABLE_UWP_SERVER) && defined(ENABLE_UWP_CAN_DUMP))
+        #if (defined(ENABLE_SERIAL_CAN_DUMP) && !defined(CAN_DUMP_IMMEDIATE)) || (defined(ENABLE_UWP_SERVER) && defined(ENABLE_UWP_CAN_DUMP))
         xTaskCreate(CanDump, "CanDump", 4096, NULL, 1, NULL);
         #endif
 
