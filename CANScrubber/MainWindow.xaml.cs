@@ -41,8 +41,8 @@ namespace CANScrubber
         {
             //Open file picker
             Microsoft.Win32.OpenFileDialog dlg = new Microsoft.Win32.OpenFileDialog();
-            dlg.DefaultExt = ".txt";
-            dlg.Filter = "CAN Dump Files (*.txt)|*.txt";
+            dlg.DefaultExt = ".candump";
+            dlg.Filter = "CAN Dump Files (*.candump)|*.candump";
             bool? result = dlg.ShowDialog();
             if (result == true)
             {
