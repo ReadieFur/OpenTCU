@@ -8,7 +8,7 @@ if (-not (Test-Path $folderPath)) {
 
 # Generate a random file name with a timestamp
 $timestamp = Get-Date -Format "yyyyMMdd_HHmmss"
-$randomFileName = "output_$timestamp.candump"
+$randomFileName = "output_$timestamp.csv"
 $outputFilePath = Join-Path $folderPath $randomFileName
 
 # Display the generated file path
