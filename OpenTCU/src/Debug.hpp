@@ -14,11 +14,7 @@
 #include <SPIFFS.h>
 #include "BusMaster.hpp"
 #include <vector>
-
-// #define ENABLE_CAN_DUMP
-// #define ENABLE_POWER_CHECK 0 //Undefine to disable power check, 0 for task based, 1 for interrupt based.
-#define ENABLE_DEBUG_SERVER
-// #define INJECT_PAUSES_RELAY_TASKS
+#include <lwip/sockets.h>
 
 class Debug
 {
@@ -26,6 +22,8 @@ private:
     static bool _initialized;
     static AsyncWebServer* _debugServer;
     static char* _injectRequestBodyBuffer;
+    static struct sockaddr_in _uwpDestAddr;
+    static int _uwpSock;
 
     struct SCanInject
     {
@@ -34,6 +32,7 @@ private:
         SCanMessage message;
     };
 
+    #if defined(ENABLE_SERIAL_CAN_DUMP) || (defined(ENABLE_UWP_SERVER) && defined(ENABLE_UWP_CAN_DUMP))
     static void CanDump(void* arg)
     {
         #if 0
@@ -51,9 +50,10 @@ private:
 
         while (true)
         {
-            SCanDump dump;
-            if (xQueueReceive(canDumpQueue, &dump, portMAX_DELAY) == pdTRUE)
+            BusMaster::SCanDump dump;
+            if (xQueueReceive(BusMaster::canDumpQueue, &dump, pdMS_TO_TICKS(200)) == pdTRUE)
             {
+                #if ENABLE_SERIAL_CAN_DUMP
                 printf("[CAN]%d,%d,%x,%d,%d,%d,%x,%x,%x,%x,%x,%x,%x,%x\n",
                     dump.timestamp,
                     dump.isSPI,
@@ -70,22 +70,50 @@ private:
                     dump.message.data[6],
                     dump.message.data[7]
                 );
+                #endif
+
+                #if ENABLE_UWP_CAN_DUMP
+                char txBuffer[128];
+                sprintf(txBuffer, "[CAN]%d,%d,%x,%d,%d,%d,%x,%x,%x,%x,%x,%x,%x,%x\n",
+                    dump.timestamp,
+                    dump.isSPI,
+                    dump.message.id,
+                    dump.message.isExtended,
+                    dump.message.isRemote,
+                    dump.message.length,
+                    dump.message.data[0],
+                    dump.message.data[1],
+                    dump.message.data[2],
+                    dump.message.data[3],
+                    dump.message.data[4],
+                    dump.message.data[5],
+                    dump.message.data[6],
+                    dump.message.data[7]
+                );
+                int err = sendto(_uwpSock, txBuffer, strlen(txBuffer), 0, (struct sockaddr*)&_uwpDestAddr, sizeof(_uwpDestAddr));
+                if (err < 0)
+                    ERROR("Failed to send UWP CAN data. %i", err);
+                #endif
             }
         }
     }
+    #endif
 
     #ifdef ENABLE_POWER_CHECK
     static void PowerCheck(void* arg)
     {
         #if ENABLE_POWER_CHECK == 0
+        // esp_log_level_set(pcTaskGetTaskName(NULL), DEBUG_LOG_LEVEL);
+
         vTaskDelay(5000 / portTICK_PERIOD_MS); //Wait 5 seconds before starting.
         while (true)
         {
-            TRACE("Power check pin: %d", gpio_get_level(BIKE_POWER_CHECK_PIN));
-            if (gpio_get_level(BIKE_POWER_CHECK_PIN) == 0)
+            int level = gpio_get_level(BIKE_POWER_CHECK_PIN);
+            DEBUG("Powered: %d", level);
+            if (level == 0)
             {
         #endif
-                DEBUG("Powering on");
+                INFO("Powering on");
                 gpio_set_level(BIKE_POWER_PIN, 1);
                 vTaskDelay(250 / portTICK_PERIOD_MS);
                 gpio_set_level(BIKE_POWER_PIN, 0);
@@ -97,6 +125,7 @@ private:
     }
     #endif
 
+    #if 0
     static void InjectTask(void* param)
     {
         #pragma region Process data
@@ -289,16 +318,22 @@ private:
         if (index + len == total)
             _injectRequestBodyBuffer[total] = '\0';
     }
+    #endif
 
     static void InitTask(void* param)
     {
-        printf("Log level set to %d\n", esp_log_level_get("*"));
+        // esp_log_level_set("*", DEBUG_LOG_LEVEL);
+        INFO("Log level set to %d\n", esp_log_level_get("*"));
 
         INFO("Debug setup started.");
+        WARN("Debug setup started.");
+        ERROR("Debug setup started.");
+        DEBUG("Debug setup started.");
+        TRACE("Debug setup started.");
 
-        esp_log_level_set("DUMP", ESP_LOG_VERBOSE);
+        // esp_log_level_set("DUMP", DEBUG_LOG_LEVEL);
 
-        #ifdef ENABLE_CAN_DUMP
+        #if defined(ENABLE_SERIAL_CAN_DUMP) || (defined(ENABLE_UWP_SERVER) && defined(ENABLE_UWP_CAN_DUMP))
         xTaskCreate(CanDump, "CanDump", 4096, NULL, 1, NULL);
         #endif
 
@@ -333,9 +368,7 @@ private:
         #endif
         #endif
 
-        #ifdef ENABLE_DEBUG_SERVER
-        _debugServer = new AsyncWebServer(80);
-
+        #if defined(ENABLE_WIFI_SERVER) || defined(ENABLE_UWP_SERVER)
         IPAddress ipAddress;
         WiFi.mode(WIFI_AP_STA);
         // IPAddress ip(192, 168, 0, 158);
@@ -361,7 +394,29 @@ private:
         {
             ipAddress = WiFi.localIP();
         }
+        #endif
 
+        #ifdef ENABLE_UWP_SERVER
+        //https://gektor650.medium.com/esp-idf-esp32-udp-broadcasts-messages-through-the-wi-fi-4a7f3d75d8ea
+        char hostIp[strlen(DEBUG_ADDR)];
+        strcpy(hostIp, DEBUG_ADDR);
+
+        //Setup socket.
+        _uwpDestAddr.sin_addr.s_addr = inet_addr(hostIp);
+        _uwpDestAddr.sin_family = AF_INET;
+        _uwpDestAddr.sin_port = htons(3333);
+        _uwpSock = socket(AF_INET, SOCK_DGRAM, IPPROTO_IP);
+        ASSERT(_uwpSock >= 0);
+
+        //Set timeout (0.5s).
+        struct timeval uwpTimeout;
+        uwpTimeout.tv_sec = 0;
+        uwpTimeout.tv_usec = 500000;
+        ASSERT(setsockopt(_uwpSock, SOL_SOCKET, SO_SNDTIMEO, (char*)&uwpTimeout, sizeof(uwpTimeout)) >= 0);
+        #endif
+
+        #ifdef ENABLE_WIFI_SERVER
+        _debugServer = new AsyncWebServer(80);
         WebSerial.begin(_debugServer);
 
         #pragma region Inject endpoint
@@ -381,22 +436,13 @@ private:
     }
 
 public:
-    static QueueHandle_t canDumpQueue;
-
-    struct SCanDump
-    {
-        uint32_t timestamp;
-        bool isSPI;
-        SCanMessage message;
-    };
-
     static void Init()
     {
         if (_initialized)
             return;
         _initialized = true;
 
-        esp_log_level_set("*", LOG_LEVEL);
+        esp_log_level_set("*", DEBUG_LOG_LEVEL);
         xTaskCreate(InitTask, "DebugSetup", 4096, NULL, 1, NULL); //Low priority task as it is imperative that the CAN bus is setup first.
     }
 
@@ -410,7 +456,7 @@ public:
         // ESP_LOG_LEVEL_LOCAL(ESP_LOG_VERBOSE, "DUMP", "%s", buffer);
         puts(buffer);
         
-        #ifdef ENABLE_DEBUG_SERVER
+        #ifdef ENABLE_WIFI_SERVER
         WebSerial.printf("[DUMP] %s\n", buffer);
         #endif
 
@@ -421,5 +467,6 @@ public:
 bool Debug::_initialized = false;
 AsyncWebServer* Debug::_debugServer = nullptr;
 char* Debug::_injectRequestBodyBuffer = nullptr;
-QueueHandle_t Debug::canDumpQueue = xQueueCreate(100, sizeof(Debug::SCanDump));
+struct sockaddr_in Debug::_uwpDestAddr = {};
+int Debug::_uwpSock = -1;
 #endif

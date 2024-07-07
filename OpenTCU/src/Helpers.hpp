@@ -1,16 +1,17 @@
 #pragma once
 
-#if defined(_TEST)
-#define LOG_LEVEL ESP_LOG_VERBOSE
-#elif defined(_DEBUG)
-#define LOG_LEVEL ESP_LOG_DEBUG
-#endif
+// #if defined(_TEST)
+// #define LOG_LEVEL ESP_LOG_VERBOSE
+// #elif defined(_DEBUG)
+// #define LOG_LEVEL ESP_LOG_DEBUG
+// #endif
 
 #if defined(_DEBUG) || defined(_TEST)
 #ifdef LOG_LOCAL_LEVEL
 #undef LOG_LOCAL_LEVEL
 #endif
-#define LOG_LOCAL_LEVEL LOG_LEVEL
+// #define LOG_LOCAL_LEVEL LOG_LEVEL
+#define LOG_LOCAL_LEVEL DEBUG_LOG_LEVEL
 #endif
 
 #include <esp_log.h>
