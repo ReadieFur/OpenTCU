@@ -18,7 +18,7 @@
                 <ColumnDefinition Width="Auto"/>
             </Grid.ColumnDefinitions>
             <Button Grid.Column="0" Content="Open File" Click="Button_Click"/>
-            <CheckBox Grid.Column="1" x:Name="decimalCheckbox" Content="Decimal" Checked="decimalCheckbox_Checked" Unchecked="decimalCheckbox_Checked"/>
+            <CheckBox Grid.Column="1" x:Name="decimalCheckbox" Content="Decimal" Checked="decimalCheckbox_Checked" Unchecked="decimalCheckbox_Checked" Visibility="Collapsed"/>
         </Grid>
         <Slider x:Name="slider" Grid.Row="1" Minimum="0" Maximum="100" ValueChanged="Slider_ValueChanged" Value="100"/>
         <DataGrid x:Name="DG1" Grid.Row="2" ItemsSource="{Binding}" CanUserSortColumns="True" AutoGenerateColumns="True" LoadingRow="DG1_LoadingRow"/>
