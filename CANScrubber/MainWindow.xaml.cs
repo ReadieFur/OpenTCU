@@ -106,6 +106,11 @@ namespace CANScrubber
                     dataParts.Add(value);
                 }
 
+                string hexData = string.Join(" ", dataParts).Replace("\r", "");
+                long dataAsLong = long.Parse(string.Join("", dataParts), System.Globalization.NumberStyles.HexNumber);
+                long[] longs = dataParts.Select(s => long.Parse(s, System.Globalization.NumberStyles.HexNumber)).ToArray();
+                string dataString = $"#:{hexData}\nll:{string.Join(" ", longs)}\nl:{dataAsLong}";
+
                 Row row = new Row()
                 {
                     timestamp = int.Parse(parts[0]),
@@ -114,7 +119,7 @@ namespace CANScrubber
                     isExtended = parts[3] == "1",
                     isRemote = parts[4] == "1",
                     length = int.Parse(parts[5]),
-                    data = string.Join(" ", dataParts)
+                    data = dataString
                 };
 
                 newRows.Add(row);
@@ -203,9 +208,17 @@ namespace CANScrubber
                 if (decimalCheckbox.IsChecked == true)
                 {
                     string[] data = _row.data.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
+#if true
                     for (int i = 0; i < data.Length; i++)
                         data[i] = int.Parse(data[i], System.Globalization.NumberStyles.HexNumber).ToString();
                     _row.data = string.Join(" ", data);
+#else
+                    string hexData = string.Join("", data);
+                    if (long.TryParse(hexData, System.Globalization.NumberStyles.HexNumber, null, out long dataAsLong))
+                        _row.data = dataAsLong.ToString();
+                    else
+                        _row.data = hexData;
+#endif
                 }
 
                 rows.Add(_row);
