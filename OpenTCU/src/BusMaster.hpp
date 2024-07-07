@@ -36,7 +36,7 @@ private:
         // TRACE("Got message");
         //TODO: Implement.
 
-        #ifdef _DEBUG
+        #if defined(_DEBUG) && 0
         if (std::find(idsToDrop.begin(), idsToDrop.end(), message->id) != idsToDrop.end())
         {
             TRACE("Dropping message: %d", message->id);
@@ -91,10 +91,29 @@ private:
                     .isSPI = isSPI,
                     .message = message
                 };
+                #ifndef CAN_DUMP_IMMEDIATE
                 if (BaseType_t queueResult = xQueueSend(canDumpQueue, &dump, 0) != pdTRUE)
                 {
                     WARN("Failed to add to dump queue: %d", queueResult);
                 }
+                #else
+                printf("[CAN]%d,%d,%x,%d,%d,%d,%x,%x,%x,%x,%x,%x,%x,%x\n",
+                    dump.timestamp,
+                    dump.isSPI,
+                    dump.message.id,
+                    dump.message.isExtended,
+                    dump.message.isRemote,
+                    dump.message.length,
+                    dump.message.data[0],
+                    dump.message.data[1],
+                    dump.message.data[2],
+                    dump.message.data[3],
+                    dump.message.data[4],
+                    dump.message.data[5],
+                    dump.message.data[6],
+                    dump.message.data[7]
+                );
+                #endif
                 #endif
             }
             else
