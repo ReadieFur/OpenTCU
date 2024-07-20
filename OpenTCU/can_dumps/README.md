@@ -9,3 +9,7 @@ A data length of 8
 
 and a data length of 3, you can see data items 4 5 6 7 and 8 are the same as the previous message and these should be ignored
 113967,0,301,0,0,3,4e,d,0,5a,64,0,64,ad
+
+====
+
+fields of intrest, 300, 203
