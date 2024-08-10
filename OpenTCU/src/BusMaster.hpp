@@ -299,9 +299,31 @@ public:
         _running = true;
         #pragma region CAN task setup
         //Create high priority tasks to handle CAN relay tasks.
-        //I am creating the parameters on the heap just incase this method returns before the task starts which will result in an error.
-        ASSERT(xTaskCreate(RelayTask, "SPI->TWAI", RELAY_TASK_STACK_SIZE, new SRelayTaskParameters { spiCan, twaiCan }, RELAY_TASK_PRIORITY, &spiToTwaiTaskHandle) == pdPASS);
-        ASSERT(xTaskCreate(RelayTask, "TWAI->SPI", RELAY_TASK_STACK_SIZE, new SRelayTaskParameters { twaiCan, spiCan }, RELAY_TASK_PRIORITY, &twaiToSpiTaskHandle) == pdPASS);
+        //I am creating the parameters on the heap just in case this method returns before the task starts which will result in an error.
+        //TODO: Determine if I should run both CAN tasks on one core and do secondary processing (i.e. metrics, user control, etc) on the other core, or split the load between all cores with CAN bus getting their own core.
+        ASSERT(
+            #ifdef S3
+            xTaskCreatePinnedToCore(
+            #else
+            xTaskCreate(
+            #endif
+                RelayTask, "SPI->TWAI", RELAY_TASK_STACK_SIZE, new SRelayTaskParameters { spiCan, twaiCan }, RELAY_TASK_PRIORITY, &spiToTwaiTaskHandle
+            #ifdef S3
+                , 0
+            #endif
+            ) == pdPASS);
+
+        ASSERT(
+            #ifdef S3
+            xTaskCreatePinnedToCore(
+            #else
+            xTaskCreate(
+            #endif
+                RelayTask, "TWAI->SPI", RELAY_TASK_STACK_SIZE, new SRelayTaskParameters { twaiCan, spiCan }, RELAY_TASK_PRIORITY, &twaiToSpiTaskHandle
+            #ifdef S3
+                , 1
+            #endif
+            ) == pdPASS);
         #pragma endregion
     }
 
