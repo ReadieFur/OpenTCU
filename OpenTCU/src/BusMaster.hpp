@@ -12,6 +12,7 @@
 #include "Helpers.hpp"
 #ifdef _DEBUG
 #include <vector>
+#include <time.h>
 #endif
 
 #define CAN_TIMEOUT_TICKS pdMS_TO_TICKS(50)
@@ -85,12 +86,24 @@ private:
                     TRACE("Relayed message: %d, %d", message.id, message.length);
                 }
 
-                #if defined(ENABLE_SERIAL_CAN_DUMP) || (defined(ENABLE_UWP_SERVER) && defined(ENABLE_UWP_CAN_DUMP))
+                #if defined(ENABLE_SERIAL_CAN_DUMP) || (defined(ENABLE_UWP_SERVER) && defined(ENABLE_UWP_CAN_DUMP))                
+
                 SCanDump dump = {
-                    .timestamp = xTaskGetTickCount(),
                     .isSPI = isSPI,
                     .message = message
                 };
+
+                struct tm timeInfo;
+                if (getLocalTime(&timeInfo))
+                {
+                    //Get Epoch time.
+                    time(&dump.timestamp);
+                }
+                else
+                {
+                    dump.timestamp = xTaskGetTickCount();
+                }
+
                 #ifndef CAN_DUMP_IMMEDIATE
                 if (BaseType_t queueResult = xQueueSend(canDumpQueue, &dump, 0) != pdTRUE)
                 {
@@ -136,7 +149,7 @@ public:
 
     struct SCanDump
     {
-        uint32_t timestamp;
+        long timestamp;
         bool isSPI;
         SCanMessage message;
     };

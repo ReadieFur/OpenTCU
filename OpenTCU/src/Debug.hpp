@@ -15,6 +15,7 @@
 #include "BusMaster.hpp"
 #include <vector>
 #include <lwip/sockets.h>
+#include <time.h>
 
 class Debug
 {
@@ -368,7 +369,7 @@ private:
         #endif
         #endif
 
-        #if defined(ENABLE_WIFI_SERVER) || defined(ENABLE_UWP_SERVER)
+        #if defined(ENABLE_WIFI_SERVER) || defined(ENABLE_UWP_SERVER) || defined(NTP_SERVER)
         IPAddress ipAddress;
         WiFi.mode(WIFI_AP_STA);
         // IPAddress ip(192, 168, 0, 158);
@@ -393,7 +394,32 @@ private:
         else
         {
             ipAddress = WiFi.localIP();
+            
+            #ifdef NTP_SERVER
+            //Time setup is done here to get the actual time, if this stage is skipped the internal ESP tick count is used for the logs.
+            //Setup RTC for logging (mainly to sync external data to data recorded from this device, e.g. pairing video with recorded data).
+            Serial.print("Syncing time with NTP server...");
+            for (int i = 0; i < 10; i++)
+            {
+                struct tm timeInfo;
+                if (getLocalTime(&timeInfo))
+                {
+                    DEBUG("Successfully Synced with timeserver.");
+                    break;
+                }
+                else if (i == 9)
+                {
+                    ERROR("Failed to sync with NTP");
+                    break;
+                }
+
+                //https://randomnerdtutorials.com/esp32-date-time-ntp-client-server-arduino/
+                configTime(0, 3600, NTP_SERVER);
+                delay(500);
+            }
+            #endif
         }
+
         #endif
 
         #ifdef ENABLE_UWP_SERVER
