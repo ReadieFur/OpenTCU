@@ -1,0 +1,5 @@
+It's not cheap but I've found where I can source the exact connectors:
+https://www.digikey.co.uk/en/products/detail/chogori-technologies-inc/1IC03622051705/16672561
+https://www.digikey.co.uk/en/products/detail/chogori-technologies-inc/1IC03622051710/16672594
+https://www.digikey.co.uk/en/products/detail/chogori-technologies-inc/1IC03622051704/16672572
+https://www.digikey.co.uk/en/products/detail/chogori-technologies-inc/1IC03622051709/16672573
