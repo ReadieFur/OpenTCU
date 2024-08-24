@@ -10,7 +10,7 @@
 #include <driver/gpio.h>
 #include "ACan.h"
 #include "SCanMessage.h"
-#include "Helpers.hpp"
+#include "Logging.h"
 #if DEBUG
 #include <esp_log.h>
 #endif
@@ -69,31 +69,17 @@ public:
 
         _mcp2515 = new MCP2515(&this->_device);
 
-        #if defined(CONFIG_COMPILER_CXX_EXCEPTIONS) && 0
-        if (uint8_t res = _mcp2515->reset() != MCP2515::ERROR_OK)
-            throw std::runtime_error("Failed to reset MCP2515: " + std::to_string(res));
-        if (uint8_t res = _mcp2515->setBitrate(speed, clock) != MCP2515::ERROR_OK)
-            throw std::runtime_error("Failed to set bitrate: " + std::to_string(res));
-        if (uint8_t res = _mcp2515->setNormalMode() != MCP2515::ERROR_OK) //TODO: Allow the user to change this setting.
-            throw std::runtime_error("Failed to set normal mode: " + std::to_string(res));
-        #else
         ASSERT(_mcp2515->reset() == MCP2515::ERROR_OK);
         ASSERT(_mcp2515->setBitrate(speed, clock) == MCP2515::ERROR_OK);
         ASSERT(_mcp2515->setNormalMode() == MCP2515::ERROR_OK);
-        #endif
 
         //It seems like this method returns an error all of the time, however it is safe to call again. If something truly bad happens we will likely throw in the next stage.
         //https://esp32.com/viewtopic.php?t=13167
         gpio_install_isr_service(0);
-        #if defined(CONFIG_COMPILER_CXX_EXCEPTIONS) && 0
-        if (esp_err_t res = gpio_isr_handler_add(interruptPin, OnInterrupt, this) != ESP_OK)
-            throw std::runtime_error("Failed to add ISR handler: " + std::to_string(res));
-        #else
         ASSERT(gpio_isr_handler_add(interruptPin, OnInterrupt, this) == ESP_OK);
-        #endif
 
         //Read the initial state of the interrupt pin.
-        TRACE("Initial interrupt pin state: %d", gpio_get_level(interruptPin));
+        LOG_TRACE("Initial interrupt pin state: %d", gpio_get_level(interruptPin));
         if (gpio_get_level(interruptPin) == 0)
             xSemaphoreGive(_interruptSemaphore);
     }
@@ -118,12 +104,12 @@ public:
         for (int i = 0; i < message.length; i++)
             frame.data[i] = message.data[i];
 
-        TRACE("SPI Write: %x, %d, %d, %d, %x", frame.can_id, frame.can_dlc, frame.can_id & CAN_EFF_FLAG, frame.can_id & CAN_RTR_FLAG, frame.data[0]);
+        LOG_TRACE("SPI Write: %x, %d, %d, %d, %x", frame.can_id, frame.can_dlc, frame.can_id & CAN_EFF_FLAG, frame.can_id & CAN_RTR_FLAG, frame.data[0]);
         
         #ifdef USE_DRIVER_LOCK
         if (xSemaphoreTake(_driverMutex, timeout) != pdTRUE)
         {
-            TRACE("SPI Write Timeout");
+            LOG_TRACE("SPI Write Timeout");
             return ESP_ERR_TIMEOUT;
         }
         #endif
@@ -134,11 +120,11 @@ public:
 
         if (res != MCP2515::ERROR_OK)
         {
-            ERROR("SPI Write Error: %d", res);
+            LOG_ERROR("SPI Write Error: %d", res);
         }
         else
         {
-            TRACE("SPI Write Done");
+            LOG_TRACE("SPI Write Done");
         }
 
         return MCPErrorToESPError(res);
@@ -154,7 +140,7 @@ public:
             //Wait in a "non-blocking" manner by allowing the CPU to do other things while waiting for a message.
             if (xSemaphoreTake(_interruptSemaphore, timeout) != pdTRUE)
             {
-                TRACE("SPI Wait Timeout");
+                LOG_TRACE("SPI Wait Timeout");
                 return ESP_ERR_TIMEOUT;
             }
         }
@@ -164,13 +150,13 @@ public:
             xSemaphoreTake(_interruptSemaphore, 0);
         }
 
-        TRACE("SPI Read");
+        LOG_TRACE("SPI Read");
 
         #ifdef USE_DRIVER_LOCK
         //Lock the driver from other operations while we read the message.
         if (xSemaphoreTake(_driverMutex, timeout) != pdTRUE)
         {
-            TRACE("SPI Read Timeout");
+            LOG_TRACE("SPI Read Timeout");
             return ESP_ERR_TIMEOUT;
         }
         #endif
@@ -207,11 +193,11 @@ public:
             //At some point in this development I broke the interrupt and it seems it never fires now.
             //As a result of I am using gpio_get_level. However an issue has occurred where I can reach this point and read empty messages (error code 5).
             //I would like to fix this as we are wasting CPU cycles with this bug.
-            ERROR("SPI Read Error: %d", readResult);
+            LOG_ERROR("SPI Read Error: %d", readResult);
             return MCPErrorToESPError(readResult);
         }
 
-        TRACE("SPI Read Success: %x, %d, %d, %d, %x", frame.can_id, frame.can_dlc, frame.can_id & CAN_EFF_FLAG, frame.can_id & CAN_RTR_FLAG, frame.data[0]);
+        LOG_TRACE("SPI Read Success: %x, %d, %d, %d, %x", frame.can_id, frame.can_dlc, frame.can_id & CAN_EFF_FLAG, frame.can_id & CAN_RTR_FLAG, frame.data[0]);
 
         message->id = frame.can_id & (frame.can_id & CAN_EFF_FLAG ? CAN_EFF_MASK : CAN_SFF_MASK);
         message->length = frame.can_dlc;
@@ -228,7 +214,7 @@ public:
         #ifdef USE_DRIVER_LOCK
         if (xSemaphoreTake(_driverMutex, timeout) != pdTRUE)
         {
-            TRACE("SPI Status Timeout");
+            LOG_TRACE("SPI Status Timeout");
             return ESP_ERR_TIMEOUT;
         }
         #endif
@@ -237,7 +223,7 @@ public:
         xSemaphoreGive(_driverMutex);
         #endif
 
-        TRACE("SPI Status: %d %d %d %d %d %d %d %d",
+        LOG_TRACE("SPI Status: %d %d %d %d %d %d %d %d",
             *status & MCP2515::CANINTF_RX0IF, //If the result is non-zero then the interrupt has fired.
             *status & MCP2515::CANINTF_RX1IF,
             *status & MCP2515::CANINTF_TX0IF,

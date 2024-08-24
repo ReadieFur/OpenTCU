@@ -1,4 +1,4 @@
-#define _TEST
+#define TEST
 
 #include <freertos/FreeRTOS.h>
 #include "Helpers.hpp"

@@ -1,26 +1,21 @@
-#ifdef _DEBUG
+#ifdef DEBUG
 #include "Debug.hpp"
 #endif
-#include "Helpers.hpp" //Include this first so that it takes priority over the ESP-IDF logging macros.
+#include "Logging.h" //Include this first so that it takes priority over the ESP-IDF logging macros.
 #include <freertos/FreeRTOS.h> //Has to always be the first included FreeRTOS related header.
-#include "BusMaster.hpp"
+#include "CAN/BusMaster.hpp"
+#include "Webservices.hpp"
 
 void setup()
 {
-    //Used to indicate that the program has started.
-    Helpers::ConfigureLED();
-    Helpers::SetLed(0, 0, 1);
+    //It is critical that this is the first service to be started.
+    BusMaster::Begin();
 
-    #ifdef _DEBUG
+    #ifdef DEBUG
     Debug::Init();
     #endif
 
-    //Initialize the CAN bus.
-    BusMaster::Init();
-    BusMaster::Start();
-
-    //Signal that the program has setup.
-    Helpers::SetLed(0, 1, 0);
+    Webservices::Begin();
 }
 
 #ifdef ARDUINO

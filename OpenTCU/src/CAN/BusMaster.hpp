@@ -6,11 +6,11 @@
 #include <driver/spi_master.h>
 #include <driver/spi_common.h>
 #include <driver/twai.h>
-#include "CAN/ACan.h"
-#include "CAN/SpiCan.hpp"
-#include "CAN/TwaiCan.hpp"
-#include "Helpers.hpp"
-#ifdef _DEBUG
+#include "ACan.h"
+#include "SpiCan.hpp"
+#include "TwaiCan.hpp"
+#include "Logging.h"
+#ifdef ENABLE_CAN_DUMP
 #include <vector>
 #include <time.h>
 #endif
@@ -22,7 +22,6 @@
 class BusMaster
 {
 private:
-    static bool _initialized;
     static bool _running; //I should add a semaphore here but it's not worth it for now.
     static spi_device_handle_t _spiDevice;
 
@@ -37,14 +36,6 @@ private:
         // TRACE("Got message");
         //TODO: Implement.
 
-        #if defined(_DEBUG) && 0
-        if (std::find(idsToDrop.begin(), idsToDrop.end(), message->id) != idsToDrop.end())
-        {
-            TRACE("Dropping message: %d", message->id);
-            return ESP_ERR_NOT_SUPPORTED;
-        }
-        #endif
-
         return ESP_OK;
     }
 
@@ -55,7 +46,7 @@ private:
         ACan* canB = params->canB;
         delete params;
 
-        #if defined(ENABLE_SERIAL_CAN_DUMP) || (defined(ENABLE_UWP_SERVER) && defined(ENABLE_UWP_CAN_DUMP))
+        #ifdef ENABLE_CAN_DUMP
         bool isSPI = pcTaskGetTaskName(NULL)[0] == 'S';
         #endif
 
@@ -71,7 +62,7 @@ private:
                 case ESP_ERR_NOT_SUPPORTED:
                     break;
                 default:
-                    ERROR("Failed to process message '%x': %x", message.id, interceptResult)
+                    LOG_ERROR("Failed to process message '%x': %x", message.id, interceptResult)
                     continue;
                 }
 
@@ -79,15 +70,14 @@ private:
                 esp_err_t sendResult = canB->Send(message, CAN_TIMEOUT_TICKS);
                 if (sendResult != ESP_OK)
                 {
-                    ERROR("Failed to relay message: %x", sendResult);
+                    LOG_ERROR("Failed to relay message: %x", sendResult);
                 }
-                else
-                {
-                    TRACE("Relayed message: %d, %d", message.id, message.length);
-                }
+                // else
+                // {
+                //     LOG_TRACE("Relayed message: %d, %d", message.id, message.length);
+                // }
 
-                #if defined(ENABLE_SERIAL_CAN_DUMP) || (defined(ENABLE_UWP_SERVER) && defined(ENABLE_UWP_CAN_DUMP))                
-
+                #ifdef ENABLE_CAN_DUMP
                 SCanDump dump = {
                     .isSPI = isSPI,
                     .message = message
@@ -104,29 +94,10 @@ private:
                     dump.timestamp = xTaskGetTickCount();
                 }
 
-                #ifndef CAN_DUMP_IMMEDIATE
                 if (BaseType_t queueResult = xQueueSend(canDumpQueue, &dump, 0) != pdTRUE)
                 {
-                    WARN("Failed to add to dump queue: %d", queueResult);
+                    LOG_WARN("Failed to add to message '%x' to dump queue: %d", message.id, queueResult);
                 }
-                #else
-                printf("[CAN]%d,%d,%x,%d,%d,%d,%x,%x,%x,%x,%x,%x,%x,%x\n",
-                    dump.timestamp,
-                    dump.isSPI,
-                    dump.message.id,
-                    dump.message.isExtended,
-                    dump.message.isRemote,
-                    dump.message.length,
-                    dump.message.data[0],
-                    dump.message.data[1],
-                    dump.message.data[2],
-                    dump.message.data[3],
-                    dump.message.data[4],
-                    dump.message.data[5],
-                    dump.message.data[6],
-                    dump.message.data[7]
-                );
-                #endif
                 #endif
             }
             else
@@ -135,32 +106,9 @@ private:
             }
         }
     }
-public:
-    static SpiCan* spiCan;
-    static TwaiCan* twaiCan;
-    static TaskHandle_t spiToTwaiTaskHandle;
-    static TaskHandle_t twaiToSpiTaskHandle;
-    #ifdef _DEBUG
-    static std::vector<uint32_t> idsToDrop;
-    #endif
-
-    #if defined(ENABLE_SERIAL_CAN_DUMP) || (defined(ENABLE_UWP_SERVER) && defined(ENABLE_UWP_CAN_DUMP))
-    static QueueHandle_t canDumpQueue;
-
-    struct SCanDump
-    {
-        long timestamp;
-        bool isSPI;
-        SCanMessage message;
-    };
-    #endif
 
     static void Init()
     {
-        if (_initialized)
-            return;
-        _initialized = true;
-
         #pragma region Setup SPI CAN
         //Configure the pins, all pins should be written low to start with.
         gpio_config_t mosiPinConfig = {
@@ -223,16 +171,7 @@ public:
         };
         ASSERT(spi_bus_add_device(SPI2_HOST, &dev_config, &_spiDevice) == ESP_OK);
 
-        #if defined(CONFIG_COMPILER_CXX_EXCEPTIONS) && 0
-        try { spiCan = new SpiCan(_spiDevice, CAN_250KBPS, MCP_8MHZ, SPI_INT_PIN); }
-        catch(const std::exception& e)
-        {
-            ERROR("%s", e.what());
-            ASSERT(false);
-        }
-        #else
         spiCan = new SpiCan(_spiDevice, CAN_250KBPS, MCP_8MHZ, SPI_INT_PIN);
-        #endif
         #pragma endregion
 
         #pragma region Setup TWAI CAN
@@ -254,25 +193,6 @@ public:
         ASSERT(gpio_config(&txPinConfig) == ESP_OK);
         ASSERT(gpio_config(&rxPinConfig) == ESP_OK);
 
-        #if defined(CONFIG_COMPILER_CXX_EXCEPTIONS) && 0
-        try
-        {
-            twaiCan = new TwaiCan(
-                TWAI_GENERAL_CONFIG_DEFAULT(
-                    TWAI_TX_PIN,
-                    TWAI_RX_PIN,
-                    TWAI_MODE_NORMAL
-                ),
-                TWAI_TIMING_CONFIG_250KBITS(),
-                TWAI_FILTER_CONFIG_ACCEPT_ALL()
-            );
-        }
-        catch(const std::exception& e)
-        {
-            ERROR("%s", e.what());
-            ASSERT(false);
-        }
-        #else
         twaiCan = new TwaiCan(
             TWAI_GENERAL_CONFIG_DEFAULT(
                 TWAI_TX_PIN,
@@ -282,16 +202,48 @@ public:
             TWAI_TIMING_CONFIG_250KBITS(),
             TWAI_FILTER_CONFIG_ACCEPT_ALL()
         );
-        #endif
+        #pragma endregion
+    }
+
+    static void Start()
+    {
+        if (_running)
+            return;
+        _running = true;
+        #pragma region CAN task setup
+        //Create high priority tasks to handle CAN relay tasks.
+        //I am creating the parameters on the heap just in case this method returns before the task starts which will result in an error.
+        //TODO: Determine if I should run both CAN tasks on one core and do secondary processing (i.e. metrics, user control, etc) on the other core, or split the load between all cores with CAN bus getting their own core.
+        ASSERT(
+            #ifdef CHIP_S3
+            xTaskCreatePinnedToCore(
+            #else
+            xTaskCreate(
+            #endif
+                RelayTask, "SPI->TWAI", RELAY_TASK_STACK_SIZE, new SRelayTaskParameters { spiCan, twaiCan }, RELAY_TASK_PRIORITY, &spiToTwaiTaskHandle
+            #ifdef CHIP_S3
+                , 0
+            #endif
+            ) == pdPASS);
+
+        ASSERT(
+            #ifdef CHIP_S3
+            xTaskCreatePinnedToCore(
+            #else
+            xTaskCreate(
+            #endif
+                RelayTask, "TWAI->SPI", RELAY_TASK_STACK_SIZE, new SRelayTaskParameters { twaiCan, spiCan }, RELAY_TASK_PRIORITY, &twaiToSpiTaskHandle
+            #if defined(CHIP_S3) && (!defined(DEBUG) && true) //When debugging do all CAN bus work on core x and run everything else on core y.
+                , 1
+            #elif defined(CHIP_S3)
+                , 0
+            #endif
+            ) == pdPASS);
         #pragma endregion
     }
 
     static void Destroy()
     {
-        if (!_initialized)
-            return;
-        _initialized = false;
-
         if (_running)
             Stop();
 
@@ -305,61 +257,48 @@ public:
         spi_bus_free(SPI2_HOST);
     }
 
-    static void Start()
+public:
+    static SpiCan* spiCan;
+    static TwaiCan* twaiCan;
+    static TaskHandle_t spiToTwaiTaskHandle;
+    static TaskHandle_t twaiToSpiTaskHandle;
+    #ifdef ENABLE_CAN_DUMP
+    static QueueHandle_t canDumpQueue;
+    struct SCanDump
+    {
+        long timestamp;
+        bool isSPI;
+        SCanMessage message;
+    };
+    #endif
+
+    static void Begin()
     {
         if (_running)
             return;
-        _running = true;
-        #pragma region CAN task setup
-        //Create high priority tasks to handle CAN relay tasks.
-        //I am creating the parameters on the heap just in case this method returns before the task starts which will result in an error.
-        //TODO: Determine if I should run both CAN tasks on one core and do secondary processing (i.e. metrics, user control, etc) on the other core, or split the load between all cores with CAN bus getting their own core.
-        ASSERT(
-            #ifdef S3
-            xTaskCreatePinnedToCore(
-            #else
-            xTaskCreate(
-            #endif
-                RelayTask, "SPI->TWAI", RELAY_TASK_STACK_SIZE, new SRelayTaskParameters { spiCan, twaiCan }, RELAY_TASK_PRIORITY, &spiToTwaiTaskHandle
-            #ifdef S3
-                , 0
-            #endif
-            ) == pdPASS);
 
-        ASSERT(
-            #ifdef S3
-            xTaskCreatePinnedToCore(
-            #else
-            xTaskCreate(
-            #endif
-                RelayTask, "TWAI->SPI", RELAY_TASK_STACK_SIZE, new SRelayTaskParameters { twaiCan, spiCan }, RELAY_TASK_PRIORITY, &twaiToSpiTaskHandle
-            #ifdef S3
-                , 1
-            #endif
-            ) == pdPASS);
-        #pragma endregion
+        Init();
+        Start();
     }
 
     static void Stop()
     {
         if (!_running)
             return;
-        _running = false;
+
         vTaskDelete(spiToTwaiTaskHandle);
         vTaskDelete(twaiToSpiTaskHandle);
+
+        _running = false;
     }
 };
 
-bool BusMaster::_initialized = false;
 bool BusMaster::_running = false;
 spi_device_handle_t BusMaster::_spiDevice;
 SpiCan* BusMaster::spiCan = nullptr;
 TwaiCan* BusMaster::twaiCan = nullptr;
 TaskHandle_t BusMaster::spiToTwaiTaskHandle;
 TaskHandle_t BusMaster::twaiToSpiTaskHandle;
-#ifdef _DEBUG
-std::vector<uint32_t> BusMaster::idsToDrop;
-#endif
-#if defined(ENABLE_SERIAL_CAN_DUMP) || (defined(ENABLE_UWP_SERVER) && defined(ENABLE_UWP_CAN_DUMP))
+#ifdef ENABLE_CAN_DUMP
 QueueHandle_t BusMaster::canDumpQueue = xQueueCreate(100, sizeof(BusMaster::SCanDump));
 #endif

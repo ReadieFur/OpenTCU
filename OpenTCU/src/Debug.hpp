@@ -1,42 +1,46 @@
 #pragma once
 
-#ifdef _DEBUG
+#ifdef DEBUG
 #include <freertos/FreeRTOS.h>
-#include "Helpers.hpp"
+#include "Logging.h"
 #include <freertos/task.h>
 #include <driver/gpio.h>
 #include <esp_task_wdt.h>
 #include <freertos/queue.h>
+#include <queue>
 #include "CAN/SCanMessage.h"
 #include <WiFi.h>
 #include <ESPAsyncWebServer.h>
 #include <WebSerialLite.h>
 #include <SPIFFS.h>
-#include "BusMaster.hpp"
+#include "CAN/BusMaster.hpp"
 #include <vector>
 #include <lwip/sockets.h>
 #include <time.h>
+#include <string>
+#include <cstring>
 
 class Debug
 {
 private:
-    static bool _initialized;
-    static AsyncWebServer* _debugServer;
-    static char* _injectRequestBodyBuffer;
-    static struct sockaddr_in _uwpDestAddr;
-    static int _uwpSock;
+    static AsyncWebServer* _webserver;
 
+    #ifdef ENABLE_INJECT_API
     struct SCanInject
     {
         TickType_t delay;
         uint8_t isSPI;
         SCanMessage message;
     };
+    #endif
 
-    #if (defined(ENABLE_SERIAL_CAN_DUMP) && !defined(CAN_DUMP_IMMEDIATE)) || (defined(ENABLE_UWP_SERVER) && defined(ENABLE_UWP_CAN_DUMP))
+    #ifdef ENABLE_CAN_DUMP
+    static std::queue<BusMaster::SCanDump> _canDumpBuffer;
+    static ulong _lastCanDump;
+
     static void CanDump(void* arg)
     {
-        #if 0
+        #if false
         //Disable the watchdog timer as this method seems to cause the idle task to hang.
         //This isn't ideal but won't be used for production so it'll make do for now.
         //https://docs.espressif.com/projects/esp-idf/en/latest/esp32/api-reference/system/wdts.html
@@ -52,49 +56,50 @@ private:
         while (true)
         {
             BusMaster::SCanDump dump;
-            if (xQueueReceive(BusMaster::canDumpQueue, &dump, pdMS_TO_TICKS(200)) == pdTRUE)
-            {
-                #if defined(ENABLE_SERIAL_CAN_DUMP) && !defined(CAN_DUMP_IMMEDIATE)
-                printf("[CAN]%d,%d,%x,%d,%d,%d,%x,%x,%x,%x,%x,%x,%x,%x\n",
-                    dump.timestamp,
-                    dump.isSPI,
-                    dump.message.id,
-                    dump.message.isExtended,
-                    dump.message.isRemote,
-                    dump.message.length,
-                    dump.message.data[0],
-                    dump.message.data[1],
-                    dump.message.data[2],
-                    dump.message.data[3],
-                    dump.message.data[4],
-                    dump.message.data[5],
-                    dump.message.data[6],
-                    dump.message.data[7]
-                );
-                #endif
+            if (xQueueReceive(BusMaster::canDumpQueue, &dump, pdMS_TO_TICKS(1000)) == pdTRUE)
+                _canDumpBuffer.push(dump);
 
-                #if ENABLE_UWP_CAN_DUMP
-                char txBuffer[128];
-                sprintf(txBuffer, "[CAN]%d,%d,%x,%d,%d,%d,%x,%x,%x,%x,%x,%x,%x,%x\n",
-                    dump.timestamp,
-                    dump.isSPI,
-                    dump.message.id,
-                    dump.message.isExtended,
-                    dump.message.isRemote,
-                    dump.message.length,
-                    dump.message.data[0],
-                    dump.message.data[1],
-                    dump.message.data[2],
-                    dump.message.data[3],
-                    dump.message.data[4],
-                    dump.message.data[5],
-                    dump.message.data[6],
-                    dump.message.data[7]
-                );
-                int err = sendto(_uwpSock, txBuffer, strlen(txBuffer), 0, (struct sockaddr*)&_uwpDestAddr, sizeof(_uwpDestAddr));
-                if (err < 0)
-                    ERROR("Failed to send UWP CAN data. %i", err);
-                #endif
+            if (millis() - _lastCanDump > 1000)
+            {
+                while (!_canDumpBuffer.empty())
+                {
+                    //Test this, if I get buffer overflows then use safe C-style strings like std::String or String (more overhead but safer).
+                    const size_t canDumpMessageLength = 47;
+                    const size_t canDumpBatchCount = 10;
+
+                    char bulkBuffer[canDumpMessageLength * canDumpBatchCount + 1] = {0}; //Send in batches of <canDumpBatchCount>. +1 for \0 character.
+
+                    for (int i = 0; i < canDumpBatchCount; i++)
+                    {
+                        if (_canDumpBuffer.empty())
+                            break;
+
+                        BusMaster::SCanDump currentDump = _canDumpBuffer.front();
+
+                        char buffer[canDumpMessageLength + 1]; //Known data size, should never exceed this buffer (+1 for \0).
+                        sprintf(buffer, "[CAN]%d,%d,%x,%d,%d,%d,%x,%x,%x,%x,%x,%x,%x,%x\n",
+                            currentDump.timestamp,
+                            currentDump.isSPI,
+                            currentDump.message.id,
+                            currentDump.message.isExtended,
+                            currentDump.message.isRemote,
+                            currentDump.message.length,
+                            currentDump.message.data[0],
+                            currentDump.message.data[1],
+                            currentDump.message.data[2],
+                            currentDump.message.data[3],
+                            currentDump.message.data[4],
+                            currentDump.message.data[5],
+                            currentDump.message.data[6],
+                            currentDump.message.data[7]);
+
+                        _canDumpBuffer.pop();
+
+                        strcat(bulkBuffer, buffer);
+                    }
+
+                    PRINT(bulkBuffer);
+                }
             }
         }
     }
@@ -126,216 +131,72 @@ private:
     }
     #endif
 
-    #if 0
-    static void InjectTask(void* param)
-    {
-        #pragma region Process data
-        std::vector<SCanInject> messages;
-
-        char* linePtr; //Used to save the state between line calls.
-        char* tokenPtr; //Used to save the state between token calls (has to remain top-level).
-        char* line = strtok_r(_injectRequestBodyBuffer, "\n", &linePtr);
-        while (line != nullptr)
-        {
-            TRACE("Processing line: %s", line);
-
-            //Split the line on commas.
-            char* token = strtok_r(line, ",", &tokenPtr);
-            bool lineIsInvalid = false;
-            SCanInject message;
-            int dataLength = -1;
-            for (int i = 0; i < 14; i++)
-            {
-                if (token == nullptr)
-                {
-                    WARN("Skipping line, not enough tokens.");
-                    lineIsInvalid = true;
-                    break;
-                }
-
-                //Process the token.
-                switch (i)
-                {
-                    case 0:
-                        message.delay = atoi(token);
-                        break;
-                    case 1:
-                        message.isSPI = atoi(token);
-                        break;
-                    case 2:
-                        message.message.id = strtol(token, NULL, 16);
-                        break;
-                    case 3:
-                        message.message.isExtended = atoi(token);
-                        break;
-                    case 4:
-                        message.message.isRemote = atoi(token);
-                        break;
-                    case 5:
-                        message.message.length = atoi(token);
-                        dataLength = message.message.length;
-                        break;
-                    case 6:
-                        message.message.data[0] = strtol(token, NULL, 16);
-                        break;
-                    case 7:
-                        message.message.data[1] = strtol(token, NULL, 16);
-                        break;
-                    case 8:
-                        message.message.data[2] = strtol(token, NULL, 16);
-                        break;
-                    case 9:
-                        message.message.data[3] = strtol(token, NULL, 16);
-                        break;
-                    case 10:
-                        message.message.data[4] = strtol(token, NULL, 16);
-                        break;
-                    case 11:
-                        message.message.data[5] = strtol(token, NULL, 16);
-                        break;
-                    case 12:
-                        message.message.data[6] = strtol(token, NULL, 16);
-                        break;
-                    case 13:
-                        message.message.data[7] = strtol(token, NULL, 16);
-                        break;
-                }
-
-                //Don't attempt to process more data than what is specified in the data length.
-                if (i >= dataLength + 5)
-                    break;
-
-                //Move to the next token.
-                token = strtok_r(nullptr, ",", &tokenPtr);
-            }
-
-            //Prepare the next line.
-            line = strtok_r(nullptr, "\n", &linePtr);
-
-            if (!lineIsInvalid)
-                messages.push_back(message);
-        }
-        #pragma endregion
-
-        #pragma region Send messages
-        DEBUG("Injecting %d messages...", messages.size());
-
-        //Raise task priority at this stage.
-        vTaskPrioritySet(NULL, RELAY_TASK_PRIORITY);
-
-        #ifdef INJECT_PAUSES_RELAY_TASKS
-        //Stop the BusMaster tasks.
-        vTaskSuspend(BusMaster::spiToTwaiTaskHandle);
-        vTaskSuspend(BusMaster::twaiToSpiTaskHandle);
-        #else
-        for (int i = 0; i < messages.size(); i++)
-            BusMaster::idsToDrop.push_back(messages[i].message.id);
-        #endif
-
-        //Send the messages.
-        for (int i = 0; i < messages.size(); i++)
-        {
-            SCanInject message = messages[i];
-            if (message.delay > 0)
-                vTaskDelay(message.delay);
-
-            TRACE("Injecting message: %d, %d, %x, %d, %d, %d, %x, %x, %x, %x, %x, %x, %x, %x",
-                message.delay,
-                message.isSPI,
-                message.message.id,
-                message.message.isExtended,
-                message.message.isRemote,
-                message.message.length,
-                message.message.data[0],
-                message.message.data[1],
-                message.message.data[2],
-                message.message.data[3],
-                message.message.data[4],
-                message.message.data[5],
-                message.message.data[6],
-                message.message.data[7]
-            );
-
-            esp_err_t sendResult;
-            if (message.isSPI)
-                sendResult = BusMaster::twaiCan->Send(message.message, CAN_TIMEOUT_TICKS);
-            else
-                sendResult = BusMaster::spiCan->Send(message.message, CAN_TIMEOUT_TICKS);
-            if (sendResult != ESP_OK)
-                WARN("Failed to inject message: %x", sendResult);
-        }
-
-        #ifdef INJECT_PAUSES_RELAY_TASKS
-        //Resume the BusMaster tasks.
-        vTaskResume(BusMaster::spiToTwaiTaskHandle);
-        vTaskResume(BusMaster::twaiToSpiTaskHandle);
-        #else
-        BusMaster::idsToDrop.clear();
-        #endif
-
-        //Lower task priority at this stage.
-        vTaskPrioritySet(NULL, 1);
-
-        DEBUG("Finished injecting messages.");
-        #pragma endregion
-
-        delete[] _injectRequestBodyBuffer;
-        _injectRequestBodyBuffer = nullptr;
-        vTaskDelete(NULL);
-    }
-
-    static void HandleInject(AsyncWebServerRequest* request)
-    {
-        //Triggers when the body has been fully received.
-        xTaskCreate(InjectTask, "InjectTask", 4096, NULL, 1, NULL);
-        request->send(202);
-    }
-
-    static void HandleInjectDataPart(AsyncWebServerRequest* request, uint8_t* data, size_t len, size_t index, size_t total)
-    {
-        //Start of body.
-        if (!index)
-        {
-            if (_injectRequestBodyBuffer)
-            {
-                WARN("Inject request already in progress.");
-                request->send(406);
-                return;
-            }
-
-            _injectRequestBodyBuffer = new char[total + 1];
-            if (!_injectRequestBodyBuffer)
-            {
-                ERROR("Failed to allocate memory for inject request body.");
-                request->send(500);
-                return;
-            }
-        }
-
-        //Body data.
-        memcpy(_injectRequestBodyBuffer + index, data, len);
-
-        //End of body.
-        if (index + len == total)
-            _injectRequestBodyBuffer[total] = '\0';
-    }
-    #endif
-
     static void InitTask(void* param)
     {
         // esp_log_level_set("*", DEBUG_LOG_LEVEL);
-        INFO("Log level set to %d\n", esp_log_level_get("*"));
+        LOG_INFO("Log level set to: %d", esp_log_level_get("*"));
 
-        INFO("Debug setup started.");
-        WARN("Debug setup started.");
-        ERROR("Debug setup started.");
-        DEBUG("Debug setup started.");
-        TRACE("Debug setup started.");
+        LOG_INFO("Debug setup started.");
+        LOG_WARN("Debug setup started.");
+        LOG_ERROR("Debug setup started.");
+        LOG_DEBUG("Debug setup started.");
+        LOG_TRACE("Debug setup started.");
 
-        // esp_log_level_set("DUMP", DEBUG_LOG_LEVEL);
+        _webserver = new AsyncWebServer(81);
+        WebSerial.begin(_webserver);
+        _webserver->begin();
 
-        #if (defined(ENABLE_SERIAL_CAN_DUMP) && !defined(CAN_DUMP_IMMEDIATE)) || (defined(ENABLE_UWP_SERVER) && defined(ENABLE_UWP_CAN_DUMP))
-        xTaskCreate(CanDump, "CanDump", 4096, NULL, 1, NULL);
+        #if defined(NTP_SERVER) && !defined(STA_WIFI_SSID)
+        #error "STA Network (STA_WIFI_SSID) not specified."
+        #endif
+
+        #ifdef STA_WIFI_SSID
+        switch (WiFi.getMode())
+        {
+        case WIFI_AP:
+            WiFi.mode(WIFI_AP_STA);
+            break;
+        default:
+            WiFi.mode(WIFI_STA);
+            break;
+        }
+
+        #ifdef STA_WIFI_PASSWORD
+        WiFi.begin(STA_WIFI_SSID, STA_WIFI_PASSWORD);
+        #else
+        WiFi.begin(STA_WIFI_SSID);
+        #endif
+
+        //https://github.com/esphome/issues/issues/4893
+        WiFi.setTxPower(WIFI_POWER_8_5dBm);
+        if (WiFi.waitForConnectResult() == WL_CONNECTED)
+        {
+            LOG_INFO("STA IP Address: %s", WiFi.localIP().toString());
+            
+            #ifdef NTP_SERVER
+            //Time setup is done here to get the actual time, if this stage is skipped the internal ESP tick count is used for the logs.
+            //Setup RTC for logging (mainly to sync external data to data recorded from this device, e.g. pairing video with recorded data).
+            LOG_TRACE("Syncing time with NTP server...");
+            for (int i = 0; i < 10; i++)
+            {
+                struct tm timeInfo;
+                if (getLocalTime(&timeInfo))
+                {
+                    LOG_TRACE("Successfully synced with timeserver.");
+                    break;
+                }
+                else if (i == 9)
+                {
+                    LOG_ERROR("Failed to sync with timeserver.");
+                    break;
+                }
+
+                //https://randomnerdtutorials.com/esp32-date-time-ntp-client-server-arduino/
+                configTime(0, 3600, NTP_SERVER);
+                delay(500);
+            }
+            #endif
+        }
         #endif
 
         #ifdef ENABLE_POWER_CHECK
@@ -369,130 +230,33 @@ private:
         #endif
         #endif
 
-        #if defined(ENABLE_WIFI_SERVER) || defined(ENABLE_UWP_SERVER) || defined(NTP_SERVER)
-        IPAddress ipAddress;
-        WiFi.mode(WIFI_AP_STA);
-        // IPAddress ip(192, 168, 0, 158);
-        // IPAddress subnet(255, 255, 254, 0);
-        // IPAddress gateway(192, 168, 1, 254);
-        // WiFi.config(ip, gateway, subnet);
-        WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
-        //https://github.com/esphome/issues/issues/4893
-        WiFi.setTxPower(WIFI_POWER_8_5dBm);
-        if (WiFi.waitForConnectResult() != WL_CONNECTED)
-        {
-            ERROR("STA Failed!");
-
-            //Create AP using mac address.
-            uint8_t mac[6];
-            WiFi.macAddress(mac);
-            char ssid[18];
-            sprintf(ssid, "ESP32-%02X%02X%02X%02X%02X%02X", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
-            WiFi.softAP(ssid);
-            ipAddress = WiFi.softAPIP();
-        }
-        else
-        {
-            ipAddress = WiFi.localIP();
-            
-            #ifdef NTP_SERVER
-            //Time setup is done here to get the actual time, if this stage is skipped the internal ESP tick count is used for the logs.
-            //Setup RTC for logging (mainly to sync external data to data recorded from this device, e.g. pairing video with recorded data).
-            Serial.print("Syncing time with NTP server...");
-            for (int i = 0; i < 10; i++)
-            {
-                struct tm timeInfo;
-                if (getLocalTime(&timeInfo))
-                {
-                    DEBUG("Successfully Synced with timeserver.");
-                    break;
-                }
-                else if (i == 9)
-                {
-                    ERROR("Failed to sync with NTP");
-                    break;
-                }
-
-                //https://randomnerdtutorials.com/esp32-date-time-ntp-client-server-arduino/
-                configTime(0, 3600, NTP_SERVER);
-                delay(500);
-            }
-            #endif
-        }
-
+        #ifdef ENABLE_CAN_DUMP
+        xTaskCreate(CanDump, "CanDump", 4096, NULL, 1, NULL);
         #endif
 
-        #ifdef ENABLE_UWP_SERVER
-        //https://gektor650.medium.com/esp-idf-esp32-udp-broadcasts-messages-through-the-wi-fi-4a7f3d75d8ea
-        char hostIp[strlen(DEBUG_ADDR)];
-        strcpy(hostIp, DEBUG_ADDR);
-
-        //Setup socket.
-        _uwpDestAddr.sin_addr.s_addr = inet_addr(hostIp);
-        _uwpDestAddr.sin_family = AF_INET;
-        _uwpDestAddr.sin_port = htons(3333);
-        _uwpSock = socket(AF_INET, SOCK_DGRAM, IPPROTO_IP);
-        ASSERT(_uwpSock >= 0);
-
-        //Set timeout (0.5s).
-        struct timeval uwpTimeout;
-        uwpTimeout.tv_sec = 0;
-        uwpTimeout.tv_usec = 500000;
-        ASSERT(setsockopt(_uwpSock, SOL_SOCKET, SO_SNDTIMEO, (char*)&uwpTimeout, sizeof(uwpTimeout)) >= 0);
+        #ifdef ENABLE_INJECT_API
+        // LOG_ASSERT(SPIFFS.begin(true));
+        // _webserver->on("/inject", HTTP_GET, [](AsyncWebServerRequest* request) { request->send(SPIFFS, "/inject.html", String(), false); });
+        // //https://github.com/me-no-dev/ESPAsyncWebServer/issues/123
+        // _webserver->on("/inject", HTTP_POST, HandleInject, NULL, HandleInjectDataPart);
         #endif
 
-        #ifdef ENABLE_WIFI_SERVER
-        _debugServer = new AsyncWebServer(80);
-        WebSerial.begin(_debugServer);
-
-        #pragma region Inject endpoint
-        ASSERT(SPIFFS.begin(true));
-        _debugServer->on("/inject", HTTP_GET, [](AsyncWebServerRequest* request) { request->send(SPIFFS, "/inject.html", String(), false); });
-        //https://github.com/me-no-dev/ESPAsyncWebServer/issues/123
-        _debugServer->on("/inject", HTTP_POST, HandleInject, NULL, HandleInjectDataPart);
-        #pragma endregion
-
-        _debugServer->begin();
-
-        DEBUG("Debug server started at %s", ipAddress.toString().c_str());
-        #endif
-
-        INFO("Debug setup finished.");
+        LOG_TRACE("Debug setup finished.");
         vTaskDelete(NULL);
     }
 
 public:
     static void Init()
     {
-        if (_initialized)
-            return;
-        _initialized = true;
-
         esp_log_level_set("*", DEBUG_LOG_LEVEL);
-        xTaskCreate(InitTask, "DebugSetup", 4096, NULL, 1, NULL); //Low priority task as it is imperative that the CAN bus is setup first.
-    }
-
-    static void Dump(const char* format, ...)
-    {
-        va_list args;
-        va_start(args, format);
-        
-        char buffer[128];
-        vsnprintf(buffer, sizeof(buffer), format, args);
-        // ESP_LOG_LEVEL_LOCAL(ESP_LOG_VERBOSE, "DUMP", "%s", buffer);
-        puts(buffer);
-        
-        #ifdef ENABLE_WIFI_SERVER
-        WebSerial.printf("[DUMP] %s\n", buffer);
-        #endif
-
-        va_end(args);
+        xTaskCreate(InitTask, "DebugSetup", 4096, NULL, 2, NULL); //Low priority task as it is imperative that the CAN bus gets the most CPU time.
     }
 };
 
-bool Debug::_initialized = false;
-AsyncWebServer* Debug::_debugServer = nullptr;
-char* Debug::_injectRequestBodyBuffer = nullptr;
-struct sockaddr_in Debug::_uwpDestAddr = {};
-int Debug::_uwpSock = -1;
+AsyncWebServer* Debug::_webserver = nullptr;
+
+#ifdef ENABLE_CAN_DUMP
+std::queue<BusMaster::SCanDump> Debug::_canDumpBuffer;
+ulong Debug::_lastCanDump = 0;
+#endif
 #endif
