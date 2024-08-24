@@ -6,6 +6,7 @@
 #include <ElegantOTA.h>
 #include <Preferences.h>
 #include <SPIFFS.h>
+#include <cstring>
 
 #define REED_POSITIVE GPIO_NUM_0
 #define REED_NEGATIVE GPIO_NUM_1
@@ -26,8 +27,62 @@ struct SSettings
 	.enableMultiplierAtSpeed = 20.0
 };
 
-void OnPost_Update(AsyncWebServerRequest* request)
+const char* apiSettingsStringTemplate = "wheelCircumference:%u,enabled:%d,speedMultiplier:%f,enableMultiplierAtSpeed:%lf";
+
+void OnGet_Settings(AsyncWebServerRequest* request)
 {
+	char buf[128];
+	sprintf(buf,
+		apiSettingsStringTemplate,
+		settings.wheelCircumference, settings.enabled, settings.speedMultiplier, settings.enableMultiplierAtSpeed);
+	request->send(200, "text/plain", buf);
+}
+
+void OnPost_Settings(AsyncWebServerRequest* request, uint8_t* data, size_t len, size_t index, size_t total)
+{
+	if (!index)
+	{
+		request->_tempObject = malloc(total + 1);
+		if (request->_tempObject == NULL)
+		{
+            request->send(500, "text/plain", "Server error: Memory allocation failed.");
+            return;
+        }
+	}
+
+	//Copy the current chunk of data into the allocated buffer.
+	memcpy(static_cast<uint8_t*>(request->_tempObject) + index, data, len);
+
+	if (index + len == total)
+	{
+		//Null-terminate the buffer.
+        static_cast<uint8_t*>(request->_tempObject)[total] = '\0';
+
+		uint wheelCircumference;
+		bool enabled;
+		float_t speedMultiplier;
+		double_t enableMultiplierAtSpeed;
+
+		//Extract values using sscanf.
+		int result = sscanf(static_cast<char*>(request->_tempObject),
+			apiSettingsStringTemplate,
+			&wheelCircumference, &enabled, &speedMultiplier, &enableMultiplierAtSpeed);
+
+		free(request->_tempObject);
+
+		if (result != 4)
+		{
+        	request->send(400, "text/plain", "Invalid request.");
+			return;
+		}
+
+		settings.wheelCircumference = wheelCircumference;
+		settings.enabled = enabled;
+		settings.speedMultiplier = speedMultiplier;
+		settings.enableMultiplierAtSpeed = enableMultiplierAtSpeed;
+        
+        request->send(200, "text/plain", "Settings received and parsed.");
+	}
 }
 
 void setup()
@@ -68,7 +123,8 @@ void setup()
 	ElegantOTA.begin(&server);
 
 	server.on("/", HTTP_GET, [](AsyncWebServerRequest* request){ request->send(SPIFFS, "/index.html", "text/html"); });
-	server.on("/update", HTTP_POST, OnPost_Update);
+	server.on("/settings", HTTP_GET, OnGet_Settings);
+	server.on("/settings", HTTP_POST, NULL, NULL, OnPost_Settings);
 	// //https://arduino.stackexchange.com/questions/89688/generalize-webserver-routing
 	// server.serveStatic("/", SPIFFS, "/").setDefaultFile("index.html");
 
