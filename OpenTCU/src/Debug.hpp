@@ -161,9 +161,9 @@ private:
             break;
         }
 
-        #ifdef STA_WIFI_PASSWORD
+        #if defined(STA_WIFI_SSID) && defined(STA_WIFI_PASSWORD)
         WiFi.begin(STA_WIFI_SSID, STA_WIFI_PASSWORD);
-        #else
+        #elif defined(STA_WIFI_SSID)
         WiFi.begin(STA_WIFI_SSID);
         #endif
 
