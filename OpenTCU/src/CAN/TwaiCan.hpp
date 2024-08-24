@@ -7,46 +7,22 @@
 #include <stdexcept>
 #include "SCanMessage.h"
 #include "ACan.h"
-#include "Helpers.hpp"
+#include "Logging.h"
 
 class TwaiCan : public ACan
 {
-private:
-    static bool _initialized;
-
 public:
     TwaiCan(twai_general_config_t generalConfig, twai_timing_config_t timingConfig, twai_filter_config_t filterConfig) : ACan()
     {
-        #if defined(CONFIG_COMPILER_CXX_EXCEPTIONS) && 0
-        if (_initialized)
-            throw std::runtime_error("Singleton class TwaiCan can only be initialized once.");
-        _initialized = true;
-
-        if (esp_err_t err = twai_driver_install(&generalConfig, &timingConfig, &filterConfig) != ESP_OK)
-            throw std::runtime_error("Failed to install TWAI driver: " + std::to_string(err));
-
-        if (esp_err_t err = twai_start() != ESP_OK)
-            throw std::runtime_error("Failed to start TWAI driver: " + std::to_string(err));
-
-        if (esp_err_t err = twai_reconfigure_alerts(TWAI_ALERT_RX_DATA, NULL) != ESP_OK)
-            throw std::runtime_error("Failed to reconfigure TWAI alerts: " + std::to_string(err));
-        #else
-        ASSERT(_initialized == false);
-        _initialized = true;
         ASSERT(twai_driver_install(&generalConfig, &timingConfig, &filterConfig) == ESP_OK);
         ASSERT(twai_start() == ESP_OK);
         ASSERT(twai_reconfigure_alerts(TWAI_ALERT_RX_DATA, NULL) == ESP_OK);
-        #endif
     }
 
     ~TwaiCan()
     {
-        if (!_initialized)
-            return;
-
         twai_stop();
         twai_driver_uninstall();
-        _initialized = false;
     }
 
     esp_err_t Send(SCanMessage message, TickType_t timeout)
@@ -60,12 +36,12 @@ public:
         for (int i = 0; i < message.length; i++)
             twaiMessage.data[i] = message.data[i];
 
-        TRACE("TWAI Write: %x, %d, %d, %d, %x", twaiMessage.identifier, twaiMessage.data_length_code, twaiMessage.extd, twaiMessage.rtr, twaiMessage.data[0]);
+        LOG_TRACE("TWAI Write: %x, %d, %d, %d, %x", twaiMessage.identifier, twaiMessage.data_length_code, twaiMessage.extd, twaiMessage.rtr, twaiMessage.data[0]);
 
         #ifdef USE_DRIVER_LOCK
         if (xSemaphoreTake(_driverMutex, timeout) != pdTRUE)
         {
-            TRACE("TWAI Write Timeout");
+            LOG_TRACE("TWAI Write Timeout");
             return ESP_ERR_TIMEOUT;
         }
         #endif
@@ -76,11 +52,11 @@ public:
 
         if (res != ESP_OK)
         {
-            ERROR("TWAI Write Error: %d", res);
+            LOG_ERROR("TWAI Write Error: %d", res);
         }
         else
         {
-            TRACE("TWAI Write Done");
+            LOG_TRACE("TWAI Write Done");
         }
 
         return res;
@@ -89,12 +65,12 @@ public:
     esp_err_t Receive(SCanMessage* message, TickType_t timeout)
     {
         //Use the read alerts function to wait for a message to be received (instead of locking on the twai_receive function).
-        TRACE("TWAI Wait");
+        LOG_TRACE("TWAI Wait");
 
         uint32_t alerts;
         if (esp_err_t err = twai_read_alerts(&alerts, timeout) != ESP_OK)
         {
-            TRACE("TWAI Wait Timeout: %d", err);
+            LOG_TRACE("TWAI Wait Timeout: %d", err);
             return err;
         }
         //We don't need to check the alert type because we have only subscribed to the RX_DATA alert.
@@ -104,7 +80,7 @@ public:
         //     return ESP_ERR_INVALID_RESPONSE;
         // }
 
-        TRACE("TWAI Read");
+        LOG_TRACE("TWAI Read");
 
         #ifdef USE_DRIVER_LOCK
         if (xSemaphoreTake(_driverMutex, timeout) != pdTRUE)
@@ -120,11 +96,11 @@ public:
 
         if (err != ESP_OK)
         {
-            ERROR("TWAI Read Error: %d", err);
+            LOG_ERROR("TWAI Read Error: %d", err);
             return err;
         }
 
-        TRACE("TWAI Read Done: %x, %d, %d, %d, %x", twaiMessage.identifier, twaiMessage.data_length_code, twaiMessage.extd, twaiMessage.rtr, twaiMessage.data[0]);
+        LOG_TRACE("TWAI Read Done: %x, %d, %d, %d, %x", twaiMessage.identifier, twaiMessage.data_length_code, twaiMessage.extd, twaiMessage.rtr, twaiMessage.data[0]);
 
         message->id = twaiMessage.identifier;
         message->length = twaiMessage.data_length_code;
@@ -141,7 +117,7 @@ public:
         #ifdef USE_DRIVER_LOCK
         if (xSemaphoreTake(_driverMutex, timeout) != pdTRUE)
         {
-            TRACE("TWAI Status Timeout");
+            LOG_TRACE("TWAI Status Timeout");
             return ESP_ERR_TIMEOUT;
         }
         #endif
@@ -153,7 +129,7 @@ public:
         xSemaphoreGive(_driverMutex);
         #endif
 
-        TRACE("TWAI Status: %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d",
+        LOG_TRACE("TWAI Status: %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d",
             *status & TWAI_ALERT_TX_IDLE,
             *status & TWAI_ALERT_TX_SUCCESS,
             *status & TWAI_ALERT_RX_DATA,
@@ -179,5 +155,3 @@ public:
         return res;
     }
 };
-
-bool TwaiCan::_initialized = false;
