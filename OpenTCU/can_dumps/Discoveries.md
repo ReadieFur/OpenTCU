@@ -1,3 +1,73 @@
+## 2**
+Undetermined.
+
+### 200
+Very infrequent updates, more information needed.  
+From what I can tell it appears to be a copy of 402.
+
+Bit 1 -> 402 bit 1.
+
+Bit 2 always 0.
+
+Bits 3-6 -> 402 bits 5-8.
+
+Bit 7 unsure.
+
+Bit 8 always 0.
+
+### 201
+Unsure.
+
+Bit 5 is always HEX 62.
+
+Bit 6 is always 0.
+
+### 202
+Unsure.
+
+Bit 1 is always HEX E2.
+
+Bits 3 and 4 are always 0.
+
+Bit 6 is always HEX AB.
+
+Bit 7 is always HEX 22.
+
+Bit 8 is always 0.
+
+### 203
+Unsure.
+
+Bits 6-8 are always 0.
+
+### 204
+Always 0.
+
+## 3**
+Undetermined.
+
+### 300
+Unsure.
+
+Bit 1 always HEX 03.
+
+Bit 2 always HEX 5A.
+
+Bit 3 always HEX 64.
+
+Bit 4 always HEX 5A.
+
+Bit 5 always HEX 41.
+
+Bit 6 always HEX 00.
+
+Bit 7 always HEX 32.
+
+### 301
+Unsure.
+
+Bit 3 always 0.
+
 ## 4**
 Battery information  
 Data in little endian  
@@ -49,3 +119,50 @@ e.g. (according to my recordings, which disproves the above findings)
 
 e.g. (according to the reference document)  
 `D0 DD 06 00` -> `00 06 DD D0` -> `450000` -> /1000 = `450Wh`?
+
+### 404
+Unclear
+
+### 405
+DLC varies.
+
+Bit 3 is always 0.
+
+## 6**
+Undetermined.
+
+Data is infrequent, more is needed for examination.
+
+### 665
+Unsure.
+
+Bits 1-3 are always 0.
+
+Bit 4 is always HEX 53.
+
+Bit 5 is always HEX 4C.
+
+Bit 6 is always HEX 18.
+
+Bit 7 is always HEX 53.
+
+Bit 8 is always 0.
+
+### 666
+Unsure.
+
+Bit 1 is always HEX 52.
+
+Bit 2 is always HEX 08.
+
+Bit 3 is always HEX 01.
+
+Bit 4 is always HEX 05.
+
+Bit 5 is always HEX 52.
+
+Bit 6 is always HEX 57.
+
+Bit 7 is always HEX 12.
+
+Bit 8 is always HEX 44.
