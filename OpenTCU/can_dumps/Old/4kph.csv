@@ -1,3 +1,4 @@
+Timestamp,IsMotorToTCU,ID,IsExtended,IsRemote,Length,D1,D2,D3,D4,D5,D6,D7,D8
 78698,0,300,0,0,8,3,5a,64,5a,64,0,64,27
 78699,0,301,0,0,3,b8,7,0
 78726,1,402,0,0,8,64,0,0,0,20,e2,9,0
