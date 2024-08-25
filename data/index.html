@@ -3,9 +3,142 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Reed settings</title>
+    <title>Reed Settings</title>
+    <script>
+        document.addEventListener("DOMContentLoaded", function () {
+            // Function to load settings from the ESP32
+            function loadSettings() {
+                fetch('/settings')
+                    .then(response => response.text())
+                    .then(data => {
+                        const settings = data.split(',');
+
+                        // Extract and assign settings values
+                        document.getElementById('wheelCircumference').value = parseInt(settings[0].split(':')[1]);
+                        document.getElementById('enabled').checked = parseInt(settings[1].split(':')[1]) === 1;
+                        document.getElementById('speedMultiplier').value = parseFloat(settings[2].split(':')[1]);
+                        document.getElementById('enableMultiplierAtSpeed').value = parseFloat(settings[3].split(':')[1]);
+                        document.getElementById('pulseDuration').value = parseInt(settings[4].split(':')[1]);
+                        document.getElementById('timeBetweenUpdates').value = parseInt(settings[5].split(':')[1]);
+                        document.getElementById('revolutionsBetweenUpdates').value = parseInt(settings[6].split(':')[1]);
+                    })
+                    .catch(error => console.error('Error fetching settings:', error));
+            }
+
+            // Function to save settings to the ESP32
+            function saveSettings() {
+                const wheelCircumference = document.getElementById('wheelCircumference').value;
+                const enabled = document.getElementById('enabled').checked ? 1 : 0;
+                const speedMultiplier = document.getElementById('speedMultiplier').value;
+                const enableMultiplierAtSpeed = document.getElementById('enableMultiplierAtSpeed').value;
+                const pulseDuration = document.getElementById('pulseDuration').value;
+                const timeBetweenUpdates = document.getElementById('timeBetweenUpdates').value;
+                const revolutionsBetweenUpdates = document.getElementById('revolutionsBetweenUpdates').value;
+
+                const settingsString = `wheelCircumference:${wheelCircumference},enabled:${enabled},speedMultiplier:${speedMultiplier},enableMultiplierAtSpeed:${enableMultiplierAtSpeed},pulseDuration:${pulseDuration},timeBetweenUpdates:${timeBetweenUpdates},revolutionsBetweenUpdates:${revolutionsBetweenUpdates}`;
+
+                fetch('/settings', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'text/plain'
+                    },
+                    body: settingsString
+                })
+                    .then(response => {
+                        if (response.ok) {
+                            alert('Settings saved successfully!');
+                        } else {
+                            alert('Failed to save settings.');
+                        }
+                    })
+                    .catch(error => console.error('Error saving settings:', error));
+            }
+
+            // Function to load stats from the ESP32
+            function loadStats() {
+                fetch('/stats')
+                    .then(response => response.text())
+                    .then(data => {
+                        const stats = data.split(',');
+
+                        // Extract and display stats
+                        document.getElementById('realRpm').textContent = stats[0].split(':')[1];
+                        document.getElementById('realKph').textContent = stats[1].split(':')[1];
+                        document.getElementById('fakedRpm').textContent = stats[2].split(':')[1];
+                        document.getElementById('fakedKph').textContent = stats[3].split(':')[1];
+                        document.getElementById('updateLatency').textContent = stats[4].split(':')[1];
+                    })
+                    .catch(error => console.error('Error fetching stats:', error));
+            }
+
+            // Function to send POST requests to reset or restart the device
+            function sendCommand(command) {
+                fetch(`/${command}`, { method: 'POST' })
+                    .then(response => {
+                        if (response.ok) {
+                            alert(`${command.charAt(0).toUpperCase() + command.slice(1)} command sent successfully!`);
+                        } else {
+                            alert(`Failed to send ${command} command.`);
+                        }
+                    })
+                    .catch(error => console.error(`Error sending ${command} command:`, error));
+            }
+
+            // Load settings on page load
+            loadSettings();
+
+            // Add event listener to save button
+            document.getElementById('saveButton').addEventListener('click', saveSettings);
+
+            // Load stats every second
+            setInterval(loadStats, 1000);
+
+            // Add event listeners for reset and restart buttons
+            document.getElementById('resetButton').addEventListener('click', () => sendCommand('reset'));
+            document.getElementById('restartButton').addEventListener('click', () => sendCommand('restart'));
+        });
+    </script>
 </head>
 <body>
-    
+    <h1>Reed Settings</h1>
+    <div>
+        <label for="wheelCircumference">Wheel Circumference (mm):</label>
+        <input type="number" id="wheelCircumference" name="wheelCircumference"><br><br>
+
+        <label for="enabled">Enable Speed Multiplier:</label>
+        <input type="checkbox" id="enabled" name="enabled"><br><br>
+
+        <label for="speedMultiplier">Speed Multiplier:</label>
+        <input type="range" id="speedMultiplier" name="speedMultiplier" min="1.00" max="3.00" step="0.01" oninput="this.nextElementSibling.value = this.value">
+        <output>1.00</output><br><br>
+
+        <label for="enableMultiplierAtSpeed">Enable Multiplier At Speed (kp/h):</label>
+        <input type="number" id="enableMultiplierAtSpeed" name="enableMultiplierAtSpeed" min="0" step="0.01"><br><br>
+
+        <label for="pulseDuration">Pulse Duration (ms):</label>
+        <input type="range" id="pulseDuration" name="pulseDuration" min="5" max="100" oninput="this.nextElementSibling.value = this.value">
+        <output>5</output><br><br>
+
+        <label for="timeBetweenUpdates">Time Between Updates (ms):</label>
+        <input type="range" id="timeBetweenUpdates" name="timeBetweenUpdates" min="500" max="5000" oninput="this.nextElementSibling.value = this.value">
+        <output>500</output><br><br>
+
+        <label for="revolutionsBetweenUpdates">Revolutions Between Updates:</label>
+        <input type="range" id="revolutionsBetweenUpdates" name="revolutionsBetweenUpdates" min="5" max="50" oninput="this.nextElementSibling.value = this.value">
+        <output>5</output><br><br>
+
+        <button id="saveButton">Save Settings</button>
+        <button id="resetButton">Reset</button>
+        <button id="restartButton">Restart</button>
+    </div>
+
+    <h2>Stats</h2>
+    <div>
+        <p>Real RPM: <span id="realRpm">0</span></p>
+        <p>Real Speed: <span id="realKph">0.0</span>km/h</p>
+        <p>Faked RPM: <span id="fakedRpm">0</span></p>
+        <p>Faked Speed: <span id="fakedKph">0.0</span>km/h</p>
+        <p>Update Latency: <span id="updateLatency">0</span>ms</p>
+    </div>
 </body>
 </html>
