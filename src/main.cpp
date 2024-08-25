@@ -47,6 +47,7 @@ double_t realKph = 0;
 double_t fakedKph = 0;
 ulong fakedRpm = 0;
 long updateLatency = -1;
+ulong lastOtaLog = 0;
 
 void IRAM_ATTR ReedISR()
 {
@@ -160,6 +161,14 @@ void LoggingTask(void* args)
 	}
 }
 
+// void LoopTask(void* args)
+// {
+// 	while (true)
+// 	{
+// 		ElegantOTA.loop();
+// 	}
+// }
+
 void OnGet_Settings(AsyncWebServerRequest* request)
 {
 	char buf[384];
@@ -238,6 +247,49 @@ void OnGet_Stats(AsyncWebServerRequest* request)
 	request->send(200, "text/plain", buf);
 }
 
+void OnGet_Reset(AsyncWebServerRequest* request)
+{
+	request->send(202);
+	preferences.clear();
+	ESP.restart();
+}
+
+void OnGet_Restart(AsyncWebServerRequest* request)
+{
+	request->send(202);
+	ESP.restart();
+}
+
+void OnOtaStart()
+{
+	std::cout << "OTA update started." << std::endl;
+}
+
+void OnOtaProgress(size_t current, size_t final)
+{
+	//Log at most every 1 seconds.
+	if (millis() - lastOtaLog > 1000)
+	{
+		lastOtaLog = millis();
+		std::cout << "OTA Progress: " << current << "/" << final << " bytes" << std::endl;
+	}
+}
+
+void OnOtaEnd(bool success)
+{
+	//Log when OTA has finished.
+	if (success)
+	{
+		std::cout << "Rebooting to install OTA update..." << std::endl;
+		// vTaskDelay(pdMS_TO_TICKS(2000));
+		ESP.restart();
+	}
+	else
+	{
+		std::cout << "Error during OTA update!" << std::endl;
+	}
+}
+
 void setup()
 {
 	Serial.begin(115200);
@@ -288,11 +340,16 @@ void setup()
 	server.begin();
 
 	ElegantOTA.begin(&server);
+	ElegantOTA.onStart(OnOtaStart);
+	ElegantOTA.onProgress(OnOtaProgress);
+	ElegantOTA.onEnd(OnOtaEnd);
 
 	server.on("/", HTTP_GET, [](AsyncWebServerRequest* request){ request->send(SPIFFS, "/index.html", "text/html"); });
 	server.on("/settings", HTTP_GET, OnGet_Settings);
 	server.on("/settings", HTTP_POST, NULL, NULL, OnPost_Settings);
 	server.on("/stats", HTTP_GET, OnGet_Stats);
+	server.on("/reset", HTTP_GET, OnGet_Reset);
+	server.on("/restart", HTTP_GET, OnGet_Restart);
 	// //https://arduino.stackexchange.com/questions/89688/generalize-webserver-routing
 	// server.serveStatic("/", SPIFFS, "/").setDefaultFile("index.html");
 
@@ -301,7 +358,8 @@ void setup()
 	xTaskCreate(ReedTask, NAMEOF(ReedTask), configMINIMAL_STACK_SIZE + 2048, NULL, (UBaseType_t)(configMAX_PRIORITIES * 0.4f), NULL);
 	xTaskCreate(RelayTask, NAMEOF(RelayTask), configMINIMAL_STACK_SIZE + 2048, NULL, (UBaseType_t)(configMAX_PRIORITIES * 0.5f), NULL);
 	xTaskCreate(LoggingTask, NAMEOF(LoggingTask), configMINIMAL_STACK_SIZE + 4096, NULL, (UBaseType_t)(configMAX_PRIORITIES * 0.2f), NULL);
-	xTaskCreate(EmulationTask, NAMEOF(EmulationTask), configMINIMAL_STACK_SIZE + 512, NULL, 5, NULL);
+	// xTaskCreate(LoopTask, NAMEOF(LoopTask), configMINIMAL_STACK_SIZE + 2048, NULL, (UBaseType_t)(configMAX_PRIORITIES * 0.1f), NULL);
+	xTaskCreate(EmulationTask, NAMEOF(EmulationTask), configMINIMAL_STACK_SIZE + 512, NULL, (UBaseType_t)(configMAX_PRIORITIES * 0.3f), NULL);
 }
 
 void loop()
