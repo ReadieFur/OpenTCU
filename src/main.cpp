@@ -22,101 +22,75 @@ struct SSettings
 	bool enabled;
 	float_t speedMultiplier; //How much to raise the top speed by.
 	double_t enableMultiplierAtSpeed; //In mm/s.
-} volatile settings = {
+} settings = {
 	.wheelCircumference = 2145,
 	.enabled = true,
 	.speedMultiplier = 1.5f,
 	.enableMultiplierAtSpeed = 20.0
 };
 
-volatile unsigned long lastTime = 0;
-volatile unsigned long currentTime = 0;
-volatile float timePerCycle = 0.0; //Time taken for one full cycle (on-time + off-time).
-volatile float speed = 0.0; //Speed in mm/s.
-volatile bool pulseDetected = false;
-unsigned long lastRelayTime = 0;
-bool relayState = false;
+//https://electronics.stackexchange.com/questions/89/how-do-i-measure-the-rpm-of-a-wheel
+volatile uint reedPulses = 0;
+ulong lastRPMUpdate = 0;
+ulong realRpm = 0;
 
 void IRAM_ATTR ReedISR()
 {
-	currentTime = millis();
-    timePerCycle = currentTime - lastTime;
-    if (timePerCycle > 0)
-        speed = settings.wheelCircumference / (timePerCycle / 1000.0); //Convert time to seconds and calculate speed.
-    lastTime = currentTime;
-    pulseDetected = true;
+	reedPulses++;
 }
 
-void RelayTask(void* args)
+void EmulationTask(void* args)
 {
 	while (true)
 	{
-		if (pulseDetected)
+		//Simulate X kph wheel speed.
+		float_t desiredKph = 5.0f;
+		
+		float_t metersPerMinute = (desiredKph * 1000) / 60;
+		float_t rpm = metersPerMinute / (settings.wheelCircumference / 1000);
+		float_t pulsesPerSecond = rpm / 60;
+		uint delay = pdMS_TO_TICKS(1000 / pulsesPerSecond);
+
+		reedPulses++;
+
+		vTaskDelay(delay);
+	}
+}
+
+void ReedTask(void* args)
+{
+	while (true)
+	{
+		ulong now = millis();
+		ulong timeBetweenUpdates = now - lastRPMUpdate;
+
+		//Update RPM every x revolutions or x milliseconds, whichever comes first (revolutions will occur at higher speeds and milliseconds will occur at lower speeds).
+		if (reedPulses >= 20 || timeBetweenUpdates >= 3000)
 		{
-			pulseDetected = false;
+			//Disable the interrupt while calculating the RPM to avoid incorrect values.
+			detachInterrupt(REED_NEGATIVE);
 
-			float adjustedTimePerCycle;
-			//Check if the speed is above the threshold.
-            if (speed > settings.enableMultiplierAtSpeed)
-			{
-                //Apply multiplier.
-                adjustedTimePerCycle = timePerCycle * settings.speedMultiplier;
-            }
-			else
-			{
-                //No multiplier, use the original time per cycle.
-                adjustedTimePerCycle = timePerCycle;
-            }
+			//Calculate the RPM.
+			//The 60000 division is to convert from milliseconds to minutes.
+			realRpm = reedPulses * (60000.0 / timeBetweenUpdates);
 
-			//Use millis() for non-blocking delay logic.
-			unsigned long currentMillis = millis();
-			if (currentMillis - lastRelayTime >= adjustedTimePerCycle / 2)
-			{
-				relayState = !relayState;
-				digitalWrite(RELAY_BASE, relayState ? HIGH : LOW);
-				lastRelayTime = currentMillis;
-			}
+			reedPulses = 0;
+			lastRPMUpdate = now;
+
+			//Resume ISR.
+			attachInterrupt(REED_NEGATIVE, ReedISR, FALLING);
+
+			//Logging.
+			std::cout << "RPM: " << realRpm << "\n";
+
+			//Calculate the real wheel speed. The wheel circumference is needed in meters for this calculation so divide by 1000.
+			//This then gives us meters per minute, to convert it to KM/H we multiply by 0.06.
+			std::cout << "KM/H: " << realRpm * (settings.wheelCircumference / 1000) * 0.06 << std::endl;
 		}
 
-		//Ensure task yields and does not hog CPU.
 		vTaskDelay(pdMS_TO_TICKS(1));
 	}
 }
-
-void LogTask(void* args)
-{
-	while (true)
-	{
-		std::cout << "Real wheel Speed: " << speed * 0.0036 << "km/h" << std::endl;
-		std::cout << "Faked wheel Speed: " << (speed / settings.speedMultiplier) * 0.0036 << "km/h" << std::endl;
-		// std::cout << "Output Frequency: " << 1000.0 / (timePerCycle * settings.speedMultiplier) << std::endl;
-
-		vTaskDelay(pdMS_TO_TICKS(1000));
-	}
-}
-
-// void ReedTask(void* args)
-// {
-// 	ulong lastLogTime = 0;
-// 	ulong onTime = 0;
-// 	long offTime = 0;
-
-// 	while (true)
-// 	{
-// 		int enabled = digitalRead(REED_NEGATIVE);
-// 		digitalWrite(RELAY_BASE, enabled);
-		
-// 		#if true
-// 		if (millis() - lastLogTime < 10)
-// 		{
-// 			std::cout << "Reed:" << enabled << std::endl;
-// 			lastLogTime = millis();
-// 		}
-// 		#endif
-		
-// 		vTaskDelay(pdMS_TO_TICKS(10));
-// 	}
-// }
 
 void OnGet_Settings(AsyncWebServerRequest* request)
 {
@@ -200,6 +174,10 @@ void setup()
 		settings.enableMultiplierAtSpeed = preferences.putDouble("ens", settings.enableMultiplierAtSpeed);
 	else
 		preferences.getDouble("ens", settings.enableMultiplierAtSpeed);
+	// if (preferences.isKey("rui"))
+	// 	settings.rpmUpdateInterval = preferences.putUInt("rui", settings.rpmUpdateInterval);
+	// else
+	// 	preferences.getUInt("rui", settings.rpmUpdateInterval);
 
 	preferences.begin("reed");
 	SPIFFS.begin(true);
@@ -220,10 +198,9 @@ void setup()
 	// server.serveStatic("/", SPIFFS, "/").setDefaultFile("index.html");
 
 	//Create my own loop task as the default task has too high of a priority and prevents other secondary tasks from running.
-	// xTaskCreate(ReedTask, "ReedTask", configMINIMAL_STACK_SIZE + 1024, NULL, (UBaseType_t)(configMAX_PRIORITIES * 0.5f), NULL);
-	attachInterrupt(REED_NEGATIVE, ReedISR, CHANGE);
-	// xTaskCreate(RelayTask, "RelayTask", configMINIMAL_STACK_SIZE + 1024, NULL, (UBaseType_t)(configMAX_PRIORITIES * 0.5f), NULL);
-	xTaskCreate(LogTask, "LogTask", configMINIMAL_STACK_SIZE + 4096, NULL, 2, NULL); //Large stack size needed for std::cout.
+	attachInterrupt(REED_NEGATIVE, ReedISR, FALLING);
+	xTaskCreate(ReedTask, "ReedTask", configMINIMAL_STACK_SIZE + 4096, NULL, (UBaseType_t)(configMAX_PRIORITIES * 0.5f), NULL);
+	xTaskCreate(EmulationTask, "EmulationTask", configMINIMAL_STACK_SIZE + 512, NULL, 5, NULL);
 }
 
 void loop()
