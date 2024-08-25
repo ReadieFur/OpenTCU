@@ -25,7 +25,7 @@ struct SSettings
 	uint wheelCircumference; //In millimeters.
 	bool enabled; //Wether or not to enable the speed multiplier at all. //TODO: Have this skip the relay task all-together when false and send the pulses directly to the relay base.
 	float_t speedMultiplier; //How much to raise the top speed by.
-	double_t enableMultiplierAtSpeed; //In mm/s.
+	double_t enableMultiplierAtSpeed; //In KM/H.
 	uint pulseDuration; //Time to pulse for in ms.
 	uint timeBetweenUpdates; //Time between speed calculation updates, used for low speed.
 	uint revolutionsBetweenUpdates; //Time between speed calculation updates, used for high speed.
@@ -247,14 +247,14 @@ void OnGet_Stats(AsyncWebServerRequest* request)
 	request->send(200, "text/plain", buf);
 }
 
-void OnGet_Reset(AsyncWebServerRequest* request)
+void OnPost_Reset(AsyncWebServerRequest* request)
 {
 	request->send(202);
 	preferences.clear();
 	ESP.restart();
 }
 
-void OnGet_Restart(AsyncWebServerRequest* request)
+void OnPost_Restart(AsyncWebServerRequest* request)
 {
 	request->send(202);
 	ESP.restart();
@@ -333,7 +333,7 @@ void setup()
 	SPIFFS.begin(true);
 
 	WiFi.mode(WIFI_AP);
-	WiFi.softAP("ESP-REED", NULL, 1 /*Don't care about this value (default used)*/, 0 /*Need to set so SSID is hidden*/);
+	WiFi.softAP("ESP-REED", NULL, 1 /*Don't care about this value (default used)*/, 1 /*Need to set so SSID is hidden*/);
 	//https://github.com/esphome/issues/issues/4893
 	WiFi.setTxPower(WIFI_POWER_8_5dBm);
 
@@ -348,8 +348,8 @@ void setup()
 	server.on("/settings", HTTP_GET, OnGet_Settings);
 	server.on("/settings", HTTP_POST, NULL, NULL, OnPost_Settings);
 	server.on("/stats", HTTP_GET, OnGet_Stats);
-	server.on("/reset", HTTP_GET, OnGet_Reset);
-	server.on("/restart", HTTP_GET, OnGet_Restart);
+	server.on("/reset", HTTP_POST, OnPost_Reset);
+	server.on("/restart", HTTP_POST, OnPost_Restart);
 	// //https://arduino.stackexchange.com/questions/89688/generalize-webserver-routing
 	// server.serveStatic("/", SPIFFS, "/").setDefaultFile("index.html");
 
