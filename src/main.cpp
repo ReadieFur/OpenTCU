@@ -35,13 +35,15 @@ void loop()
 	//Measure the duration of the LOW signal.
 	ulong lowDuration = pulseIn(REED_NEGATIVE, LOW, TIMEOUT);
 
-	//If a timeout occurs, pulseIn() returns 0
+	//If a timeout occurs, pulseIn() returns 0.
 	if (highDuration > 0 && lowDuration > 0)
 	{
-		//Calculate the total cycle duration in microseconds
+		//Calculate the total cycle duration in microseconds.
 		ulong totalCycleDuration = highDuration + lowDuration;
-		float rpm = 60.0 / (totalCycleDuration / 1000000.0); //RPM = 60 / (Total Cycle Duration in seconds).
-		//Determine if the RPM is within the specified range
+		//Calculate RPM.
+		float totalCycleDurationSeconds = totalCycleDuration / 1000000.0; //Convert to seconds.
+		float rpm = 60.0 / totalCycleDurationSeconds; //RPM = 60 / (Total Cycle Duration in seconds).
+		//Determine if the RPM is within the specified range.
 		bool applyMultiplier = (rpm >= MIN_RPM && rpm <= MAX_RPM);
 
 		//Calculate the modified durations.
