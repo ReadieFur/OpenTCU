@@ -10,7 +10,7 @@
 #define REED_POSITIVE GPIO_NUM_0
 #define REED_NEGATIVE GPIO_NUM_1
 #define RELAY_BASE GPIO_NUM_2
-#define TIMEOUT 1000000UL //Timeout of 1 second (in microseconds).
+#define TIMEOUT 750000UL //Timeout of 750ms (in microseconds).
 #define MIN_RPM static_cast<int>((ACTIVATION_SPEED * 1000 / 60) / (WHEEL_CIRCUMFERENCE / 1000)) //Minimum RPM for applying the multiplier (round down). Convert speed to m/min, convert WHEEL_CIRCUMFERENCE to meters, divide the two for RPM.
 #define MAX_RPM static_cast<int>((DEACTIVATION_SPEED * 1000 / 60) / (WHEEL_CIRCUMFERENCE / 1000) + 1) //Maximum RPM for applying the multiplier (round up, +1 rounds up with static_cast<int> truncating any decimal, assuming there is a decimal).
 
