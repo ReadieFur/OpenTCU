@@ -1,5 +1,6 @@
 #include <Arduino.h>
 #include <iostream>
+#include <cmath>
 
 #define WHEEL_CIRCUMFERENCE 2160 //Wheel circumference in mm (configured for the stock Turbo Levo 27.5" wheels).
 #define SPEED_MULTIPLIER 1.5f //The amount to decrease the real bike speed by.
@@ -10,8 +11,8 @@
 #define REED_NEGATIVE GPIO_NUM_1
 #define RELAY_BASE GPIO_NUM_2
 #define TIMEOUT 1000000UL //Timeout of 1 second (in microseconds).
-#define MIN_RPM (ACTIVATION_SPEED * 1000 / 60) / (WHEEL_CIRCUMFERENCE / 1000) //Minimum RPM for applying the multiplier. Convert speed to m/min, convert WHEEL_CIRCUMFERENCE to meters, divide the two for RPM.
-#define MAX_RPM (DEACTIVATION_SPEED * 1000 / 60) / (WHEEL_CIRCUMFERENCE / 1000) //Maximum RPM for applying the multiplier.
+#define MIN_RPM static_cast<int>((ACTIVATION_SPEED * 1000 / 60) / (WHEEL_CIRCUMFERENCE / 1000)) //Minimum RPM for applying the multiplier (round down). Convert speed to m/min, convert WHEEL_CIRCUMFERENCE to meters, divide the two for RPM.
+#define MAX_RPM static_cast<int>((DEACTIVATION_SPEED * 1000 / 60) / (WHEEL_CIRCUMFERENCE / 1000) + 1) //Maximum RPM for applying the multiplier (round up).
 
 ulong lastLogTime = 0;
 
