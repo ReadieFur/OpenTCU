@@ -10,7 +10,7 @@
 #include <freertos/task.h>
 #include <freertos/queue.h>
 
-// #define ENABLE_EMULATION_TASK 20.0f
+// #define EMULATION_TASK 20.0f
 
 #define REED_POSITIVE GPIO_NUM_0
 #define REED_NEGATIVE GPIO_NUM_1
@@ -219,12 +219,14 @@ void LoggingTask(void* args)
 	}
 }
 
+#ifdef EMULATION_TASK
 void EmulationTask(void* args)
 {
 	while (true)
 	{
 		//Simulate X kph wheel speed.
-		float_t desiredRealKph = ENABLE_EMULATION_TASK;
+		//((((<DESIRED_SPEED> * 1000) / 60) / (2145 / 1000)) / 60) * 2
+		float_t desiredRealKph = EMULATION_TASK;
 		
 		float_t metersPerMinute = (desiredRealKph * 1000) / 60;
 		float_t rpm = metersPerMinute / (settings.wheelCircumference / 1000);
@@ -246,6 +248,7 @@ void EmulationTask(void* args)
 		vTaskDelay(pdMS_TO_TICKS(delay));
 	}
 }
+#endif
 
 // void LoopTask(void* args)
 // {
@@ -404,7 +407,7 @@ void setup()
 
 	preferences.begin("reed");
 
-	#ifdef ENABLE_EMULATION_TASK
+	#ifdef EMULATION_TASK
 	preferences.clear();
 	#endif
 
@@ -468,7 +471,7 @@ void setup()
 	xTaskCreate(RelayTask, NAMEOF(RelayTask), configMINIMAL_STACK_SIZE + 2048, NULL, (UBaseType_t)(configMAX_PRIORITIES * 0.5f), NULL);
 	xTaskCreate(LoggingTask, NAMEOF(LoggingTask), configMINIMAL_STACK_SIZE + 4096, NULL, (UBaseType_t)(configMAX_PRIORITIES * 0.2f), NULL);
 	// xTaskCreate(LoopTask, NAMEOF(LoopTask), configMINIMAL_STACK_SIZE + 2048, NULL, (UBaseType_t)(configMAX_PRIORITIES * 0.1f), NULL);
-	#ifdef ENABLE_EMULATION_TASK
+	#ifdef EMULATION_TASK
 	xTaskCreate(EmulationTask, NAMEOF(EmulationTask), configMINIMAL_STACK_SIZE + 512, NULL, (UBaseType_t)(configMAX_PRIORITIES * 0.3f), NULL);
 	#endif
 }
