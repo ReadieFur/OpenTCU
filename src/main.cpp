@@ -45,21 +45,15 @@ void loop()
 		bool applyMultiplier = (rpm >= MIN_RPM && rpm <= MAX_RPM);
 
 		//Calculate the modified durations.
-		ulong modifiedHighDuration = highDuration * SPEED_MULTIPLIER;
-		ulong modifiedLowDuration = lowDuration * SPEED_MULTIPLIER;
+		ulong modifiedHighDuration = applyMultiplier ? highDuration * SPEED_MULTIPLIER : highDuration;
+		ulong modifiedLowDuration = applyMultiplier ? lowDuration * SPEED_MULTIPLIER : lowDuration;
 
 		//Relay the signal with the modified timing.
-		if (highDuration > 0)
-		{
-			digitalWrite(RELAY_BASE, HIGH);
-			delayMicroseconds(modifiedHighDuration);
-		}
+		digitalWrite(RELAY_BASE, HIGH);
+		delayMicroseconds(modifiedHighDuration);
 		
-		if (lowDuration > 0)
-		{
-			digitalWrite(RELAY_BASE, LOW);
-			delayMicroseconds(modifiedLowDuration);
-		}
+		digitalWrite(RELAY_BASE, LOW);
+		delayMicroseconds(modifiedLowDuration);
 
 		ulong now = millis();
 		if (now - lastLogTime >= 1000UL)
