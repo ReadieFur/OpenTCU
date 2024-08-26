@@ -10,7 +10,7 @@
 #define REED_POSITIVE GPIO_NUM_0
 #define REED_NEGATIVE GPIO_NUM_1
 #define RELAY_BASE GPIO_NUM_2
-#define TIMEOUT 750000UL //Timeout of 750ms (in microseconds).
+#define TIMEOUT 3 * 1000000UL //Timeout of x seconds (in microseconds).
 #define MIN_RPM static_cast<int>((ACTIVATION_SPEED * 1000 / 60) / (WHEEL_CIRCUMFERENCE / 1000)) //Minimum RPM for applying the multiplier (round down). Convert speed to m/min, convert WHEEL_CIRCUMFERENCE to meters, divide the two for RPM.
 #define MAX_RPM static_cast<int>((DEACTIVATION_SPEED * 1000 / 60) / (WHEEL_CIRCUMFERENCE / 1000) + 1) //Maximum RPM for applying the multiplier (round up, +1 rounds up with static_cast<int> truncating any decimal, assuming there is a decimal).
 
@@ -30,10 +30,10 @@ void setup()
 void loop()
 {
 	//Measure the duration of the HIGH signal.
-	ulong highDuration = pulseIn(GPIO_NUM_1, HIGH, TIMEOUT);
+	ulong highDuration = pulseIn(REED_NEGATIVE, HIGH, TIMEOUT);
 	
 	//Measure the duration of the LOW signal.
-	ulong lowDuration = pulseIn(GPIO_NUM_1, LOW, TIMEOUT);
+	ulong lowDuration = pulseIn(REED_NEGATIVE, LOW, TIMEOUT);
 
 	//If a timeout occurs, pulseIn() returns 0
 	if (highDuration > 0 && lowDuration > 0)
@@ -62,8 +62,11 @@ void loop()
 			std::cout
 				<< "On Duration: " << (highDuration / 1000.0) << "ms"
 				<< ", Off Duration: " << (lowDuration / 1000.0) << "ms"
+				<< ", RPM: " << rpm
+				<< ", Apply Multiplier: " << applyMultiplier
 				<< ", Fake On Duration: " << (modifiedHighDuration / 1000.0) << "ms"
-				<< ", Off Duration: " << (modifiedLowDuration / 1000.0) << "ms"
+				<< ", Fake Off Duration: " << (modifiedLowDuration / 1000.0) << "ms"
+				<< ", Fake RPM: " << (applyMultiplier ? rpm / SPEED_MULTIPLIER : rpm)
 				<< std::endl;
 			
 			lastLogTime = now;
@@ -74,10 +77,9 @@ void loop()
 		ulong now = millis();
 		if (now - lastLogTime >= 1000UL)
 		{
-			std::cout << "Idle" << std::endl;
+			std::cout << "Idle " << (highDuration > 0 ? highDuration / 1000 : highDuration)
+				<< " " << (lowDuration > 0 ? lowDuration / 1000 : lowDuration) << std::endl;
 			lastLogTime = now;
 		}
 	}
-
-	vTaskDelay(1);
 }
