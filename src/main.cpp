@@ -75,6 +75,15 @@ void loop()
 			lastLogTime = now;
 		}
 	}
+	else
+	{
+		ulong now = millis();
+		if (now - lastLogTime >= 1000UL)
+		{
+			std::cout << "Idle" << std::endl;
+			lastLogTime = now;
+		}
+	}
 
 	vTaskDelay(1);
 }
