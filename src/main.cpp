@@ -8,12 +8,15 @@
 #include <SPIFFS.h>
 #include <cstring>
 #include <freertos/task.h>
+#include <freertos/queue.h>
+
+// #define ENABLE_EMULATION_TASK 20.0f
 
 #define REED_POSITIVE GPIO_NUM_0
 #define REED_NEGATIVE GPIO_NUM_1
 #define RELAY_BASE GPIO_NUM_2
 
-#define SETTINGS_API_TEMPLATE "wheelCircumference:%u,enabled:%d,speedMultiplier:%f,enableMultiplierAtSpeed:%lf,pulseDuration:%u,timeBetweenUpdates:%u,revolutionsBetweenUpdates:%u"
+#define SETTINGS_API_TEMPLATE "wheelCircumference:%u,enabled:%d,speedMultiplier:%f,enableMultiplierAtSpeed:%lf,timeBetweenUpdates:%u,revolutionsBetweenUpdates:%u,disableMultiplierAtSpeed:%lf,logUpdateInterval:%u,maxPulseDurationBuffer:%u"
 #define STATS_API_TEMPLATE "realRpm:%lu,realKph:%lf,fakedRpm:%lu,fakedKph:%lf,updateLatency:%li"
 
 #define NAMEOF(name) #name
@@ -23,53 +26,72 @@ AsyncWebServer server(80);
 struct SSettings
 {
 	uint wheelCircumference; //In millimeters.
-	bool enabled; //Wether or not to enable the speed multiplier at all. //TODO: Have this skip the relay task all-together when false and send the pulses directly to the relay base.
+	bool enabled; //Wether or not to enable the speed multiplier at all.
 	float_t speedMultiplier; //How much to raise the top speed by.
-	double_t enableMultiplierAtSpeed; //In KM/H.
-	uint pulseDuration; //Time to pulse for in ms.
+	double_t enableMultiplierAtSpeed; //In km/h.
+	// uint pulseDuration; //Time to pulse for in ms.
 	uint timeBetweenUpdates; //Time between speed calculation updates, used for low speed.
 	uint revolutionsBetweenUpdates; //Time between speed calculation updates, used for high speed.
-} settings = {
+	double_t disableMultiplierAtSpeed;
+	uint logUpdateInterval; //The time between log updates in milliseconds.
+	uint maxPulseDurationBuffer; //The maximum amount of time in milliseconds that a wheel pulse can last before being considered too long (in milliseconds).
+} volatile settings = {
 	.wheelCircumference = 2145,
 	.enabled = true,
 	.speedMultiplier = 1.5f,
-	.enableMultiplierAtSpeed = 20.0,
-	.pulseDuration = 10,
+	.enableMultiplierAtSpeed = 18.0,
+	// .pulseDuration = 10,
 	.timeBetweenUpdates = 3000,
-	.revolutionsBetweenUpdates = 20
+	.revolutionsBetweenUpdates = 5,
+	.disableMultiplierAtSpeed = 40,
+	.logUpdateInterval = 1000,
+	.maxPulseDurationBuffer = 500
 };
 
 //https://electronics.stackexchange.com/questions/89/how-do-i-measure-the-rpm-of-a-wheel
 volatile uint reedPulses = 0;
+volatile int lastReedState = LOW;
+volatile QueueHandle_t pulseDurations;
+volatile ulong pulseDurationBuffer = 0;
+volatile bool modifiersEnabled = false;
+volatile bool pauseInterrupt = false;
 ulong lastRPMUpdate = 0;
+ulong averagePulseDuration = 0;
 ulong realRpm = 0;
 double_t realKph = 0;
 double_t fakedKph = 0;
 ulong fakedRpm = 0;
-long updateLatency = -1;
+ulong updateLatency = 0;
 ulong lastOtaLog = 0;
 
+//This is getting a little too big for my liking of an ISR but it is probably file.
 void IRAM_ATTR ReedISR()
 {
-	reedPulses++;
-}
+	int reedState = digitalRead(REED_NEGATIVE);
 
-void EmulationTask(void* args)
-{
-	while (true)
+	//If modifiers are currently disabled, bypass all later calculations for reduced update latency.
+	if (!modifiersEnabled)
+		digitalWrite(RELAY_BASE, reedState);
+
+	if (lastReedState == LOW && reedState == HIGH)
 	{
-		//Simulate X kph wheel speed.
-		float_t desiredKph = 5.0f;
-		
-		float_t metersPerMinute = (desiredKph * 1000) / 60;
-		float_t rpm = metersPerMinute / (settings.wheelCircumference / 1000);
-		float_t pulsesPerSecond = rpm / 60;
-		uint delay = pdMS_TO_TICKS(1000 / pulsesPerSecond);
-
-		reedPulses++;
-
-		vTaskDelay(delay);
+		pulseDurationBuffer = millis();
 	}
+	else if (!pauseInterrupt && lastReedState == HIGH && reedState == LOW)
+	{
+		//Increment counters on falling edge unless we are processing the interrupt data in the ReedTask.
+
+		//Add protection to this value from being too massive when the wheel is stopped.
+		if (pulseDurationBuffer > settings.maxPulseDurationBuffer)
+			pulseDurationBuffer = settings.maxPulseDurationBuffer;
+		ulong pulseDuration = millis() - pulseDurationBuffer;
+
+		while (xQueueSendFromISR(pulseDurations, &pulseDuration, NULL) == errQUEUE_FULL)
+			xQueueReceiveFromISR(pulseDurations, &pulseDuration, NULL);
+		reedPulses++;
+	}
+
+	lastReedState = reedState;
 }
 
 void ReedTask(void* args)
@@ -82,25 +104,41 @@ void ReedTask(void* args)
 		//Update RPM every x revolutions or x milliseconds, whichever comes first (revolutions will occur at higher speeds and milliseconds will occur at lower speeds).
 		if (reedPulses >= settings.revolutionsBetweenUpdates || timeBetweenUpdates >= settings.timeBetweenUpdates)
 		{
-			//Disable the interrupt while calculating the RPM to avoid incorrect values.
-			detachInterrupt(REED_NEGATIVE);
+			////Disable the interrupt while calculating the RPM to avoid incorrect values.
+			//Don't disable the interrupt and instead set a boolean value so that if we have direct relay enabled we don't miss any signals.
+			// detachInterrupt(REED_NEGATIVE);
+			pauseInterrupt = true;
 
-			updateLatency = timeBetweenUpdates;
+			//Set this here, before we update this check as it will take at least one cycle to update.
+			if (modifiersEnabled)
+				updateLatency = timeBetweenUpdates;
+			else
+				updateLatency = 0; //Not actually 0 but the interrupt time is so fast it is basically 0.
+
+			ulong localAveragePulseDuration = 0;
+			ulong pulseDuration;
+			while (xQueueReceive(pulseDurations, &pulseDuration, 0) == pdTRUE)
+				localAveragePulseDuration += pulseDuration;
+			averagePulseDuration = localAveragePulseDuration / reedPulses;
 
 			//Calculate the RPM.
-			//The 60000 division is to convert from milliseconds to minutes.
+			//The division of 60000 is to convert from milliseconds to minutes.
 			realRpm = reedPulses * (60000.0 / timeBetweenUpdates);
 
 			//Calculate the real wheel speed. The wheel circumference is needed in meters for this calculation so divide by 1000.
 			//This then gives us meters per minute, to convert it to KM/H we multiply by 0.06.
 			realKph = realRpm * (settings.wheelCircumference / 1000) * 0.06;
 
+			modifiersEnabled = settings.enabled && realKph >= settings.enableMultiplierAtSpeed && realKph <= settings.disableMultiplierAtSpeed;
+
 			//Reset counter and update last interval.
 			reedPulses = 0;
+			xQueueReset(pulseDurations);
 			lastRPMUpdate = now;
 
 			//Resume ISR.
-			attachInterrupt(REED_NEGATIVE, ReedISR, FALLING);
+			// attachInterrupt(REED_NEGATIVE, ReedISR, CHANGE);
+			pauseInterrupt = false;
 		}
 
 		vTaskDelay(pdMS_TO_TICKS(1));
@@ -112,8 +150,8 @@ void RelayTask(void* args)
 	while (true)
 	{
 		//If we are idle then don't relay any speed information.
-		//On this chip if we ignored this the calculations would underflow and cause the delay to be uint.max.
-		if (realKph <= 0)
+		//On this chip if we ignored this, the calculations would underflow and cause the delay to be uint.max.
+		if (!settings.enabled || !modifiersEnabled || realKph <= 0)
 		{
 			vTaskDelay(pdMS_TO_TICKS(1));
 			continue;
@@ -121,9 +159,11 @@ void RelayTask(void* args)
 
 		//Check if we should enable the speed multiplier.
 		fakedKph = realKph;
-		if (settings.enabled && realKph >= settings.enableMultiplierAtSpeed)
+		ulong pulseDuration = averagePulseDuration;
+		if (realKph >= settings.enableMultiplierAtSpeed)
 		{
-			fakedKph *= settings.speedMultiplier;
+			fakedKph /= settings.speedMultiplier;
+			pulseDuration /= settings.speedMultiplier;
 
 			//Simulate X kph wheel speed.
 			float_t metersPerMinute = (fakedKph * 1000) / 60;
@@ -135,10 +175,10 @@ void RelayTask(void* args)
 		}
 
 		float_t pulsesPerSecond = fakedRpm / 60.0f;
-		uint delay = (1000.0f / pulsesPerSecond) - settings.pulseDuration;
+		uint delay = (1000.0f / pulsesPerSecond) - pulseDuration;
 
 		digitalWrite(RELAY_BASE, HIGH);
-		vTaskDelay(pdMS_TO_TICKS(settings.pulseDuration));
+		vTaskDelay(pdMS_TO_TICKS(pulseDuration));
 		digitalWrite(RELAY_BASE, LOW);
 
 		vTaskDelay(pdMS_TO_TICKS(delay));
@@ -150,14 +190,60 @@ void LoggingTask(void* args)
 	while (true)
 	{
 		std::cout
-		<< "Real RPM: " << realRpm << "\n"
-		<< "Real KM/H: " << realKph << "\n"
-		<< "Faked RPM: " << fakedRpm << "\n"
-		<< "Faked KM/H: " << fakedKph << "\n"
-		<< "Update latency (ms): " << updateLatency << "\n"
-		<< std::flush;
+			<< "Real rpm: " << realRpm << "\n"
+			<< "Real km/h: " << realKph << "\n";
 
-		vTaskDelay(pdMS_TO_TICKS(1000));
+		if (modifiersEnabled)
+		{
+			std::cout
+				<< "Faked rpm: " << fakedRpm << "\n"
+				<< "Faked km/h: " << fakedKph << "\n";
+		}
+		else
+		{
+			std::cout << "Modifiers disabled";
+
+			if (realKph < settings.enableMultiplierAtSpeed)
+				std::cout << " (Below activation speed of " << settings.enableMultiplierAtSpeed << "km/h)";
+			else if (realKph > settings.disableMultiplierAtSpeed)
+				std::cout << " (Above deactivation speed of " << settings.disableMultiplierAtSpeed << "km/h)";
+
+			std::cout << "\n";
+		}
+
+		std::cout << "Update latency (ms): " << updateLatency << "\n";
+
+		std::cout << std::flush;
+
+		vTaskDelay(pdMS_TO_TICKS(settings.logUpdateInterval));
+	}
+}
+
+void EmulationTask(void* args)
+{
+	while (true)
+	{
+		//Simulate X kph wheel speed.
+		float_t desiredRealKph = ENABLE_EMULATION_TASK;
+		
+		float_t metersPerMinute = (desiredRealKph * 1000) / 60;
+		float_t rpm = metersPerMinute / (settings.wheelCircumference / 1000);
+		float_t pulsesPerSecond = rpm / 60;
+		uint pulseDuration = 10;
+		int delay = (1000 / pulsesPerSecond) - pulseDuration;
+		if (delay < 0)
+			delay = 0;
+
+		#if true
+		reedPulses++;
+		#else
+		//This unfortunately doesn't work in my current configuration.
+		digitalWrite(REED_NEGATIVE, HIGH);
+		vTaskDelay(pdMS_TO_TICKS(pulseDuration));
+		digitalWrite(REED_NEGATIVE, LOW);
+		#endif
+
+		vTaskDelay(pdMS_TO_TICKS(delay));
 	}
 }
 
@@ -171,16 +257,19 @@ void LoggingTask(void* args)
 
 void OnGet_Settings(AsyncWebServerRequest* request)
 {
-	char buf[384];
+	char buf[512];
 	sprintf(buf,
 		SETTINGS_API_TEMPLATE,
 		settings.wheelCircumference,
 		settings.enabled,
 		settings.speedMultiplier,
 		settings.enableMultiplierAtSpeed,
-		settings.pulseDuration,
+		// settings.pulseDuration,
 		settings.timeBetweenUpdates,
-		settings.revolutionsBetweenUpdates
+		settings.revolutionsBetweenUpdates,
+		settings.disableMultiplierAtSpeed,
+		settings.logUpdateInterval,
+		settings.maxPulseDurationBuffer
 	);
 	request->send(200, "text/plain", buf);
 }
@@ -214,9 +303,12 @@ void OnPost_Settings(AsyncWebServerRequest* request, uint8_t* data, size_t len, 
 			&tmpSettings.enabled,
 			&tmpSettings.speedMultiplier,
 			&tmpSettings.enableMultiplierAtSpeed,
-			&tmpSettings.pulseDuration,
+			// &tmpSettings.pulseDuration,
 			&tmpSettings.timeBetweenUpdates,
-			&tmpSettings.revolutionsBetweenUpdates
+			&tmpSettings.revolutionsBetweenUpdates,
+			&tmpSettings.disableMultiplierAtSpeed,
+			&tmpSettings.logUpdateInterval,
+			&tmpSettings.maxPulseDurationBuffer
 		);
 
 		free(request->_tempObject);
@@ -227,7 +319,17 @@ void OnPost_Settings(AsyncWebServerRequest* request, uint8_t* data, size_t len, 
 			return;
 		}
 
-		settings = tmpSettings;
+		//I can't directly assign tmpSettings to settings here as settings is marked as volatile.
+		settings.wheelCircumference = tmpSettings.wheelCircumference;
+		settings.enabled = tmpSettings.enabled;
+		settings.speedMultiplier = tmpSettings.speedMultiplier;
+		settings.enableMultiplierAtSpeed = tmpSettings.enableMultiplierAtSpeed;
+		// settings.pulseDuration = tmpSettings.pulseDuration;
+		settings.timeBetweenUpdates = tmpSettings.timeBetweenUpdates;
+		settings.revolutionsBetweenUpdates = tmpSettings.revolutionsBetweenUpdates;
+		settings.disableMultiplierAtSpeed = tmpSettings.disableMultiplierAtSpeed;
+		settings.logUpdateInterval = tmpSettings.logUpdateInterval;
+		settings.maxPulseDurationBuffer = tmpSettings.maxPulseDurationBuffer;
 
         request->send(200, "text/plain", "Settings received and parsed.");
 	}
@@ -300,6 +402,12 @@ void setup()
 	pinMode(GPIO_NUM_3, INPUT_PULLDOWN);
 	digitalWrite(REED_POSITIVE, HIGH);
 
+	preferences.begin("reed");
+
+	#ifdef ENABLE_EMULATION_TASK
+	preferences.clear();
+	#endif
+
 	if (preferences.isKey("wc"))
 		settings.wheelCircumference = preferences.getUInt("wc", settings.wheelCircumference);
 	else
@@ -316,10 +424,10 @@ void setup()
 		settings.enableMultiplierAtSpeed = preferences.putDouble("ens", settings.enableMultiplierAtSpeed);
 	else
 		preferences.getDouble("ens", settings.enableMultiplierAtSpeed);
-	if (preferences.isKey("pd"))
-		settings.pulseDuration = preferences.putUInt("pd", settings.pulseDuration);
-	else
-		preferences.getUInt("pd", settings.pulseDuration);
+	// if (preferences.isKey("pd"))
+	// 	settings.pulseDuration = preferences.putUInt("pd", settings.pulseDuration);
+	// else
+	// 	preferences.getUInt("pd", settings.pulseDuration);
 	if (preferences.isKey("tbu"))
 		settings.timeBetweenUpdates = preferences.putUInt("tbu", settings.timeBetweenUpdates);
 	else
@@ -329,13 +437,14 @@ void setup()
 	else
 		preferences.getUInt("rbu", settings.revolutionsBetweenUpdates);
 
-	preferences.begin("reed");
-	SPIFFS.begin(true);
+	pulseDurations = xQueueCreate(settings.revolutionsBetweenUpdates, sizeof(ulong));
 
 	WiFi.mode(WIFI_AP);
 	WiFi.softAP("ESP-REED", NULL, 1 /*Don't care about this value (default used)*/, 1 /*Need to set so SSID is hidden*/);
 	//https://github.com/esphome/issues/issues/4893
 	WiFi.setTxPower(WIFI_POWER_8_5dBm);
+
+	SPIFFS.begin(true);
 
 	server.begin();
 
@@ -354,12 +463,14 @@ void setup()
 	// server.serveStatic("/", SPIFFS, "/").setDefaultFile("index.html");
 
 	//Create my own loop task as the default task has too high of a priority and prevents other secondary tasks from running.
-	attachInterrupt(REED_NEGATIVE, ReedISR, FALLING);
+	attachInterrupt(REED_NEGATIVE, ReedISR, CHANGE);
 	xTaskCreate(ReedTask, NAMEOF(ReedTask), configMINIMAL_STACK_SIZE + 2048, NULL, (UBaseType_t)(configMAX_PRIORITIES * 0.4f), NULL);
 	xTaskCreate(RelayTask, NAMEOF(RelayTask), configMINIMAL_STACK_SIZE + 2048, NULL, (UBaseType_t)(configMAX_PRIORITIES * 0.5f), NULL);
 	xTaskCreate(LoggingTask, NAMEOF(LoggingTask), configMINIMAL_STACK_SIZE + 4096, NULL, (UBaseType_t)(configMAX_PRIORITIES * 0.2f), NULL);
 	// xTaskCreate(LoopTask, NAMEOF(LoopTask), configMINIMAL_STACK_SIZE + 2048, NULL, (UBaseType_t)(configMAX_PRIORITIES * 0.1f), NULL);
+	#ifdef ENABLE_EMULATION_TASK
 	xTaskCreate(EmulationTask, NAMEOF(EmulationTask), configMINIMAL_STACK_SIZE + 512, NULL, (UBaseType_t)(configMAX_PRIORITIES * 0.3f), NULL);
+	#endif
 }
 
 void loop()
