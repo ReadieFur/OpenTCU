@@ -13,7 +13,7 @@
 #define MIN_RPM (ACTIVATION_SPEED * 1000 / 60) / (WHEEL_CIRCUMFERENCE / 1000) //Minimum RPM for applying the multiplier. Convert speed to m/min, convert WHEEL_CIRCUMFERENCE to meters, divide the two for RPM.
 #define MAX_RPM (DEACTIVATION_SPEED * 1000 / 60) / (WHEEL_CIRCUMFERENCE / 1000) //Maximum RPM for applying the multiplier.
 
-ulong previousMillis = 0;
+ulong lastLogTime = 0;
 
 void setup()
 {
@@ -60,8 +60,8 @@ void loop()
 			delayMicroseconds(modifiedLowDuration);
 		}
 
-		ulong currentMillis = millis();
-		if (currentMillis - previousMillis >= 1000UL)
+		ulong now = millis();
+		if (now - lastLogTime >= 1000UL)
 		{
 			//Log the accumulated on and off times in milliseconds.
 			std::cout
@@ -71,7 +71,7 @@ void loop()
 				<< ", Off Duration: " << (modifiedLowDuration / 1000.0) << "ms"
 				<< std::endl;
 			
-			previousMillis = currentMillis;
+			lastLogTime = now;
 		}
 	}
 
