@@ -34,8 +34,14 @@ void IRAM_ATTR ReadISR()
 	}
 	else if (lastState == HIGH && state == LOW)
 	{
-		onDuration = now - onTime;
-		offDuration = offDurationTmp;
+		ulong onDurationTmp = now - onTime;
+		if (onDurationTmp != 0)
+			onDuration = onDurationTmp;
+		
+
+		if (offDurationTmp != 0)
+			offDuration = offDurationTmp;
+		
 		lastDurationUpdate = now;
 		offTime = now;
 	}
