@@ -54,7 +54,7 @@ void RelayTask(void* params)
 
 		ulong now = millis();
 
-		if (now - _lastDurationUpdate > 3000)
+		if (now - _lastDurationUpdate > 3000 || _onDuration == 0 || _offDuration == 0)
 		{
 			if (now - lastLogTime > 1000)
 			{
