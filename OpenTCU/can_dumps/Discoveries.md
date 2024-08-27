@@ -1,5 +1,6 @@
 ## 2**
-Undetermined.
+Undetermined.  
+If I had to guess the 2**00** messages will contain speed sensor and motor data.
 
 ### 200
 Very infrequent updates, more information needed.  
@@ -44,7 +45,8 @@ Bits 6-8 are always 0.
 Always 0.
 
 ## 3**
-Undetermined.
+Undetermined.  
+My guess is these 3** messages are to tell the motor how much power to apply?
 
 ### 300
 Unsure.
