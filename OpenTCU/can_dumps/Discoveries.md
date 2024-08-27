@@ -17,7 +17,8 @@ Bit 7 unsure.
 Bit 8 always 0.
 
 ### 201
-Unsure.
+Unsure.  
+Possibly speed sensor data.
 
 Bit 5 is always HEX 62.
 
@@ -37,7 +38,8 @@ Bit 7 is always HEX 22.
 Bit 8 is always 0.
 
 ### 203
-Unsure.
+Unsure.  
+Possibly motor power data.
 
 Bits 6-8 are always 0.
 
