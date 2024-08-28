@@ -1,0 +1,2 @@
+SPI bus is TCU->Motor
+TWAI bus is Motor->TCU
