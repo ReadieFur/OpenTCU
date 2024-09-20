@@ -7,15 +7,8 @@ void setup()
     BusMaster::Begin();
 }
 
-#ifdef ARDUINO
 void loop()
 {
+    //I don't need this loop method as this program is task based.
     vTaskDelete(NULL);
 }
-#else
-extern "C" void app_main()
-{
-    setup();
-    //app_main IS allowed to return as per the ESP32 documentation (other FreeRTOS tasks will continue to run).
-}
-#endif
