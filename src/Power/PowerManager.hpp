@@ -89,8 +89,8 @@ private:
         }
         else
         {
-            //Set the initial value.
-            UpdatePowerState();
+            // //Set the initial value.
+            // UpdatePowerState();
 
             ESP_RETURN_ON_FALSE(
                 xTaskCreate(Task, "PowerManagerTask", TASK_STACK_SIZE, this, TASK_PRIORITY, &_taskHandle) == pdPASS,

@@ -21,6 +21,13 @@ void setup()
     powerManager = new PowerManager();
     ABORT_ON_FAIL(powerManager->InstallService(), "Failed to install " nameof(PowerManager) " service");
     ABORT_ON_FAIL(powerManager->StartService(), "Failed to start " nameof(PowerManager) " service");
+    powerManager->OnPowerStateChanged.Add([](EPowerState powerState)
+    {
+        if (powerState != EPowerState::BatteryCritical)
+            return;
+            
+        //TODO: Prepare shutdown.
+    });
 
     busMaster = new BusMaster();
     ABORT_ON_FAIL(busMaster->InstallService(), "Failed to install " nameof(BusMaster) " service");
