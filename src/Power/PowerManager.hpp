@@ -36,35 +36,7 @@ private:
         {
             if (eTaskGetState(NULL) == eTaskState::eDeleted)
                 break;
-
-            //Get samples of power source voltage.
-            std::vector<uint32_t> data;
-            for (int i = 0; i < 30; ++i)
-            {
-                uint32_t val = analogReadMilliVolts(BAT_ADC);
-                data.push_back(val);
-                delay(30);
-            }
-            std::sort(data.begin(), data.end());
-            data.erase(data.begin());
-            data.pop_back();
-
-            //Calculate the average power data.
-            int sum = std::accumulate(data.begin(), data.end(), 0);
-            double average = static_cast<double>(sum) / data.size();
-            average *= 2;
-
-            self->_serviceWatcherMutex.lock();
-            if (average > BAT_CHG)
-                self->_powerState = EPowerState::PluggedIn;
-            else if (average > BAT_LOW)
-                self->_powerState = EPowerState::BatteryNormal;
-            else if (average > BAT_CRIT)
-                self->_powerState = EPowerState::BatteryLow;
-            else
-                self->_powerState = EPowerState::BatteryCritical;
-            self->_serviceWatcherMutex.unlock();
-
+            self->UpdatePowerState();
             vTaskDelay(TASK_INTERVAL);
         }
     }
@@ -81,6 +53,7 @@ private:
     {
         WiFi.mode(WIFI_OFF);
         WiFi.setSleep(true);
+
         return 0;
     }
 
@@ -98,6 +71,9 @@ private:
         }
         else
         {
+            //Set the initial value.
+            UpdatePowerState();
+
             ESP_RETURN_ON_FALSE(
                 xTaskCreate(Task, "PowerManagerTask", TASK_STACK_SIZE, this, TASK_PRIORITY, &_taskHandle) == pdPASS,
                 1, nameof(PowerManager), "Failed to create power manager task."
@@ -116,7 +92,33 @@ private:
 
     void UpdatePowerState()
     {
-        //TODO: Implement.
+        //Get samples of power source voltage.
+        std::vector<uint32_t> data;
+        for (int i = 0; i < 30; ++i)
+        {
+            uint32_t val = analogReadMilliVolts(BAT_ADC);
+            data.push_back(val);
+            vTaskDelay(pdMS_TO_TICKS(30));
+        }
+        std::sort(data.begin(), data.end());
+        data.erase(data.begin());
+        data.pop_back();
+
+        //Calculate the average power data.
+        int sum = std::accumulate(data.begin(), data.end(), 0);
+        double average = static_cast<double>(sum) / data.size();
+        average *= 2;
+
+        _serviceWatcherMutex.lock();
+        if (average > BAT_CHG)
+            _powerState = EPowerState::PluggedIn;
+        else if (average > BAT_LOW)
+            _powerState = EPowerState::BatteryNormal;
+        else if (average > BAT_CRIT)
+            _powerState = EPowerState::BatteryLow;
+        else
+            _powerState = EPowerState::BatteryCritical;
+        _serviceWatcherMutex.unlock();
     }
 
 public:
