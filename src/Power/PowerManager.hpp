@@ -51,9 +51,6 @@ private:
 
     int InstallServiceImpl() override
     {
-        WiFi.mode(WIFI_OFF);
-        WiFi.setSleep(true);
-
         return 0;
     }
 
@@ -122,6 +119,15 @@ private:
     }
 
 public:
+    PowerManager()
+    {
+        if constexpr (BAT_ADC != GPIO_NUM_NC)
+            pinMode(BAT_ADC, INPUT_PULLDOWN);
+
+        WiFi.mode(WIFI_OFF);
+        WiFi.setSleep(true);
+    }
+
     EPowerState GetPowerState()
     {
         return _powerState;
