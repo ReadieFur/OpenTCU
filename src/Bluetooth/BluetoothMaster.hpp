@@ -1,6 +1,7 @@
 #pragma once
 
-#include "StaticConfig.h"
+#include "Abstractions/AService.hpp"
+#include "Common.h"
 #include <BLEDevice.h>
 #include <BLEServer.h>
 #include <BLEClient.h>
@@ -8,50 +9,43 @@
 #include <BLE2902.h>
 #include <mutex>
 
-class BluetoothMaster
+static_assert(ESP_NAME[0] != '\0', "ESP_NAME cannot be empty.");
+
+class BluetoothMaster : public AService
 {
 private:
-    static std::mutex _mutex;
-    static bool _initalized;
-    static BLEServer* _server;
-    static BLEClient* _client;
+    BLEServer* _server = nullptr;
+    BLEClient* _client = nullptr;
 
-public:
-    static void Begin()
+protected:
+    int InstallServiceImpl() override
     {
-        _mutex.lock();
-        if (_initalized)
-        {
-            _mutex.unlock();
-            return;
-        }
-
         BLEDevice::init(ESP_NAME);
 
-        _server = BLEDevice::createServer();        
-        BLEDevice::getAdvertising()->start();
-
+        _server = BLEDevice::createServer();     
         _client = BLEDevice::createClient();
 
-        _mutex.unlock();
+        return 0;
     }
 
-    static void End()
+    int UninstallServiceImpl() override
     {
-        _mutex.lock();
-        if (!_initalized)
-        {
-            _mutex.unlock();
-            return;
-        }
-
-        BLEDevice::stopAdvertising();
         delete _server;
-
-        _mutex.unlock();
+        delete _client;
+        return 0;
     }
-};
 
-std::mutex BluetoothMaster::_mutex;
-BLEServer* BluetoothMaster::_server = nullptr;
-BLEClient* BluetoothMaster::_client = nullptr;
+    int StartServiceImpl() override
+    {
+        BLEDevice::getAdvertising()->start();
+        return 0;
+    }
+
+    int StopServiceImpl() override
+    {
+        BLEDevice::stopAdvertising();
+        return 0;
+    }
+
+public:
+};
