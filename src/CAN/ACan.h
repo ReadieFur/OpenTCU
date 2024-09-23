@@ -7,12 +7,12 @@
 #include <freertos/semphr.h>
 #include "SCanMessage.h"
 
-#define USE_DRIVER_LOCK
+#define USE_CAN_DRIVER_LOCK
 
 class ACan
 {
 protected:
-    #ifdef USE_DRIVER_LOCK
+    #ifdef USE_CAN_DRIVER_LOCK
     volatile SemaphoreHandle_t _driverMutex = xSemaphoreCreateMutex();
     #endif
 public:

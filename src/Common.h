@@ -4,5 +4,5 @@
 
 #include <esp_check.h>
 
-#include "Pinout.h"
-#include "StaticConfig.h"
+#include "Config/Pinout.h"
+#include "Config/Device.h"

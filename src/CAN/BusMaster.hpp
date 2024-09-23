@@ -8,7 +8,7 @@
 #include <driver/spi_master.h>
 #include <driver/spi_common.h>
 #include <driver/twai.h>
-#include "AService.hpp"
+#include "Abstractions/AService.hpp"
 #include "ACan.h"
 #include "McpCan.hpp"
 #include "TwaiCan.hpp"
@@ -66,7 +66,7 @@ protected:
             .max_transfer_sz = SOC_SPI_MAXIMUM_BUFFER_SIZE,
         };
         //SPI2_HOST is the only SPI bus that can be used as GPSPI on the C3.
-        ESP_RETURN_ON_FALSE(spi_bus_initialize(SPI2_HOST, &busConfig, SPI_DMA_CH_AUTO) == ESP_OK, 1, nameof(BusMaster), "Failed to initialize SPI bus.");
+        ESP_RETURN_ON_FALSE(spi_bus_initialize(SPI2_HOST, &busConfig, SPI_DMA_CH_AUTO) == ESP_OK, 1, nameof(BusMaster), "Failed to initialize SPI bus: %i", 1);
 
         spi_device_interface_config_t dev_config = {
             .mode = 0,
@@ -74,9 +74,10 @@ protected:
             .spics_io_num = MCP_CS_PIN,
             .queue_size = 2, //2 as per the specification: https://ww1.microchip.com/downloads/en/DeviceDoc/MCP2515-Stand-Alone-CAN-Controller-with-SPI-20001801J.pdf
         };
-        ESP_RETURN_ON_FALSE(spi_bus_add_device(SPI2_HOST, &dev_config, &_mcpDeviceHandle) == ESP_OK, 1, nameof(BusMaster), "Failed to initialize SPI bus.");
+        ESP_RETURN_ON_FALSE(spi_bus_add_device(SPI2_HOST, &dev_config, &_mcpDeviceHandle) == ESP_OK, 1, nameof(BusMaster), "Failed to initialize SPI bus: %i", 1);
 
-        mcpCan = new McpCan(_mcpDeviceHandle, CAN_250KBPS, MCP_8MHZ, MCP_INT_PIN);
+        mcpCan = McpCan::Initialize(_mcpDeviceHandle, CAN_250KBPS, MCP_8MHZ, MCP_INT_PIN);
+        ESP_RETURN_ON_FALSE(mcpCan != nullptr, 2, nameof(BusMaster), "Failed to initialize MCP device: %i", 2);
         #pragma endregion
 
         #pragma region Setup TWAI CAN
@@ -84,7 +85,7 @@ protected:
         pinMode(TWAI_TX_PIN, OUTPUT);
         pinMode(TWAI_RX_PIN, INPUT_PULLDOWN);
 
-        twaiCan = new TwaiCan(
+        twaiCan = TwaiCan::Initialize(
             TWAI_GENERAL_CONFIG_DEFAULT(
                 TWAI_TX_PIN,
                 TWAI_RX_PIN,
@@ -93,6 +94,7 @@ protected:
             TWAI_TIMING_CONFIG_250KBITS(),
             TWAI_FILTER_CONFIG_ACCEPT_ALL()
         );
+        ESP_RETURN_ON_FALSE(twaiCan != nullptr, 3, nameof(BusMaster), "Failed to initialize TWAI device: %i", 3);
         #pragma endregion
 
         return 0;
