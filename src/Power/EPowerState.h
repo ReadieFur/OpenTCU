@@ -3,7 +3,7 @@
 enum EPowerState
 {
     PluggedIn,
-    OnBattery,
-    LowPower,
-    CriticalPower
+    BatteryNormal,
+    BatteryLow,
+    BatteryCritical
 };
