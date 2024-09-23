@@ -1,6 +1,7 @@
 #pragma once
 
 #include <driver/spi_master.h>
+#include "Common.h"
 #include <mcp2515.h>
 #include <stdexcept>
 #include <esp_intr_alloc.h>
@@ -12,6 +13,10 @@
 #include "SCanMessage.h"
 #if DEBUG
 #include <esp_log.h>
+#endif
+
+#if SOC_SPI_PERIPH_NUM <= 0
+#error "Chip does not support SPI."
 #endif
 
 class McpCan : public ACan
@@ -54,7 +59,6 @@ private:
             portYIELD_FROM_ISR();
     }
 
-public:
     McpCan(spi_device_handle_t device, CAN_SPEED speed, CAN_CLOCK clock, gpio_num_t interruptPin) : ACan()
     {
         //Keep a reference to the device (required for the MCP2515 library otherwise it will crash the device).
@@ -67,15 +71,31 @@ public:
         _mcp2515->reset();
         _mcp2515->setBitrate(speed, clock);
         _mcp2515->setNormalMode();
+    }
 
+    int Install()
+    {
         //It seems like this method returns an error all of the time, however it is safe to call again. If something truly bad happens we will likely throw in the next stage.
         //https://esp32.com/viewtopic.php?t=13167
         gpio_install_isr_service(0);
-        ESP_ERROR_CHECK_WITHOUT_ABORT(gpio_isr_handler_add(interruptPin, OnInterrupt, this));
+        ESP_RETURN_ON_FALSE(gpio_isr_handler_add(_interruptPin, OnInterrupt, this) == ESP_OK, 1, "McpCan", "Failed to setup interrupt: %i", 1);
 
         //Read the initial state of the interrupt pin.
-        if (gpio_get_level(interruptPin) == 0)
+        if (gpio_get_level(this->_interruptPin) == 0)
             xSemaphoreGive(_interruptSemaphore);
+
+        return 0;
+    }
+
+public:
+    static McpCan* Initialize(spi_device_handle_t device, CAN_SPEED speed, CAN_CLOCK clock, gpio_num_t interruptPin)
+    {
+        McpCan* instance = new McpCan(device, speed, clock, interruptPin);
+        if (instance == nullptr || instance->Install() == 0)
+            return instance;
+
+        delete instance;
+        return nullptr;
     }
 
     ~McpCan()
@@ -98,18 +118,19 @@ public:
         for (int i = 0; i < message.length; i++)
             frame.data[i] = message.data[i];
 
-        #ifdef USE_DRIVER_LOCK
-        if (xSemaphoreTake(_driverMutex, timeout) != pdTRUE)
-        {
-            return ESP_ERR_TIMEOUT;
-        }
+        #ifdef USE_CAN_DRIVER_LOCK
+        ESP_RETURN_ON_FALSE(xSemaphoreTake(_driverMutex, timeout) == pdTRUE, ESP_ERR_TIMEOUT, nameof(McpCan) "_dbg", "Timeout.");
         #endif
+
         MCP2515::ERROR res = _mcp2515->sendMessage(&frame);
-        #ifdef USE_DRIVER_LOCK
+
+        #ifdef USE_CAN_DRIVER_LOCK
         xSemaphoreGive(_driverMutex);
         #endif
 
-        return MCPErrorToESPError(res);
+        esp_err_t retVal = MCPErrorToESPError(res);
+        ESP_RETURN_ON_FALSE(retVal == ESP_OK, retVal, nameof(McpCan) "_dbg", "Failed to send message: %i", retVal);
+        return retVal;
     }
 
     esp_err_t Receive(SCanMessage* message, TickType_t timeout = 0)
@@ -120,10 +141,7 @@ public:
             // TRACE("SPI Wait: %d, %d", uxSemaphoreGetCount(interruptSemaphore), gpio_get_level(interruptPin));
 
             //Wait in a "non-blocking" manner by allowing the CPU to do other things while waiting for a message.
-            if (xSemaphoreTake(_interruptSemaphore, timeout) != pdTRUE)
-            {
-                return ESP_ERR_TIMEOUT;
-            }
+            ESP_RETURN_ON_FALSE(xSemaphoreTake(_interruptSemaphore, timeout) == pdTRUE, ESP_ERR_TIMEOUT, nameof(McpCan) "_dbg", "Timeout.");
         }
         else
         {
@@ -131,12 +149,9 @@ public:
             xSemaphoreTake(_interruptSemaphore, 0);
         }
 
-        #ifdef USE_DRIVER_LOCK
+        #ifdef USE_CAN_DRIVER_LOCK
         //Lock the driver from other operations while we read the message.
-        if (xSemaphoreTake(_driverMutex, timeout) != pdTRUE)
-        {
-            return ESP_ERR_TIMEOUT;
-        }
+        ESP_RETURN_ON_FALSE(xSemaphoreTake(_driverMutex, timeout) == pdTRUE, ESP_ERR_TIMEOUT, nameof(McpCan) "_dbg", "Timeout.");
         #endif
 
         //https://github.com/autowp/arduino-canhacker/blob/master/CanHacker.cpp#L216-L271
@@ -162,17 +177,14 @@ public:
         if (interruptFlags & MCP2515::CANINTF_MERRF) //Message Error Interrupt Flag bit is set.
             _mcp2515->clearInterrupts();
 
-        #ifdef USE_DRIVER_LOCK
+        #ifdef USE_CAN_DRIVER_LOCK
         xSemaphoreGive(_driverMutex);
         #endif
 
-        if (readResult != MCP2515::ERROR_OK)
-        {
-            //At some point in this development I broke the interrupt and it seems it never fires now.
-            //As a result of I am using gpio_get_level. However an issue has occurred where I can reach this point and read empty messages (error code 5).
-            //I would like to fix this as we are wasting CPU cycles with this bug.
-            return MCPErrorToESPError(readResult);
-        }
+        //At some point in this development I broke the interrupt and it seems it never fires now.
+        //As a result of I am using gpio_get_level. However an issue has occurred where I can reach this point and read empty messages (error code 5).
+        //I would like to fix this as we are wasting CPU cycles with this bug.
+        ESP_RETURN_ON_FALSE(readResult == MCP2515::ERROR_OK, MCPErrorToESPError(readResult), nameof(McpCan) "_dbg", "Failed to receive message: %i", readResult);
 
         message->id = frame.can_id & (frame.can_id & CAN_EFF_FLAG ? CAN_EFF_MASK : CAN_SFF_MASK);
         message->length = frame.can_dlc;
@@ -186,14 +198,11 @@ public:
 
     esp_err_t GetStatus(uint32_t* status, TickType_t timeout = 0)
     {
-        #ifdef USE_DRIVER_LOCK
-        if (xSemaphoreTake(_driverMutex, timeout) != pdTRUE)
-        {
-            return ESP_ERR_TIMEOUT;
-        }
+        #ifdef USE_CAN_DRIVER_LOCK
+        ESP_RETURN_ON_FALSE(xSemaphoreTake(_driverMutex, timeout) == pdTRUE, ESP_ERR_TIMEOUT, nameof(McpCan) "_dbg", "Timeout.");
         #endif
         *status = _mcp2515->getInterrupts();
-        #ifdef USE_DRIVER_LOCK
+        #ifdef USE_CAN_DRIVER_LOCK
         xSemaphoreGive(_driverMutex);
         #endif
 

@@ -1,5 +1,6 @@
 #pragma once
 
+#include "EServiceResult.h"
 #include <mutex>
 #include <functional>
 
@@ -35,12 +36,6 @@ protected:
     virtual int StopServiceImpl() = 0;
 
 public:
-    enum EServiceResult
-    {
-        Ok = 0,
-        NotInstalled = -1
-    };
-
     bool IsInstalled()
     {
         _serviceMutex.lock();
