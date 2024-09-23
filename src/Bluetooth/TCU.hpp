@@ -6,7 +6,6 @@ private:
 public:
     TCU()
     {
-
     }
 
     ~TCU()
