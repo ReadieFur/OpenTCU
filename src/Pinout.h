@@ -21,8 +21,8 @@
  * Pinout for display module.
  * TODO: Future add-in for HUD.
  */
-#define DISP_SCL_PIN                GPIO_NUM_05
-#define DISP_SDA_PIN                GPIO_NUM_39
+#define DISP_SCL_PIN                GPIO_NUM_NC
+#define DISP_SDA_PIN                GPIO_NUM_NC
 
 /**
  * Pinout for GSM module.
@@ -43,8 +43,8 @@
  * Pinout for gyroscope module.
  * TODO: Future add-in for motion detection. https://lastminuteengineers.com/mpu6050-accel-gyro-arduino-tutorial/
  */
-#define GYRO_SCL_PIN                GPIO_NUM_05
-#define GYRO_SDA_PIN                GPIO_NUM_39
-#define GYRO_INT_PIN                GPIO_NUM_0
+#define GYRO_SCL_PIN                GPIO_NUM_NC
+#define GYRO_SDA_PIN                GPIO_NUM_NC
+#define GYRO_INT_PIN                GPIO_NUM_NC
 
 //TODO: Mux these pins or see what can be combined due to running out of IO.
