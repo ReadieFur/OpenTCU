@@ -17,12 +17,12 @@
 #define TWAI_TX_PIN                 GPIO_NUM_32
 #define TWAI_RX_PIN                 GPIO_NUM_34
 
+//TODO: Mux these pins or see what can be combined due to running out of IO.
 /**
- * Pinout for display module.
- * TODO: Future add-in for HUD.
+ * Pinout for battery module.
+ * TODO: Future add-in for battery powered operations.
  */
-#define DISP_SCL_PIN                GPIO_NUM_NC
-#define DISP_SDA_PIN                GPIO_NUM_NC
+#define BAT_ADC                     GPIO_NUM_35
 
 /**
  * Pinout for GSM module.
@@ -47,4 +47,9 @@
 #define GYRO_SDA_PIN                GPIO_NUM_NC
 #define GYRO_INT_PIN                GPIO_NUM_NC
 
-//TODO: Mux these pins or see what can be combined due to running out of IO.
+/**
+ * Pinout for display module.
+ * TODO: Future add-in for HUD.
+ */
+#define DISP_SCL_PIN                GPIO_NUM_NC
+#define DISP_SDA_PIN                GPIO_NUM_NC
