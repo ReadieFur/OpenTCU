@@ -3,8 +3,7 @@
 #include "Config/Device.h"
 #include "CAN/BusMaster.hpp"
 #include "Power/PowerManager.hpp"
-
-static_assert(ESP_NAME[0] != '\0', "ESP_NAME cannot be empty.");
+#include "Bluetooth/BluetoothMaster.hpp"
 
 #define ABORT_ON_FAIL(a, format) do {                                                   \
         if (unlikely(!(a))) {                                                           \
@@ -15,6 +14,7 @@ static_assert(ESP_NAME[0] != '\0', "ESP_NAME cannot be empty.");
 
 PowerManager* powerManager;
 BusMaster* busMaster;
+BluetoothMaster* bluetoothMaster;
 
 void setup()
 {
@@ -32,6 +32,10 @@ void setup()
     busMaster = new BusMaster();
     ABORT_ON_FAIL(busMaster->InstallService(), "Failed to install " nameof(BusMaster) " service");
     ABORT_ON_FAIL(powerManager->AddService(busMaster, { EPowerState::PluggedIn }), "Failed to start " nameof(BusMaster) " service");
+
+    bluetoothMaster = new BluetoothMaster();
+    bluetoothMaster->InstallService();
+    powerManager->AddService(bluetoothMaster, { EPowerState::PluggedIn });
 }
 
 void loop()
