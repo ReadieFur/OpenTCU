@@ -11,6 +11,7 @@
 #include <vector>
 #include <algorithm>
 #include <numeric>
+#include "Abstractions/Event.hpp"
 
 static_assert(BAT_CHG > BAT_LOW, nameof(BAT_CHG) " cannot be lower than " nameof(BAT_LOW) ".");
 static_assert(BAT_CHG > BAT_CRIT, nameof(BAT_CHG) " cannot be lower than " nameof(BAT_CRIT) ".");
@@ -36,17 +37,37 @@ private:
         {
             if (eTaskGetState(NULL) == eTaskState::eDeleted)
                 break;
+
+            EPowerState oldPowerState = self->_powerState;
             self->UpdatePowerState();
+            
+            for (auto &&kvp : self->_managedServices)
+                self->ManageService(kvp.first);
+
+            if (oldPowerState != self->_powerState)
+                self->OnPowerStateChanged.Dispatch(self->_powerState);
+
             vTaskDelay(TASK_INTERVAL);
         }
     }
 
-    static int ManageService(AService* service, std::list<EPowerState> enabledStates, EPowerState currentPowerState)
+    int ManageService(AService* service)
     {
-        if (std::find(enabledStates.begin(), enabledStates.end(), currentPowerState) != enabledStates.end())
-            return service->StartService();
+        int retVal;
+        //No need to check if the service is already started before calling this as the start/stop methods will check this internally.
+        if (std::find(_managedServices[service].begin(), _managedServices[service].end(), _powerState) != _managedServices[service].end())
+        {
+            _serviceWatcherMutex.lock();
+            retVal = service->StartService();
+            _serviceWatcherMutex.unlock();
+        }
         else
-            return service->StopService();
+        {
+            _serviceWatcherMutex.lock();
+            retVal = service->StopService();
+            _serviceWatcherMutex.unlock();
+        }
+        return retVal;
     }
 
     int InstallServiceImpl() override
@@ -119,6 +140,8 @@ private:
     }
 
 public:
+    Event<EPowerState> OnPowerStateChanged;
+
     PowerManager()
     {
         if constexpr (BAT_ADC != GPIO_NUM_NC)
@@ -142,7 +165,7 @@ public:
 
         _managedServices[service] = enabledStates;
         //Manage the service immediately (if the service is enabled).
-        int retVal = IsRunning() ? ManageService(service, enabledStates, _powerState) : 0;
+        int retVal = IsRunning() ? ManageService(service) : 0;
 
         _serviceWatcherMutex.unlock();
         return retVal;
