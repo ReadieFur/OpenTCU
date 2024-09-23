@@ -9,6 +9,7 @@
 #include <driver/spi_common.h>
 #include <driver/twai.h>
 #include "Abstractions/AService.hpp"
+#include "SRelayTaskParameters.h"
 #include "ACan.h"
 #include "McpCan.hpp"
 #include "TwaiCan.hpp"
@@ -17,16 +18,19 @@ class BusMaster : public AService
 {
 private:
     static const int CAN_TIMEOUT_TICKS = pdMS_TO_TICKS(50);
-    static const int RELAY_TASK_STACK_SIZE = 1024 * 2.5;
-    static const int RELAY_TASK_PRIORITY = configMAX_PRIORITIES - 10;
+    static const int RELAY_TASK_STACK_SIZE = configIDLE_TASK_STACK_SIZE * 2.5;
+    static const int RELAY_TASK_PRIORITY = configMAX_PRIORITIES * 0.6;
 
-    spi_device_handle_t _mcpDeviceHandle;
+    spi_device_handle_t _mcpDeviceHandle = nullptr;
+    McpCan* _mcpCan = nullptr;
+    TwaiCan* _twaiCan = nullptr;
+    TaskHandle_t _mcpToTwaiTaskHandle = NULL;
+    TaskHandle_t _twaiToMcpTaskHandle = NULL;
 
-    struct SRelayTaskParameters
+    static void InterceptMessage(SCanMessage* message)
     {
-        ACan* canA;
-        ACan* canB;
-    };
+        //TODO: Implement.
+    }
 
     static void RelayTask(void* param)
     {
@@ -37,9 +41,17 @@ private:
 
         while (true)
         {
+            //Check if the task has been signalled for deletion.
+            if (eTaskGetState(NULL) == eTaskState::eDeleted)
+                break;
+
+            //Attempt to read a message from the bus.
             SCanMessage message;
             if (esp_err_t receiveResult = canA->Receive(&message, CAN_TIMEOUT_TICKS) != ESP_OK)
                 continue;
+
+            //Analyze the message and modify it if needed.
+            InterceptMessage(&message);
 
             //Relay the message to the other CAN bus.
             canB->Send(message, CAN_TIMEOUT_TICKS);
@@ -76,8 +88,8 @@ protected:
         };
         ESP_RETURN_ON_FALSE(spi_bus_add_device(SPI2_HOST, &dev_config, &_mcpDeviceHandle) == ESP_OK, 1, nameof(BusMaster), "Failed to initialize SPI bus: %i", 1);
 
-        mcpCan = McpCan::Initialize(_mcpDeviceHandle, CAN_250KBPS, MCP_8MHZ, MCP_INT_PIN);
-        ESP_RETURN_ON_FALSE(mcpCan != nullptr, 2, nameof(BusMaster), "Failed to initialize MCP device: %i", 2);
+        _mcpCan = McpCan::Initialize(_mcpDeviceHandle, CAN_250KBPS, MCP_8MHZ, MCP_INT_PIN);
+        ESP_RETURN_ON_FALSE(_mcpCan != nullptr, 2, nameof(BusMaster), "Failed to initialize MCP device: %i", 2);
         #pragma endregion
 
         #pragma region Setup TWAI CAN
@@ -85,7 +97,7 @@ protected:
         pinMode(TWAI_TX_PIN, OUTPUT);
         pinMode(TWAI_RX_PIN, INPUT_PULLDOWN);
 
-        twaiCan = TwaiCan::Initialize(
+        _twaiCan = TwaiCan::Initialize(
             TWAI_GENERAL_CONFIG_DEFAULT(
                 TWAI_TX_PIN,
                 TWAI_RX_PIN,
@@ -94,7 +106,7 @@ protected:
             TWAI_TIMING_CONFIG_250KBITS(),
             TWAI_FILTER_CONFIG_ACCEPT_ALL()
         );
-        ESP_RETURN_ON_FALSE(twaiCan != nullptr, 3, nameof(BusMaster), "Failed to initialize TWAI device: %i", 3);
+        ESP_RETURN_ON_FALSE(_twaiCan != nullptr, 3, nameof(BusMaster), "Failed to initialize TWAI device: %i", 3);
         #pragma endregion
 
         return 0;
@@ -102,11 +114,11 @@ protected:
 
     int UninstallServiceImpl() override
     {
-        delete mcpCan;
-        mcpCan = nullptr;
+        delete _mcpCan;
+        _mcpCan = nullptr;
 
-        delete twaiCan;
-        twaiCan = nullptr;
+        delete _twaiCan;
+        _twaiCan = nullptr;
 
         spi_bus_remove_device(_mcpDeviceHandle);
         spi_bus_free(SPI2_HOST);
@@ -122,13 +134,25 @@ protected:
         //TODO: Determine if I should run both CAN tasks on one core and do secondary processing (i.e. metrics, user control, etc) on the other core, or split the load between all cores with CAN bus getting their own core.
         if constexpr (SOC_CPU_CORES_NUM > 1)
         {
-            xTaskCreatePinnedToCore(RelayTask, "MCP->TWAI", RELAY_TASK_STACK_SIZE, new SRelayTaskParameters { mcpCan, twaiCan }, RELAY_TASK_PRIORITY, &mcpToTwaiTaskHandle, 0);
-            xTaskCreatePinnedToCore(RelayTask, "TWAI->MCP", RELAY_TASK_STACK_SIZE, new SRelayTaskParameters { twaiCan, mcpCan }, RELAY_TASK_PRIORITY, &twaiToMcpTaskHandle, 1);
+            ESP_RETURN_ON_FALSE(
+                xTaskCreatePinnedToCore(RelayTask, "MCP->TWAI", RELAY_TASK_STACK_SIZE, new SRelayTaskParameters { _mcpCan, _twaiCan }, RELAY_TASK_PRIORITY, &_mcpToTwaiTaskHandle, 0) == pdPASS,
+                1, nameof(BusMaster), "Failed to create relay task for MCP->TWAI."
+            );
+            ESP_RETURN_ON_FALSE(
+                xTaskCreatePinnedToCore(RelayTask, "TWAI->MCP", RELAY_TASK_STACK_SIZE, new SRelayTaskParameters { _twaiCan, _mcpCan }, RELAY_TASK_PRIORITY, &_twaiToMcpTaskHandle, 1) == pdPASS,
+                2, nameof(BusMaster), "Failed to create relay task for TWAI->MCP."
+            );
         }
         else
         {
-            xTaskCreate(RelayTask, "MCP->TWAI", RELAY_TASK_STACK_SIZE, new SRelayTaskParameters { mcpCan, twaiCan }, RELAY_TASK_PRIORITY, &mcpToTwaiTaskHandle);
-            xTaskCreate(RelayTask, "TWAI->MCP", RELAY_TASK_STACK_SIZE, new SRelayTaskParameters { twaiCan, mcpCan }, RELAY_TASK_PRIORITY, &twaiToMcpTaskHandle);
+            ESP_RETURN_ON_FALSE(
+                xTaskCreate(RelayTask, "MCP->TWAI", RELAY_TASK_STACK_SIZE, new SRelayTaskParameters { _mcpCan, _twaiCan }, RELAY_TASK_PRIORITY, &_mcpToTwaiTaskHandle) == pdPASS,
+                1, nameof(BusMaster), "Failed to create relay task for MCP->TWAI."
+            );
+            ESP_RETURN_ON_FALSE(
+                xTaskCreate(RelayTask, "TWAI->MCP", RELAY_TASK_STACK_SIZE, new SRelayTaskParameters { _twaiCan, _mcpCan }, RELAY_TASK_PRIORITY, &_twaiToMcpTaskHandle) == pdPASS,
+                2, nameof(BusMaster), "Failed to create relay task for TWAI->MCP."
+            );
         }
 
         return 0;
@@ -136,17 +160,12 @@ protected:
 
     int StopServiceImpl() override
     {
-        vTaskDelete(mcpToTwaiTaskHandle);
-        vTaskDelete(twaiToMcpTaskHandle);
-
+        vTaskDelete(_mcpToTwaiTaskHandle);
+        vTaskDelete(_twaiToMcpTaskHandle);
         return 0;
     }
 
 public:
-    McpCan* mcpCan = nullptr;
-    TwaiCan* twaiCan = nullptr;
-    TaskHandle_t mcpToTwaiTaskHandle;
-    TaskHandle_t twaiToMcpTaskHandle;
     #ifdef ENABLE_CAN_DUMP
     QueueHandle_t canDumpQueue = xQueueCreate(100, sizeof(BusMaster::SCanDump));
     struct SCanDump
