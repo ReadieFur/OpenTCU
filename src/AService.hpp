@@ -1,50 +1,89 @@
 #pragma once
 
 #include <mutex>
+#include <functional>
 
-template <typename TInstallParams = void>
+// template <typename TInstallParams>
 class AService
 {
 private:
-    std::mutex _mutex;
+    std::mutex _serviceMutex;
     bool _installed = false;
+    bool _running = false;
+
+    static int ImplWrapper(std::function<int()> func, std::mutex* mutex, bool& status, bool desiredStatus)
+    {
+        mutex->lock();
+        if (status == desiredStatus)
+        {
+            mutex->unlock();
+            return EServiceResult::Ok;
+        }
+
+        int retVal = func();
+        if (retVal == EServiceResult::Ok)
+            status = desiredStatus;
+
+        mutex->unlock();
+        return retVal;
+    }
 
 protected:
-    virtual bool InstallImpl(TInstallParams params) = 0;
-    virtual bool UninstallImpl() = 0;
+    virtual int InstallServiceImpl() = 0;
+    virtual int UninstallServiceImpl() = 0;
+    virtual int StartServiceImpl() = 0;
+    virtual int StopServiceImpl() = 0;
 
 public:
-    bool Install(TInstallParams params)
+    enum EServiceResult
     {
-        _mutex.lock();
-        if (_installed)
-        {
-            _mutex.unlock();
-            return;
-        }
+        Ok = 0,
+        NotInstalled = -1
+    };
 
-        bool retVal = InstallImpl(params);
-
-        _mutex.unlock();
-
+    bool IsInstalled()
+    {
+        _serviceMutex.lock();
+        bool retVal = _installed;
+        _serviceMutex.unlock();
         return retVal;
     }
 
-    bool Uninstall()
+    bool IsRunning()
     {
-        _mutex.lock();
-        if (!_installed)
-        {
-            _mutex.unlock();
-            return;
-        }
-
-        bool retVal = UninstallImpl();
-
-        _mutex.unlock();
-
+        _serviceMutex.lock();
+        bool retVal = _running;
+        _serviceMutex.unlock();
         return retVal;
     }
 
-    bool 
+    int InstallService()
+    {
+        return ImplWrapper([this](){ return InstallServiceImpl(); }, &_serviceMutex, _installed, true);
+    }
+
+    int UninstallService()
+    {
+        int stopServiceRes = StopService();
+        if (stopServiceRes != EServiceResult::Ok)
+            return stopServiceRes;
+
+        return ImplWrapper([this](){ return UninstallServiceImpl(); }, &_serviceMutex, _installed, false);
+    }
+
+    int StartService()
+    {
+        if (!IsInstalled())
+            return EServiceResult::NotInstalled;
+
+        return ImplWrapper([this](){ return StartServiceImpl(); }, &_serviceMutex, _running, true);
+    }
+
+    int StopService()
+    {
+        if (IsInstalled())
+            return EServiceResult::NotInstalled;
+
+        return ImplWrapper([this](){ return StopServiceImpl(); }, &_serviceMutex, _running, false);
+    }
 };
