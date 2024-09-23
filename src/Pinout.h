@@ -5,7 +5,7 @@
 /**
  * Pinout configuration for the MCP2515.
  */
-#define MCP_INT_PIN                 GPIO_NUM_02
+#define MCP_INT_PIN                 GPIO_NUM_2
 #define MCP_SCK_PIN                 GPIO_NUM_15
 #define MCP_MOSI_PIN                GPIO_NUM_14
 #define MCP_MISO_PIN                GPIO_NUM_13
