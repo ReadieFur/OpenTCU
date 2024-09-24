@@ -13,6 +13,7 @@
 #include "ACan.h"
 #include "McpCan.hpp"
 #include "TwaiCan.hpp"
+#include "Config/JsonFlash.hpp"
 
 namespace ReadieFur::OpenTCU::CAN
 {
@@ -23,6 +24,7 @@ namespace ReadieFur::OpenTCU::CAN
         static const int RELAY_TASK_STACK_SIZE = configIDLE_TASK_STACK_SIZE * 2.5;
         static const int RELAY_TASK_PRIORITY = configMAX_PRIORITIES * 0.6;
 
+        Config::JsonFlash* _config;
         spi_device_handle_t _mcpDeviceHandle = nullptr;
         McpCan* _mcpCan = nullptr;
         TwaiCan* _twaiCan = nullptr;
@@ -174,5 +176,7 @@ namespace ReadieFur::OpenTCU::CAN
             SCanMessage message;
         };
         #endif
+
+        BusMaster(Config::JsonFlash* config) : _config(config) {}
     };
 };
