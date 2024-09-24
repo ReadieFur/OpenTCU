@@ -1,10 +1,11 @@
 ☐ CAN @started(24-09-24 00:11)
-☐ GPS
+✔ GPS @done(24-09-24 02:58)
 ☐ BT to TCU
 ☐ BT API
 ✔ WiFi off @done(24-09-24 00:11)
-☐ GSM
+✔ GSM @done(24-09-24 02:58)
 ☐ BMS @started(24-09-24 00:11)
 ☐ OTA
 ✔ Plain CAN relay @done(24-09-24 01:04)
-☐ Decrypt real bus messages
+☐ Decrypt bus messages
+☐ MQTT
