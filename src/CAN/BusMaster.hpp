@@ -9,7 +9,6 @@
 #include <driver/spi_common.h>
 #include <driver/twai.h>
 #include "Abstractions/AService.hpp"
-#include "SRelayTaskParameters.h"
 #include "ACan.h"
 #include "McpCan.hpp"
 #include "TwaiCan.hpp"
@@ -23,40 +22,64 @@ namespace ReadieFur::OpenTCU::CAN
         static const int CAN_TIMEOUT_TICKS = pdMS_TO_TICKS(50);
         static const int RELAY_TASK_STACK_SIZE = configIDLE_TASK_STACK_SIZE * 2.5;
         static const int RELAY_TASK_PRIORITY = configMAX_PRIORITIES * 0.6;
+        static const int CONFIG_TASK_STACK_SIZE = configIDLE_TASK_STACK_SIZE * 2.5;
+        static const int CONFIG_TASK_PRIORITY = configMAX_PRIORITIES * 0.3;
+        static const int CONFIG_TASK_INTERVAL = pdMS_TO_TICKS(1000);
+
+        struct SRelayTaskParameters
+        {
+            BusMaster* self;
+            ACan* canA;
+            ACan* canB;
+        };
 
         Config::JsonFlash* _config;
         spi_device_handle_t _mcpDeviceHandle = nullptr;
         McpCan* _mcpCan = nullptr;
         TwaiCan* _twaiCan = nullptr;
+        TaskHandle_t _configTaskHandle = NULL;
         TaskHandle_t _mcpToTwaiTaskHandle = NULL;
         TaskHandle_t _twaiToMcpTaskHandle = NULL;
-
-        static void InterceptMessage(SCanMessage* message)
-        {
-            //TODO: Implement.
-        }
 
         static void RelayTask(void* param)
         {
             SRelayTaskParameters* params = static_cast<SRelayTaskParameters*>(param);
-            ACan* canA = params->canA;
-            ACan* canB = params->canB;
-            delete params;
 
             //Check if the task has been signalled for deletion.
             while (eTaskGetState(NULL) != eTaskState::eDeleted)
             {
                 //Attempt to read a message from the bus.
                 SCanMessage message;
-                if (esp_err_t receiveResult = canA->Receive(&message, CAN_TIMEOUT_TICKS) != ESP_OK)
+                if (esp_err_t receiveResult = params->canA->Receive(&message, CAN_TIMEOUT_TICKS) != ESP_OK)
                     continue;
 
                 //Analyze the message and modify it if needed.
-                InterceptMessage(&message);
+                params->self->InterceptMessage(&message);
 
                 //Relay the message to the other CAN bus.
-                canB->Send(message, CAN_TIMEOUT_TICKS);
+                params->canB->Send(message, CAN_TIMEOUT_TICKS);
+
+                //Yield to allow other higher priority tasks to run, but use this method over vTaskDelay(0) keep delay time to a minimal as this is a very high priority task.
+                taskYIELD();
             }
+
+            delete params;
+        }
+
+        static void ReadConfigTask(void* param)
+        {
+            BusMaster* self = static_cast<BusMaster*>(param);
+
+            while (eTaskGetState(NULL) != eTaskState::eDeleted)
+            {
+                //TODO: Implement.
+                vTaskDelay(CONFIG_TASK_INTERVAL);
+            }
+        }
+
+        void InterceptMessage(SCanMessage* message)
+        {
+            //TODO: Implement.
         }
 
     protected:
@@ -133,26 +156,36 @@ namespace ReadieFur::OpenTCU::CAN
             //I am creating the parameters on the heap just in case this method returns before the task starts which will result in an error.
 
             //TODO: Determine if I should run both CAN tasks on one core and do secondary processing (i.e. metrics, user control, etc) on the other core, or split the load between all cores with CAN bus getting their own core.
+            SRelayTaskParameters* mcpToTwaiParams = new SRelayTaskParameters { this, _mcpCan, _twaiCan };
+            SRelayTaskParameters* twaiToMcpParams = new SRelayTaskParameters { this, _twaiCan, _mcpCan };
             if constexpr (SOC_CPU_CORES_NUM > 1)
             {
                 ESP_RETURN_ON_FALSE(
-                    xTaskCreatePinnedToCore(RelayTask, "MCP->TWAI", RELAY_TASK_STACK_SIZE, new SRelayTaskParameters { _mcpCan, _twaiCan }, RELAY_TASK_PRIORITY, &_mcpToTwaiTaskHandle, 0) == pdPASS,
-                    1, nameof(BusMaster), "Failed to create relay task for MCP->TWAI."
+                    xTaskCreate(ReadConfigTask, "CANReadCfg", CONFIG_TASK_STACK_SIZE, this, CONFIG_TASK_PRIORITY, &_configTaskHandle),
+                    1, nameof(BusMaster), "Failed to create config watcher task."
                 );
                 ESP_RETURN_ON_FALSE(
-                    xTaskCreatePinnedToCore(RelayTask, "TWAI->MCP", RELAY_TASK_STACK_SIZE, new SRelayTaskParameters { _twaiCan, _mcpCan }, RELAY_TASK_PRIORITY, &_twaiToMcpTaskHandle, 1) == pdPASS,
-                    2, nameof(BusMaster), "Failed to create relay task for TWAI->MCP."
+                    xTaskCreatePinnedToCore(RelayTask, "MCP->TWAI", RELAY_TASK_STACK_SIZE, mcpToTwaiParams, RELAY_TASK_PRIORITY, &_mcpToTwaiTaskHandle, 0) == pdPASS,
+                    2, nameof(BusMaster), "Failed to create relay task for MCP->TWAI."
+                );
+                ESP_RETURN_ON_FALSE(
+                    xTaskCreatePinnedToCore(RelayTask, "TWAI->MCP", RELAY_TASK_STACK_SIZE, twaiToMcpParams, RELAY_TASK_PRIORITY, &_twaiToMcpTaskHandle, 1) == pdPASS,
+                    3, nameof(BusMaster), "Failed to create relay task for TWAI->MCP."
                 );
             }
             else
             {
                 ESP_RETURN_ON_FALSE(
-                    xTaskCreate(RelayTask, "MCP->TWAI", RELAY_TASK_STACK_SIZE, new SRelayTaskParameters { _mcpCan, _twaiCan }, RELAY_TASK_PRIORITY, &_mcpToTwaiTaskHandle) == pdPASS,
-                    1, nameof(BusMaster), "Failed to create relay task for MCP->TWAI."
+                    xTaskCreate(ReadConfigTask, "CANReadCfg", CONFIG_TASK_STACK_SIZE, this, CONFIG_TASK_PRIORITY, &_configTaskHandle),
+                    1, nameof(BusMaster), "Failed to create config watcher task."
                 );
                 ESP_RETURN_ON_FALSE(
-                    xTaskCreate(RelayTask, "TWAI->MCP", RELAY_TASK_STACK_SIZE, new SRelayTaskParameters { _twaiCan, _mcpCan }, RELAY_TASK_PRIORITY, &_twaiToMcpTaskHandle) == pdPASS,
-                    2, nameof(BusMaster), "Failed to create relay task for TWAI->MCP."
+                    xTaskCreate(RelayTask, "MCP->TWAI", RELAY_TASK_STACK_SIZE, mcpToTwaiParams, RELAY_TASK_PRIORITY, &_mcpToTwaiTaskHandle) == pdPASS,
+                    2, nameof(BusMaster), "Failed to create relay task for MCP->TWAI."
+                );
+                ESP_RETURN_ON_FALSE(
+                    xTaskCreate(RelayTask, "TWAI->MCP", RELAY_TASK_STACK_SIZE, twaiToMcpParams, RELAY_TASK_PRIORITY, &_twaiToMcpTaskHandle) == pdPASS,
+                    3, nameof(BusMaster), "Failed to create relay task for TWAI->MCP."
                 );
             }
 
@@ -161,6 +194,7 @@ namespace ReadieFur::OpenTCU::CAN
 
         int StopServiceImpl() override
         {
+            vTaskDelete(_configTaskHandle);
             vTaskDelete(_mcpToTwaiTaskHandle);
             vTaskDelete(_twaiToMcpTaskHandle);
             return 0;
