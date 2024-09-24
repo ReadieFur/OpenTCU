@@ -28,6 +28,7 @@
  * Pinout for GSM module.
  * TODO: Future add-in for remote logging. https://lastminuteengineers.com/sim800l-gsm-module-arduino-tutorial/
  */
+#define GSM_BAUD                    115200
 #define GSM_TX_PIN                  GPIO_NUM_26
 #define GSM_RX_PIN                  GPIO_NUM_27
 #define GSM_RST_PIN                 GPIO_NUM_5
@@ -36,6 +37,7 @@
  * Pinout for GPS module.
  * TODO: Future add-in for location tracking. https://lastminuteengineers.com/neo6m-gps-arduino-tutorial/
  */
+#define GPS_BAUD                    9600
 #define GPS_TX_PIN                  GPIO_NUM_21
 #define GPS_RX_PIN                  GPIO_NUM_22
 
