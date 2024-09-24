@@ -167,10 +167,26 @@ namespace ReadieFur::Abstractions
             return ImplWrapper([this](){ return StartServiceImpl(); }, &_serviceMutex, _running, true);
         }
 
-        int StopService()
+        int StopService(bool forceStop = false)
         {
             if (IsInstalled())
                 return EServiceResult::NotInstalled;
+
+            _serviceMutex.lock();
+            for (auto &&reference : _referencedBy)
+            {
+                if (reference->IsRunning())
+                {
+                    if (!forceStop)
+                    {
+                        _serviceMutex.unlock();
+                        return EServiceResult::InUse;
+                    }
+
+                    reference->StopService(forceStop);
+                }
+            }
+            
 
             return ImplWrapper([this](){ return StopServiceImpl(); }, &_serviceMutex, _running, false);
         }
