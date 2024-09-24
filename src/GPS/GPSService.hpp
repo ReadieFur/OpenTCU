@@ -44,7 +44,7 @@ namespace ReadieFur::OpenTCU::GPS
         {
             //For this program the RX pin is the only one we care about.
             if constexpr (GPS_RX_PIN == GPIO_NUM_NC)
-                return 0;
+                return 1;
             
             pinMode(GPS_RX_PIN, INPUT_PULLDOWN);
             pinMode(GPS_TX_PIN, OUTPUT);
@@ -62,11 +62,14 @@ namespace ReadieFur::OpenTCU::GPS
 
         int StartServiceImpl() override
         {
-            if constexpr (GPS_RX_PIN != GPIO_NUM_NC)
-                ESP_RETURN_ON_FALSE(
-                    xTaskCreate(Task, "GpsTask", TASK_STACK_SIZE, this, TASK_PRIORITY, &_taskHandle) == pdPASS,
-                    1, nameof(GPSService), "Failed to create GPS service task."
-                );
+            if constexpr (GPS_RX_PIN == GPIO_NUM_NC)
+                return 1;
+
+            ESP_RETURN_ON_FALSE(
+                xTaskCreate(Task, "GpsTask", TASK_STACK_SIZE, this, TASK_PRIORITY, &_taskHandle) == pdPASS,
+                2, nameof(GPSService), "Failed to create GPS service task."
+            );
+                
             return 0;
         };
 
