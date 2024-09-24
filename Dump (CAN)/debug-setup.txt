@@ -1,3 +1,0 @@
-https://registry.platformio.org/tools/platformio/tool-openocd-esp32/installation
-https://docs.espressif.com/projects/esp-idf/en/v5.0/esp32c3/api-guides/jtag-debugging/configure-builtin-jtag.html#configure-usb-drivers
-https://community.platformio.org/t/esp32-pio-unified-debugger/4541/20
