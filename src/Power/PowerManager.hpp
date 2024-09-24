@@ -35,11 +35,8 @@ namespace ReadieFur::OpenTCU::Power
         {
             PowerManager* self = static_cast<PowerManager*>(param);
 
-            while (true)
+            while (eTaskGetState(NULL) != eTaskState::eDeleted)
             {
-                if (eTaskGetState(NULL) == eTaskState::eDeleted)
-                    break;
-
                 EPowerState oldPowerState = self->_powerState;
                 self->UpdatePowerState();
                 

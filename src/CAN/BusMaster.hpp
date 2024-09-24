@@ -41,12 +41,9 @@ namespace ReadieFur::OpenTCU::CAN
             ACan* canB = params->canB;
             delete params;
 
-            while (true)
+            //Check if the task has been signalled for deletion.
+            while (eTaskGetState(NULL) != eTaskState::eDeleted)
             {
-                //Check if the task has been signalled for deletion.
-                if (eTaskGetState(NULL) == eTaskState::eDeleted)
-                    break;
-
                 //Attempt to read a message from the bus.
                 SCanMessage message;
                 if (esp_err_t receiveResult = canA->Receive(&message, CAN_TIMEOUT_TICKS) != ESP_OK)
