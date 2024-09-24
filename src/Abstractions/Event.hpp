@@ -6,60 +6,63 @@
 #include <mutex>
 #include <list>
 
-/*TODO: Change this to notify FreeRTOS tasks to run their own callbacks instead so that the task calling the dispatch
-method doesn't have to worry about having a large enough stack size for all of the callbacks.*/
-template <typename T>
-class Event
+namespace ReadieFur::Abstractions
 {
-private:
-    std::mutex _mutex;
-    std::map<ulong, std::function<void(T)>> _callbacks;
-
-public:
-    void Dispatch(T value)
+    /*TODO: Change this to notify FreeRTOS tasks to run their own callbacks instead so that the task calling the dispatch
+    method doesn't have to worry about having a large enough stack size for all of the callbacks.*/
+    template <typename T>
+    class Event
     {
-        _mutex.lock();
+    private:
+        std::mutex _mutex;
+        std::map<ulong, std::function<void(T)>> _callbacks;
 
-        for (auto &&kvp : _callbacks)
-            kvp.second(value);
+    public:
+        void Dispatch(T value)
+        {
+            _mutex.lock();
 
-        _mutex.unlock();
-    }
+            for (auto &&kvp : _callbacks)
+                kvp.second(value);
 
-    ulong Add(std::function<void(T)> callback)
-    {
-        _mutex.lock();
+            _mutex.unlock();
+        }
 
-        ulong id;
-        do { id = millis(); }
-        while (_callbacks.find(id) != _callbacks.end());
+        ulong Add(std::function<void(T)> callback)
+        {
+            _mutex.lock();
 
-        _callbacks[id] = callback;
+            ulong id;
+            do { id = millis(); }
+            while (_callbacks.find(id) != _callbacks.end());
 
-        _mutex.unlock();
+            _callbacks[id] = callback;
 
-        return id;
-    }
+            _mutex.unlock();
 
-    void Remove(ulong id)
-    {
-        _mutex.lock();
-        _callbacks.erase(id);
-        _mutex.unlock();
-    }
+            return id;
+        }
 
-    /// @return Returns the number of callbacks removed.
-    size_t Remove(std::function<void(T)> callback)
-    {
-        std::list<ulong> callbacksToRemove;
-
-        for (auto &&kvp : _callbacks)
-            if (kvp.second == callback)
-                callbacksToRemove.push_back(kvp.first);
-
-        for (auto &&id : callbacksToRemove)
+        void Remove(ulong id)
+        {
+            _mutex.lock();
             _callbacks.erase(id);
+            _mutex.unlock();
+        }
 
-        return callbacksToRemove.size();
-    }
+        /// @return Returns the number of callbacks removed.
+        size_t Remove(std::function<void(T)> callback)
+        {
+            std::list<ulong> callbacksToRemove;
+
+            for (auto &&kvp : _callbacks)
+                if (kvp.second == callback)
+                    callbacksToRemove.push_back(kvp.first);
+
+            for (auto &&id : callbacksToRemove)
+                _callbacks.erase(id);
+
+            return callbacksToRemove.size();
+        }
+    };
 };

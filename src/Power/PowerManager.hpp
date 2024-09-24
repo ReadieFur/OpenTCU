@@ -19,7 +19,7 @@ static_assert(BAT_LOW > BAT_CRIT, nameof(BAT_LOW) " cannot be lower than " nameo
 
 namespace ReadieFur::OpenTCU::Power
 {
-    class PowerManager : public AService
+    class PowerManager : public Abstractions::AService
     {
     private:
         static const int TASK_STACK_SIZE = configIDLE_TASK_STACK_SIZE * 1.25;
@@ -27,7 +27,7 @@ namespace ReadieFur::OpenTCU::Power
         static const int TASK_INTERVAL = pdMS_TO_TICKS(30 * 1000);
 
         std::mutex _serviceWatcherMutex;
-        std::map<AService*, std::list<EPowerState>> _managedServices;
+        std::map<Abstractions::AService*, std::list<EPowerState>> _managedServices;
         TaskHandle_t _taskHandle = NULL;
         EPowerState _powerState = EPowerState::PluggedIn; //Assume plugged in by default.
 
@@ -142,7 +142,7 @@ namespace ReadieFur::OpenTCU::Power
         }
 
     public:
-        Event<EPowerState> OnPowerStateChanged;
+        Abstractions::Event<EPowerState> OnPowerStateChanged;
 
         PowerManager()
         {

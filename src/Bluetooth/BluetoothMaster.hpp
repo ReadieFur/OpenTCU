@@ -14,7 +14,7 @@ static_assert(ESP_NAME[0] != '\0', "ESP_NAME cannot be empty.");
 
 namespace ReadieFur::OpenTCU::Bluetooth
 {
-    class BluetoothMaster : public AService
+    class BluetoothMaster : public Abstractions::AService
     {
     private:
         BLEServer* _server = nullptr;
