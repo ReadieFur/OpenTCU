@@ -32,8 +32,8 @@ namespace ReadieFur::OpenTCU::Bluetooth
             _client = BLEDevice::createClient();
             ESP_RETURN_ON_FALSE(_client != nullptr, 2, nameof(BluetoothMaster), "Failed to create BLE client.");
 
-            _api = new API();
-            _tcu = new TCU();
+            _api = new API(*_server);
+            _tcu = new TCU(*_client);
 
             return 0;
         }
