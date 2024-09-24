@@ -7,6 +7,7 @@
 #include "GPS/GPSService.hpp"
 #include "Networking/GSMService.hpp"
 #include "Config/JsonFlash.hpp"
+#include <esp_sleep.h>
 
 #define ABORT_ON_FAIL(a, format) do {                                                   \
         if (unlikely(!(a))) {                                                           \
@@ -36,8 +37,19 @@ void setup()
     {
         if (powerState != Power::EPowerState::BatteryCritical)
             return;
-            
-        //TODO: Prepare shutdown.
+
+        //Shutdown all services.
+        _powerManager->UninstallService();
+        _gsmService->UninstallService();
+        _gpsService->UninstallService();
+        _bluetoothMaster->UninstallService();
+        _busMaster->UninstallService();
+        _config->~JsonFlash();
+
+        //Enter deep sleep.
+        esp_sleep_enable_timer_wakeup(BAT_CRIT_INT * 1000);
+        esp_sleep_pd_config(ESP_PD_DOMAIN_RTC_PERIPH, ESP_PD_OPTION_ON);
+        esp_deep_sleep_start();
     });
 
     _busMaster = new CAN::BusMaster(_config);
