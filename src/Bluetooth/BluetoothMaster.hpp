@@ -8,6 +8,7 @@
 #include <BLE2902.h>
 #include <mutex>
 #include "TCU.hpp"
+#include "API.hpp"
 
 static_assert(ESP_NAME[0] != '\0', "ESP_NAME cannot be empty.");
 
@@ -18,6 +19,7 @@ namespace ReadieFur::OpenTCU::Bluetooth
     private:
         BLEServer* _server = nullptr;
         BLEClient* _client = nullptr;
+        API* _api = nullptr;
         TCU* _tcu = nullptr;
 
     protected:
@@ -30,11 +32,16 @@ namespace ReadieFur::OpenTCU::Bluetooth
             _client = BLEDevice::createClient();
             ESP_RETURN_ON_FALSE(_client != nullptr, 2, nameof(BluetoothMaster), "Failed to create BLE client.");
 
+            _api = new API();
+            _tcu = new TCU();
+
             return 0;
         }
 
         int UninstallServiceImpl() override
         {
+            delete _api;
+            delete _tcu;
             delete _server;
             delete _client;
             return 0;
