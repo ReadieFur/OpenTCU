@@ -8,6 +8,7 @@
 #include <type_traits>
 #include <algorithm>
 #include <stack>
+#include <map>
 #include <unordered_set>
 
 namespace ReadieFur::Abstractions
@@ -18,7 +19,7 @@ namespace ReadieFur::Abstractions
     private:
         std::mutex _serviceMutex;
         std::unordered_set<std::type_index> _dependencies;
-        std::unordered_map<std::type_index, AService*> _installedDependencies;
+        std::map<std::type_index, AService*> _installedDependencies;
         bool _installed = false;
         bool _running = false;
 
@@ -97,7 +98,7 @@ namespace ReadieFur::Abstractions
         GetDependency()
         {
             //Dependency must exist here.
-            return _installedDependencies[std::type_index(typeid(T))];
+            return reinterpret_cast<T*>(_installedDependencies[std::type_index(typeid(T))]);
         }
 
     public:
