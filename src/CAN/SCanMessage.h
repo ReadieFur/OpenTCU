@@ -2,11 +2,14 @@
 
 #include <stdint.h>
 
-struct SCanMessage
+namespace ReadieFur::OpenTCU::CAN
 {
-    uint32_t id;
-    uint8_t data[8];
-    uint8_t length;
-    bool isExtended;
-    bool isRemote;
+    struct SCanMessage
+    {
+        uint32_t id;
+        uint8_t data[8];
+        uint8_t length;
+        bool isExtended;
+        bool isRemote;
+    };
 };

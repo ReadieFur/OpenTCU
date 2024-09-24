@@ -1,14 +1,17 @@
 #pragma once
 
-class TCU
+namespace ReadieFur::OpenTCU::Bluetooth
 {
-private:
-public:
-    TCU()
+    class TCU
     {
-    }
+    private:
+    public:
+        TCU()
+        {
+        }
 
-    ~TCU()
-    {
-    }
+        ~TCU()
+        {
+        }
+    };
 };

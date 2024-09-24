@@ -9,15 +9,18 @@
 
 #define USE_CAN_DRIVER_LOCK
 
-class ACan
+namespace ReadieFur::OpenTCU::CAN
 {
-protected:
-    #ifdef USE_CAN_DRIVER_LOCK
-    volatile SemaphoreHandle_t _driverMutex = xSemaphoreCreateMutex();
-    #endif
-public:
-    virtual ~ACan() = default;
-    virtual esp_err_t Send(SCanMessage message, TickType_t timeout = 0) = 0;
-    virtual esp_err_t Receive(SCanMessage* message, TickType_t timeout = 0) = 0;
-    virtual esp_err_t GetStatus(uint32_t* status, TickType_t timeout = 0) = 0;
+    class ACan
+    {
+    protected:
+        #ifdef USE_CAN_DRIVER_LOCK
+        volatile SemaphoreHandle_t _driverMutex = xSemaphoreCreateMutex();
+        #endif
+    public:
+        virtual ~ACan() = default;
+        virtual esp_err_t Send(SCanMessage message, TickType_t timeout = 0) = 0;
+        virtual esp_err_t Receive(SCanMessage* message, TickType_t timeout = 0) = 0;
+        virtual esp_err_t GetStatus(uint32_t* status, TickType_t timeout = 0) = 0;
+    };
 };
