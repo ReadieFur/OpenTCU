@@ -2,8 +2,11 @@
 
 #include "ACan.h"
 
-struct SRelayTaskParameters
+namespace ReadieFur::OpenTCU::CAN
 {
-    ACan* canA;
-    ACan* canB;
+    struct SRelayTaskParameters
+    {
+        ACan* canA;
+        ACan* canB;
+    };
 };

@@ -1,9 +1,12 @@
 #pragma once
 
-enum EPowerState
+namespace ReadieFur::OpenTCU::Power
 {
-    PluggedIn,
-    BatteryNormal,
-    BatteryLow,
-    BatteryCritical
+    enum EPowerState
+    {
+        PluggedIn,
+        BatteryNormal,
+        BatteryLow,
+        BatteryCritical
+    };
 };

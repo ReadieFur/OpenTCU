@@ -12,30 +12,32 @@
         }                                                                               \
     } while(0)
 
-PowerManager* powerManager;
-BusMaster* busMaster;
-BluetoothMaster* bluetoothMaster;
+using namespace ReadieFur::OpenTCU;
+
+Power::PowerManager* powerManager;
+CAN::BusMaster* busMaster;
+Bluetooth::BluetoothMaster* bluetoothMaster;
 
 void setup()
 {
-    powerManager = new PowerManager();
+    powerManager = new Power::PowerManager();
     ABORT_ON_FAIL(powerManager->InstallService(), "Failed to install " nameof(PowerManager) " service");
     ABORT_ON_FAIL(powerManager->StartService(), "Failed to start " nameof(PowerManager) " service");
-    powerManager->OnPowerStateChanged.Add([](EPowerState powerState)
+    powerManager->OnPowerStateChanged.Add([](Power::EPowerState powerState)
     {
-        if (powerState != EPowerState::BatteryCritical)
+        if (powerState != Power::EPowerState::BatteryCritical)
             return;
             
         //TODO: Prepare shutdown.
     });
 
-    busMaster = new BusMaster();
+    busMaster = new CAN::BusMaster();
     ABORT_ON_FAIL(busMaster->InstallService(), "Failed to install " nameof(BusMaster) " service");
-    ABORT_ON_FAIL(powerManager->AddService(busMaster, { EPowerState::PluggedIn }), "Failed to start " nameof(BusMaster) " service");
+    ABORT_ON_FAIL(powerManager->AddService(busMaster, { Power::EPowerState::PluggedIn }), "Failed to start " nameof(BusMaster) " service");
 
-    bluetoothMaster = new BluetoothMaster();
+    bluetoothMaster = new Bluetooth::BluetoothMaster();
     bluetoothMaster->InstallService();
-    powerManager->AddService(bluetoothMaster, { EPowerState::PluggedIn });
+    powerManager->AddService(bluetoothMaster, { Power::EPowerState::PluggedIn });
 }
 
 void loop()
