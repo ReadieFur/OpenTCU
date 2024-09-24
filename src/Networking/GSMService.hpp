@@ -10,6 +10,7 @@
 #include <Client.h>
 #include <mutex>
 #include <set>
+#include "Config/JsonFlash.hpp"
 #ifdef DUMP_GSM_SERIAL
 #include <StreamDebugger.h>
 #endif
@@ -27,6 +28,7 @@ namespace ReadieFur::OpenTCU::Networking
         static const int TASK_PRIORITY = configMAX_PRIORITIES * 0.2;
         static const int TASK_INTERVAL = pdMS_TO_TICKS(5000);
 
+        Config::JsonFlash* _config;
         SoftwareSerial _gsmSerial;
         #ifdef DUMP_GSM_SERIAL
         StreamDebugger* _debugger;
@@ -53,31 +55,37 @@ namespace ReadieFur::OpenTCU::Networking
             if (_modem->isNetworkConnected())
                 return true;
 
-            Serial.print("Network disconnected, reconnecting...");
+            ESP_LOGI(nameof(GSMService), "GSM disconnected. Reconnecting...");
             if (!_modem->waitForNetwork(60000L, true))
             {
-                Serial.println(" fail");
+                ESP_LOGI(nameof(GSMService), "GSM reconnect: Failed");
                 return false;
             }
             if (_modem->isNetworkConnected())
             {
-                Serial.println(" success");
+                ESP_LOGV(nameof(GSMService), "GSM reconnect: Success");
             }
 
             //And make sure GPRS/EPS is still connected.
             if (_modem->isGprsConnected())
                 return true;
-            
-            Serial.println("GPRS disconnected!");
-            Serial.print("Connecting to ");
-            Serial.print(GSM_APN);
-            if (!_modem->gprsConnect(GSM_APN, GSM_USER, GSM_PASS))
+
+            String apn = "", username = "", password = "";
+            _config->TryGet("gsm_apn", apn);
+            if (apn.isEmpty())
+                return false;
+            _config->TryGet("gsm_username", username);
+            _config->TryGet("gsm_password", password);
+            ESP_LOGI(nameof(GSMService), "GPRS disconnected. Reconnecting...");
+            if (!_modem->gprsConnect(apn.c_str(), username.c_str(), password.c_str()))
             {
-                Serial.println(" fail");
+                ESP_LOGI(nameof(GSMService), "GPRS reconnect: Failed");
                 return false;
             }
             if (_modem->isGprsConnected())
-                Serial.println("GPRS reconnected");
+            {
+                ESP_LOGV(nameof(GSMService), "GPRS reconnect: Success");
+            }
         }
 
     protected:
@@ -133,8 +141,9 @@ namespace ReadieFur::OpenTCU::Networking
             ESP_LOGV(nameof(GSMService), "Modem Info: %s", _modem->getModemInfo());
 
             //Unlock your SIM card with a PIN if needed.
-            if (GSM_PIN && _modem->getSimStatus() != 3)
-                ESP_RETURN_ON_FALSE(_modem->simUnlock(GSM_PIN), 2, nameof(GSMService), "Failed to unlock SIM card.");
+            String pin;
+            if (_config->TryGet("gsm_pin", pin) && !pin.isEmpty() && _modem->getSimStatus() != 3)
+                ESP_RETURN_ON_FALSE(_modem->simUnlock(pin.c_str()), 2, nameof(GSMService), "Failed to unlock SIM card.");
             #pragma endregion
 
             //Put the module to sleep while it is not in use.
@@ -180,6 +189,8 @@ namespace ReadieFur::OpenTCU::Networking
         };
 
     public:
+        GSMService(Config::JsonFlash* config) : _config(config) {}
+
         TinyGsmClient* CreateClient()
         {
             if (!IsRunning())
@@ -189,7 +200,7 @@ namespace ReadieFur::OpenTCU::Networking
 
             if (_clients.size() >= TINY_GSM_MUX_COUNT)
             {
-                Serial.println(F("Max number of GSM clients already instantiated."));
+                ESP_LOGE(nameof(GSMService), "Max number of GPRS clients already instantiated.");
                 _clientsMutex.unlock();
                 return nullptr;
             }

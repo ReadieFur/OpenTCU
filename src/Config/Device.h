@@ -11,9 +11,5 @@
 #define BAT_CRIT        3600        //The voltage (in millivolts) for critical battery levels.
 
 #define GSM_BAUD        115200      //GSM module baud rate.
-#define GSM_APN         "simbase"   //SIM card apn.
-#define GSM_PIN         ""          //SIM card pin.
-#define GSM_USER        ""          //SIM card username.
-#define GSM_PASS        ""          //SIM card password.
 
 #define GPS_BAUD        9600
