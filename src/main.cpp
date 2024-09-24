@@ -6,6 +6,7 @@
 #include "Bluetooth/BluetoothMaster.hpp"
 #include "GPS/GPSService.hpp"
 #include "Networking/GSMService.hpp"
+#include "Config/JsonFlash.hpp"
 
 #define ABORT_ON_FAIL(a, format) do {                                                   \
         if (unlikely(!(a))) {                                                           \
@@ -18,6 +19,7 @@ using namespace ReadieFur::OpenTCU;
 
 Power::PowerManager* _powerManager;
 CAN::BusMaster* _busMaster;
+Config::JsonFlash _config;
 Bluetooth::BluetoothMaster* _bluetoothMaster;
 GPS::GPSService* _gpsService;
 Networking::GSMService* _gsmService;
