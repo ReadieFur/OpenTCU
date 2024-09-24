@@ -44,7 +44,18 @@ namespace ReadieFur::OpenTCU::Networking
 
             while (eTaskGetState(NULL) != eTaskState::eDeleted)
             {
-                self->Connect();
+                bool holdsActiveReferences = true;
+                for (auto &&reference : self->_referencedBy)
+                {
+                    if (holdsActiveReferences = reference->IsRunning())
+                        break;
+                }
+
+                self->_modem->sleepEnable(!holdsActiveReferences);
+
+                if (holdsActiveReferences)
+                    self->Connect();
+                
                 vTaskDelay(TASK_INTERVAL);
             }
         }

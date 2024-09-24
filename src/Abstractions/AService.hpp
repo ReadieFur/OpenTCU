@@ -19,7 +19,6 @@ namespace ReadieFur::Abstractions
         std::mutex _serviceMutex;
         std::unordered_set<std::type_index> _dependencies;
         std::unordered_map<std::type_index, AService*> _installedDependencies;
-        std::unordered_set<AService*> _referencedBy;
         bool _installed = false;
         bool _running = false;
 
@@ -72,6 +71,8 @@ namespace ReadieFur::Abstractions
         }
 
     protected:
+        std::unordered_set<AService*> _referencedBy;
+
         virtual int InstallServiceImpl() = 0;
         virtual int UninstallServiceImpl() = 0;
         virtual int StartServiceImpl() = 0;
