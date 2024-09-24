@@ -18,7 +18,7 @@
 #define TINY_GSM_USE_GPRS true
 #define TINY_GSM_USE_WIFI false
 
-namespace ReadieFur::OpenTCU::GSM
+namespace ReadieFur::OpenTCU::Networking
 {
     class GSMService : public Abstractions::AService
     {
