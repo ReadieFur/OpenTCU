@@ -3,6 +3,12 @@
 #include "EServiceResult.h"
 #include <mutex>
 #include <functional>
+#include <typeindex>
+#include <typeinfo>
+#include <type_traits>
+#include <algorithm>
+#include <stack>
+#include <unordered_set>
 
 namespace ReadieFur::Abstractions
 {
@@ -11,6 +17,9 @@ namespace ReadieFur::Abstractions
     {
     private:
         std::mutex _serviceMutex;
+        std::unordered_set<std::type_index> _dependencies;
+        std::unordered_map<std::type_index, AService*> _installedDependencies;
+        std::unordered_set<AService*> _referencedBy;
         bool _installed = false;
         bool _running = false;
 
@@ -31,11 +40,64 @@ namespace ReadieFur::Abstractions
             return retVal;
         }
 
+        bool ContainsCircularDependency(AService* service)
+        {
+            //This was originally a recursive method however I am using an iterative method to save space on the stack.
+            std::unordered_set<AService*> visited;
+            std::stack<AService*> toCheck;
+            toCheck.push(service);
+
+            while (!toCheck.empty())
+            {
+                AService* current = toCheck.top();
+                toCheck.pop();
+
+                //If we already visited this service then a circular dependency has been found.
+                if (visited.count(current))
+                    return true;
+
+                visited.insert(current); 
+
+                //Check dependencies of the current service.
+                for (auto&& dependency : current->_installedDependencies)
+                {
+                    if (dependency.second == this)
+                        return true; //Circular dependency found.
+
+                    toCheck.push(dependency.second);
+                }
+            }
+
+            return false;
+        }
+
     protected:
         virtual int InstallServiceImpl() = 0;
         virtual int UninstallServiceImpl() = 0;
         virtual int StartServiceImpl() = 0;
         virtual int StopServiceImpl() = 0;
+
+        template <typename T>
+        typename std::enable_if<std::is_base_of<AService, T>::value, void>::type
+        AddDependencyType()
+        {
+            _dependencies.insert(std::type_index(typeid(T)));
+        }
+
+        template <typename T>
+        typename std::enable_if<std::is_base_of<AService, T>::value, void>::type
+        RemoveDependencyType()
+        {
+            _dependencies.erase(std::type_index(typeid(T)));
+        }
+
+        template <typename T>
+        typename std::enable_if<std::is_base_of<AService, T>::value, T*>::type
+        GetDependency()
+        {
+            //Dependency must exist here.
+            return _installedDependencies[std::type_index(typeid(T))];
+        }
 
     public:
         bool IsInstalled()
@@ -56,6 +118,26 @@ namespace ReadieFur::Abstractions
 
         int InstallService()
         {
+            _serviceMutex.lock();
+
+            //Check if all dependencies are satisfied.
+            for (auto &&dependency : _dependencies)
+            {
+                if (_installedDependencies.find(dependency) == _installedDependencies.end())
+                {
+                    _serviceMutex.unlock();
+                    return EServiceResult::MissingDependencies;
+                }
+            }
+            //Not unlocking because we will lock again immediately within ImplWrapper (and unlocked in there too).
+
+            //Make sure all dependencies are installed.
+            for (auto &&dependency : _installedDependencies)
+            {
+                if (!dependency.second->IsInstalled())
+                    return EServiceResult::DependencyNotReady;
+            }
+            
             return ImplWrapper([this](){ return InstallServiceImpl(); }, &_serviceMutex, _installed, true);
         }
 
@@ -73,6 +155,14 @@ namespace ReadieFur::Abstractions
             if (!IsInstalled())
                 return EServiceResult::NotInstalled;
 
+            _serviceMutex.lock();
+            for (auto &&dependency : _installedDependencies)
+            {
+                if (!dependency.second->IsRunning())
+                    return EServiceResult::DependencyNotReady;
+            }
+            //Not unlocking because we will lock again immediately within ImplWrapper (and unlocked in there too).
+
             return ImplWrapper([this](){ return StartServiceImpl(); }, &_serviceMutex, _running, true);
         }
 
@@ -82,6 +172,48 @@ namespace ReadieFur::Abstractions
                 return EServiceResult::NotInstalled;
 
             return ImplWrapper([this](){ return StopServiceImpl(); }, &_serviceMutex, _running, false);
+        }
+
+        template <typename T>
+        typename std::enable_if<std::is_base_of<AService, T>::value, bool>::type
+        AddDependency(T* service)
+        {
+            if (service == nullptr
+                || _dependencies.find(std::type_index(typeid(T))) == _dependencies.end() /*Provided dependency is not needed.*/
+                || _installedDependencies.find(std::type_index(typeid(T))) != _installedDependencies.end() /*Service for the specified dependency has already been installed.*/
+                || ContainsCircularDependency(service) /*Check if a circular dependency exists.*/)
+                return false;
+
+            _installedDependencies[std::type_index(typeid(T))] = service;
+            service->_referencedBy.insert(this);
+            return true;
+        }
+
+        template <typename T>
+        typename std::enable_if<std::is_base_of<AService, T>::value, void>::type
+        RemoveDependency()
+        {
+            auto kvp = _installedDependencies.find(std::type_index(typeid(T)));
+            if (kvp == _installedDependencies.end())
+                return;
+
+            _installedDependencies.erase(kvp->first);
+            kvp->second->_referencedBy.erase(this);
+        }
+
+        template <typename T>
+        typename std::enable_if<std::is_base_of<AService, T>::value, void>::type
+        RemoveDependency(T* service)
+        {
+            for (auto &&kvp : _installedDependencies)
+            {
+                if (kvp.second == service)
+                {
+                    _installedDependencies.erase(kvp.first);
+                    service->_referencedBy.erase(this);
+                    return;
+                }
+            }
         }
     };
 };
