@@ -2,7 +2,7 @@
 
 namespace ReadieFur::OpenTCU::Bluetooth
 {
-    class TCU
+    class API
     {
     private:
     public:
