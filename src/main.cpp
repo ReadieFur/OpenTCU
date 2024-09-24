@@ -4,6 +4,7 @@
 #include "CAN/BusMaster.hpp"
 #include "Power/PowerManager.hpp"
 #include "Bluetooth/BluetoothMaster.hpp"
+#include "Bluetooth/BleApi.hpp"
 #include "GPS/GPSService.hpp"
 #include "Networking/GSMService.hpp"
 #include "Config/JsonFlash.hpp"
@@ -22,6 +23,7 @@ Config::JsonFlash* _config;
 Power::PowerManager* _powerManager;
 CAN::BusMaster* _busMaster;
 Bluetooth::BluetoothMaster* _bluetoothMaster;
+Bluetooth::BleApi* _bleApi;
 GPS::GPSService* _gpsService;
 Networking::GSMService* _gsmService;
 
@@ -42,6 +44,7 @@ void setup()
         _powerManager->UninstallService();
         _gsmService->UninstallService();
         _gpsService->UninstallService();
+        _bleApi->UninstallService();
         _bluetoothMaster->UninstallService();
         _busMaster->UninstallService();
         _config->~JsonFlash();
@@ -60,6 +63,11 @@ void setup()
     _bluetoothMaster = new Bluetooth::BluetoothMaster();
     _bluetoothMaster->InstallService();
     _powerManager->AddService(_bluetoothMaster, { Power::EPowerState::PluggedIn });
+
+    _bleApi = new Bluetooth::BleApi();
+    _bleApi->AddDependency(_bluetoothMaster);
+    _bleApi->InstallService();
+    _powerManager->AddService(_bleApi, { Power::EPowerState::PluggedIn });
 
     _gpsService = new GPS::GPSService();
     _gpsService->InstallService();
