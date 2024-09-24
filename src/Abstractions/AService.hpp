@@ -4,81 +4,84 @@
 #include <mutex>
 #include <functional>
 
-// template <typename TInstallParams>
-class AService
+namespace ReadieFur::Abstractions
 {
-private:
-    std::mutex _serviceMutex;
-    bool _installed = false;
-    bool _running = false;
-
-    static int ImplWrapper(std::function<int()> func, std::mutex* mutex, bool& status, bool desiredStatus)
+    // template <typename TInstallParams>
+    class AService
     {
-        mutex->lock();
-        if (status == desiredStatus)
+    private:
+        std::mutex _serviceMutex;
+        bool _installed = false;
+        bool _running = false;
+
+        static int ImplWrapper(std::function<int()> func, std::mutex* mutex, bool& status, bool desiredStatus)
         {
+            mutex->lock();
+            if (status == desiredStatus)
+            {
+                mutex->unlock();
+                return EServiceResult::Ok;
+            }
+
+            int retVal = func();
+            if (retVal == EServiceResult::Ok)
+                status = desiredStatus;
+
             mutex->unlock();
-            return EServiceResult::Ok;
+            return retVal;
         }
 
-        int retVal = func();
-        if (retVal == EServiceResult::Ok)
-            status = desiredStatus;
+    protected:
+        virtual int InstallServiceImpl() = 0;
+        virtual int UninstallServiceImpl() = 0;
+        virtual int StartServiceImpl() = 0;
+        virtual int StopServiceImpl() = 0;
 
-        mutex->unlock();
-        return retVal;
-    }
+    public:
+        bool IsInstalled()
+        {
+            _serviceMutex.lock();
+            bool retVal = _installed;
+            _serviceMutex.unlock();
+            return retVal;
+        }
 
-protected:
-    virtual int InstallServiceImpl() = 0;
-    virtual int UninstallServiceImpl() = 0;
-    virtual int StartServiceImpl() = 0;
-    virtual int StopServiceImpl() = 0;
+        bool IsRunning()
+        {
+            _serviceMutex.lock();
+            bool retVal = _running;
+            _serviceMutex.unlock();
+            return retVal;
+        }
 
-public:
-    bool IsInstalled()
-    {
-        _serviceMutex.lock();
-        bool retVal = _installed;
-        _serviceMutex.unlock();
-        return retVal;
-    }
+        int InstallService()
+        {
+            return ImplWrapper([this](){ return InstallServiceImpl(); }, &_serviceMutex, _installed, true);
+        }
 
-    bool IsRunning()
-    {
-        _serviceMutex.lock();
-        bool retVal = _running;
-        _serviceMutex.unlock();
-        return retVal;
-    }
+        int UninstallService()
+        {
+            int stopServiceRes = StopService();
+            if (stopServiceRes != EServiceResult::Ok)
+                return stopServiceRes;
 
-    int InstallService()
-    {
-        return ImplWrapper([this](){ return InstallServiceImpl(); }, &_serviceMutex, _installed, true);
-    }
+            return ImplWrapper([this](){ return UninstallServiceImpl(); }, &_serviceMutex, _installed, false);
+        }
 
-    int UninstallService()
-    {
-        int stopServiceRes = StopService();
-        if (stopServiceRes != EServiceResult::Ok)
-            return stopServiceRes;
+        int StartService()
+        {
+            if (!IsInstalled())
+                return EServiceResult::NotInstalled;
 
-        return ImplWrapper([this](){ return UninstallServiceImpl(); }, &_serviceMutex, _installed, false);
-    }
+            return ImplWrapper([this](){ return StartServiceImpl(); }, &_serviceMutex, _running, true);
+        }
 
-    int StartService()
-    {
-        if (!IsInstalled())
-            return EServiceResult::NotInstalled;
+        int StopService()
+        {
+            if (IsInstalled())
+                return EServiceResult::NotInstalled;
 
-        return ImplWrapper([this](){ return StartServiceImpl(); }, &_serviceMutex, _running, true);
-    }
-
-    int StopService()
-    {
-        if (IsInstalled())
-            return EServiceResult::NotInstalled;
-
-        return ImplWrapper([this](){ return StopServiceImpl(); }, &_serviceMutex, _running, false);
-    }
+            return ImplWrapper([this](){ return StopServiceImpl(); }, &_serviceMutex, _running, false);
+        }
+    };
 };

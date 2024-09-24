@@ -1,7 +1,10 @@
 #pragma once
 
-enum EServiceResult
+namespace ReadieFur::Abstractions
 {
-    Ok = 0,
-    NotInstalled = -1
+    enum EServiceResult
+    {
+        Ok = 0,
+        NotInstalled = -1
+    };
 };

@@ -16,7 +16,7 @@
 
 namespace ReadieFur::OpenTCU::CAN
 {
-    class BusMaster : public AService
+    class BusMaster : public Abstractions::AService
     {
     private:
         static const int CAN_TIMEOUT_TICKS = pdMS_TO_TICKS(50);
