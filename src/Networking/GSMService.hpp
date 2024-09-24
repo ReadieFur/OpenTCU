@@ -103,7 +103,7 @@ namespace ReadieFur::OpenTCU::Networking
         int InstallServiceImpl() override
         {
             if constexpr (GSM_TX_PIN == GPIO_NUM_NC || GSM_RX_PIN == GPIO_NUM_NC)
-                return 0;
+                return 1;
 
             #pragma region Setup IO
             pinMode(GSM_RX_PIN, INPUT_PULLDOWN);
@@ -146,7 +146,7 @@ namespace ReadieFur::OpenTCU::Networking
             #pragma region Configure device
             vTaskDelay(3000);
             //Restart takes quite some time, to skip it, call init() instead of restart().
-            ESP_RETURN_ON_FALSE(_modem->init(), 1, nameof(GSMService), "Failed to start modem.");
+            ESP_RETURN_ON_FALSE(_modem->init(), 2, nameof(GSMService), "Failed to start modem.");
 
             ESP_LOGV(nameof(GSMService), "Modem Name: %s", _modem->getModemName());
             ESP_LOGV(nameof(GSMService), "Modem Info: %s", _modem->getModemInfo());
@@ -154,7 +154,7 @@ namespace ReadieFur::OpenTCU::Networking
             //Unlock your SIM card with a PIN if needed.
             String pin;
             if (_config->TryGet("gsm_pin", pin) && !pin.isEmpty() && _modem->getSimStatus() != 3)
-                ESP_RETURN_ON_FALSE(_modem->simUnlock(pin.c_str()), 2, nameof(GSMService), "Failed to unlock SIM card.");
+                ESP_RETURN_ON_FALSE(_modem->simUnlock(pin.c_str()), 3, nameof(GSMService), "Failed to unlock SIM card.");
             #pragma endregion
 
             //Put the module to sleep while it is not in use.
@@ -182,7 +182,7 @@ namespace ReadieFur::OpenTCU::Networking
         int StartServiceImpl() override
         {
             if constexpr (GSM_TX_PIN == GPIO_NUM_NC || GSM_RX_PIN == GPIO_NUM_NC)
-                return 0;
+                return 1;
 
             _modem->sleepEnable(false);
 

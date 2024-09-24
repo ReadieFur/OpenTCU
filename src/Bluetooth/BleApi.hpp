@@ -4,12 +4,9 @@
 
 namespace ReadieFur::OpenTCU::Bluetooth
 {
-    class API
+    class BleApi
     {
     private:
-        BLEServer& _server;
-
     public:
-        API(BLEServer& server) : _server(server) {}
     };
 };
