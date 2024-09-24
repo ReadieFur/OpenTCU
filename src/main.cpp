@@ -1,5 +1,5 @@
 #include <freertos/FreeRTOS.h> //Has to always be the first included FreeRTOS related header.
-#include "Common.h"
+#include "pch.h"
 #include "Config/Device.h"
 #include "CAN/BusMaster.hpp"
 #include "Power/PowerManager.hpp"
