@@ -5,6 +5,7 @@
 #include "Power/PowerManager.hpp"
 #include "Bluetooth/BluetoothMaster.hpp"
 #include "GPS/GPSService.hpp"
+#include "GSM/GSMService.hpp"
 
 #define ABORT_ON_FAIL(a, format) do {                                                   \
         if (unlikely(!(a))) {                                                           \
@@ -19,6 +20,7 @@ Power::PowerManager* _powerManager;
 CAN::BusMaster* _busMaster;
 Bluetooth::BluetoothMaster* _bluetoothMaster;
 GPS::GPSService* _gpsService;
+GSM::GSMService* _gsmService;
 
 void setup()
 {
@@ -48,6 +50,11 @@ void setup()
     _gpsService = new GPS::GPSService();
     _gpsService->InstallService();
     _powerManager->AddService(_gpsService, { Power::EPowerState::PluggedIn, Power::EPowerState::BatteryNormal, Power::EPowerState::BatteryLow });
+
+    _gsmService = new GSM::GSMService();
+    _gsmService->InstallService();
+    //TODO: Set this module to power down when not in use (have the service keep handles of acquired instances for this).
+    _powerManager->AddService(_gsmService, { Power::EPowerState::PluggedIn, Power::EPowerState::BatteryNormal, Power::EPowerState::BatteryLow });
     #pragma endregion
 }
 

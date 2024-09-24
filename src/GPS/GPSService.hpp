@@ -4,6 +4,7 @@
 #include "Common.h"
 #include <SoftwareSerial.h>
 #include <TinyGPS++.h>
+#include <Arduino.h>
 #include "Abstractions/Event.hpp"
 
 namespace ReadieFur::OpenTCU::GPS
@@ -27,7 +28,7 @@ namespace ReadieFur::OpenTCU::GPS
                 while (self->_gpsSerial.available())
                 {
                     int c = self->_gpsSerial.read();
-                    #ifdef DUMP_GPS_COMMANDS
+                    #ifdef DUMP_GPS_SERIAL
                     Serial.write(c);
                     #endif
                     if (self->TinyGps.encode(c))
@@ -42,8 +43,13 @@ namespace ReadieFur::OpenTCU::GPS
         int InstallServiceImpl() override
         {
             //For this program the RX pin is the only one we care about.
-            if constexpr (GPS_RX_PIN != GPIO_NUM_NC)
-                _gpsSerial.begin(GPS_BAUD, SWSERIAL_8N1, GPS_RX_PIN, GPS_TX_PIN);
+            if constexpr (GPS_RX_PIN == GPIO_NUM_NC)
+                return 0;
+            
+            pinMode(GPS_RX_PIN, INPUT_PULLDOWN);
+            pinMode(GPS_TX_PIN, OUTPUT);
+            _gpsSerial.begin(GPS_BAUD, SWSERIAL_8N1, GPS_RX_PIN, GPS_TX_PIN);
+            
             return 0;
         };
 
