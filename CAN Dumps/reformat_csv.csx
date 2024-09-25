@@ -86,5 +86,10 @@ async Task ProcessFile(string filePath)
 }
 
 foreach (string file in Directory.GetFiles(Directory.GetCurrentDirectory(), "*.csv"))
-    if (!file.EndsWith("_formatted.csv"))
-        await ProcessFile(file);
+{
+    if (file.EndsWith("_formatted.csv"))
+        continue;
+
+    await ProcessFile(file);
+    File.Delete(file);
+}
