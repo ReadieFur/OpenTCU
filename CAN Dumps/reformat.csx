@@ -81,7 +81,7 @@ async Task ProcessFile(string filePath)
         }
     }
 
-    using (StreamWriter writer = new(filePath.Replace("-raw.csv", "-can.csv"), false))
+    using (StreamWriter writer = new(filePath.Replace("-sal.csv", "-can.csv"), false))
     {
         // writer.WriteLine(string.Join(',', newTable.First().Keys.Cast<string>()));
         foreach (OrderedDictionary row in newTable)
@@ -89,8 +89,5 @@ async Task ProcessFile(string filePath)
     }
 }
 
-foreach (string file in Directory.GetFiles(Directory.GetCurrentDirectory(), "*-raw.csv", SearchOption.AllDirectories))
-{
+foreach (string file in Directory.GetFiles(Directory.GetCurrentDirectory(), "*-sal.csv", SearchOption.AllDirectories))
     await ProcessFile(file);
-    File.Delete(file);
-}
