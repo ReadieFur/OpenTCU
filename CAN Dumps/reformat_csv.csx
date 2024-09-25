@@ -2,6 +2,8 @@ using System.IO;
 using System.Collections.Generic;
 using System.Collections.Specialized;
 
+//https://closedxml.io/ClosedXML/
+
 //Not the most memory efficent but for my use its fine. Ideal would be to load, process and discard line by line.
 async Task ProcessFile(string filePath)
 {
