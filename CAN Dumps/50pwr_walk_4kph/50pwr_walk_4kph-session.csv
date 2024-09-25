@@ -1,0 +1,2 @@
+timestamp,event,event type,start time,sport,sub sport,total elapsed time,total timer time,total distance,total calories,avg speed,max speed,avg cadence,max cadence,avg power,max power,total ascent,total descent,num laps,enhanced avg speed,enhanced max speed,avg lev motor power,max lev motor power,lev battery consumption
+1096200178,8,1,1096200049,21,7,129000,124000,36300,2,2927,3111,49,53,19,39,0,0,0,2927,3111,85,184,0

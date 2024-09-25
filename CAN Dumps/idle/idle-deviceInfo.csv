@@ -1,0 +1,3 @@
+timestamp,device index,device type,manufacturer,serial number,product,hardware version,battery status,descriptor,source type,product name,autopauseAfter,firmware,deviceId,autopauseEnabled,horizontalDiscard,smoothingFilter,verticalDiscard,horizontalSmoothingBypass,charge,verticalSmoothingBypass,lowSpeedFilter,maxDistance,bike serial number,battery1 serial number
+1096201615,0,,63,479933463,63002,34,,Specialized App,5,Specialized App on Nothing A063,3,RRA-4.9.0,479933463,0,199,1,19,10,,2,0.4000000059604645,55,,
+1096201616,1,20,63,,,,2,,3,ReadieFurLevo,,59669,F4:9C:5B:74:E6:FB,,,,,,98,,,,WSBC001130512T,236G5LA1004RM00000000000000000
