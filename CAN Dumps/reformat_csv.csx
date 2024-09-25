@@ -5,6 +5,8 @@ using System.Collections.Specialized;
 //Not the most memory efficent but for my use its fine. Ideal would be to load, process and discard line by line.
 async Task ProcessFile(string filePath)
 {
+    Console.WriteLine($"Processing file: {filePath}");
+
     IReadOnlyList<string> lines = await File.ReadAllLinesAsync(filePath);
 
     IReadOnlyList<string> sourceColumns = lines.First().Split(',').Select(x => x.Replace("\"", "")).ToList();
