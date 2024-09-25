@@ -77,7 +77,7 @@ async Task ProcessFile(string filePath)
         }
     }
 
-    using (StreamWriter writer = new(filePath.Replace(".csv", "_formatted.csv"), false))
+    using (StreamWriter writer = new(filePath.Replace("_raw.csv", ".csv"), false))
     {
         writer.WriteLine(string.Join(',', newTable.First().Keys.Cast<string>()));
         foreach (OrderedDictionary row in newTable)
@@ -85,11 +85,5 @@ async Task ProcessFile(string filePath)
     }
 }
 
-foreach (string file in Directory.GetFiles(Directory.GetCurrentDirectory(), "*.csv"))
-{
-    if (file.EndsWith("_formatted.csv"))
-        continue;
-
+foreach (string file in Directory.GetFiles(Directory.GetCurrentDirectory(), "*_raw.csv"))
     await ProcessFile(file);
-    File.Delete(file);
-}
