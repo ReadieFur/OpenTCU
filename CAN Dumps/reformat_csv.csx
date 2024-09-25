@@ -88,4 +88,7 @@ async Task ProcessFile(string filePath)
 }
 
 foreach (string file in Directory.GetFiles(Directory.GetCurrentDirectory(), "*_raw.csv"))
+{
     await ProcessFile(file);
+    File.Delete(file);
+}
