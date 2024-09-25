@@ -83,7 +83,7 @@ async Task ProcessFile(string filePath)
 
     using (StreamWriter writer = new(filePath.Replace("_raw.csv", ".csv"), false))
     {
-        writer.WriteLine(string.Join(',', newTable.First().Keys.Cast<string>()));
+        // writer.WriteLine(string.Join(',', newTable.First().Keys.Cast<string>()));
         foreach (OrderedDictionary row in newTable)
             writer.WriteLine(string.Join(',', row.Values.Cast<string>()));
     }
