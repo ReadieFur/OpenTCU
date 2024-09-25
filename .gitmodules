@@ -1,0 +1,4 @@
+[submodule "mcp2515"]
+	path = CanRelay/lib/esp32-mcp2515
+	url = https://github.com/dedalqq/esp32-mcp2515
+	branch = master
