@@ -1,3 +1,0 @@
-[submodule "esp32-mcp2515"]
-	path = OpenTCU/components/esp32-mcp2515
-	url = https://github.com/dedalqq/esp32-mcp2515.git
