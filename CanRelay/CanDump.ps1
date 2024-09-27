@@ -1,5 +1,3 @@
-#ChatGPT moment.
-
 # Create the folder if it doesn't exist
 $folderPath = "./can_dumps"
 if (-not (Test-Path $folderPath)) {
@@ -15,12 +13,11 @@ $outputFilePath = Join-Path $folderPath $randomFileName
 Write-Host "Filtering output to: $outputFilePath"
 
 # Start the command and stream the output to the terminal
-pio device monitor --environment esp32c3-debug | ForEach-Object {
-# pio remote device monitor -p COM9 -b 115200 | ForEach-Object {
-    # Check if the line starts with "[CAN]"
-    if ($_ -match "^\[CAN\]") {
-        # Remove the "[CAN]" prefix
-        $filteredLine = $_ -replace "^\[CAN\]", ""
+pio device monitor --environment s3_mini | ForEach-Object {
+    # Check if the line contains "[CAN]"
+    if ($_ -match "\[CAN\]") {
+        # Strip everything to the left of "[CAN]"
+        $filteredLine = $_ -replace "^.*\[CAN\]", "[CAN]"
         # Output the filtered line to the terminal
         $filteredLine | Write-Host
         # Append the filtered line to the file
