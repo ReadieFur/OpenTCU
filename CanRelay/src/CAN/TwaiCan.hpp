@@ -37,7 +37,7 @@ public:
         for (int i = 0; i < message.length; i++)
             twaiMessage.data[i] = message.data[i];
 
-        //ESP_LOGV("twai", "TWAI Write: %x, %d, %d, %d, %x", twaiMessage.identifier, twaiMessage.data_length_code, twaiMessage.extd, twaiMessage.rtr, twaiMessage.data[0]);
+        // ESP_LOGV("twai", "TWAI Write: %x, %d, %d, %d, %x", twaiMessage.identifier, twaiMessage.data_length_code, twaiMessage.extd, twaiMessage.rtr, twaiMessage.data[0]);
 
         #ifdef USE_DRIVER_LOCK
         if (xSemaphoreTake(_driverMutex, timeout) != pdTRUE)
@@ -53,7 +53,7 @@ public:
 
         if (res != ESP_OK)
         {
-            ESP_LOGE("twai", "TWAI Write Error: %d", res);
+            ESP_LOGE("twai", "TWAI Write Error: %s", esp_err_to_name(res));
         }
         // else
         // {
@@ -97,7 +97,7 @@ public:
 
         if (err != ESP_OK)
         {
-            ESP_LOGE("twai", "TWAI Read Error: %d", err);
+            ESP_LOGE("twai", "TWAI Read Error: %s", esp_err_to_name(err));
             return err;
         }
 

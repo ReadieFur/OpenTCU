@@ -42,7 +42,7 @@ void setup()
         {
             // SetLogLevel();
             ESP_LOGD("test", "SERIAL_ALIVE_CHECK");
-            vTaskDelay(pdMS_TO_TICKS(1000));
+            vTaskDelay(pdMS_TO_TICKS(10 * 1000));
         }
     }, "AliveCheck", configIDLE_TASK_STACK_SIZE + 1024, nullptr, (configMAX_PRIORITIES * 0.35), nullptr);
     //It is critical that this is the first service to be started.

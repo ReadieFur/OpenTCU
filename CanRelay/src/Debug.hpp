@@ -59,7 +59,7 @@ private:
                         BusMaster::SCanDump currentDump = _canDumpBuffer.front();
 
                         char buffer[canDumpMessageLength + 1]; //Known data size, should never exceed this buffer (+1 for \0).
-                        sprintf(buffer, "[CAN]%li,%d,%x,%d,%d,%d,%x,%x,%x,%x,%x,%x,%x,%x",
+                        sprintf(buffer, "%li,%d,%x,%d,%d,%d,%x,%x,%x,%x,%x,%x,%x,%x",
                             currentDump.timestamp,
                             currentDump.isSPI,
                             currentDump.message.id,
