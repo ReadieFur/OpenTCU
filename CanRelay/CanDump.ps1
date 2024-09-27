@@ -16,12 +16,24 @@ Write-Host "Filtering output to: $outputFilePath"
 pio device monitor --environment s3_mini | ForEach-Object {
     # Check if the line contains "[CAN]"
     if ($_ -match "\[CAN\]") {
-        # Strip everything to the left of "[CAN]"
-        $filteredLine = $_ -replace "^.*\[CAN\]", "[CAN]"
-        # Output the filtered line to the terminal
-        $filteredLine | Write-Host
-        # Append the filtered line to the file
-        $filteredLine | Out-File -Append -FilePath $outputFilePath
+        # Strip everything including the "[CAN] " prefix
+        $filteredLine = $_ -replace "^.*\[CAN\] ", ""
+
+        # Split the message by commas
+        $messageParts = $filteredLine -split ","
+
+        # Replace the first entry (timestamp) with the local ISO timestamp
+        $isoTimestamp = Get-Date -Format "yyyy-MM-ddTHH:mm:ss.fffZ"
+        $messageParts[0] = $isoTimestamp
+
+        # Join the message parts back together
+        $updatedMessage = $messageParts -join ","
+
+        # Output the updated message to the terminal
+        $updatedMessage | Write-Host
+
+        # Append the updated message to the file
+        $updatedMessage | Out-File -Append -FilePath $outputFilePath
     }
     else {
         # Output non-filtered lines to the terminal
