@@ -1,0 +1,490 @@
+[ 19455][E][TwaiCan.hpp:56] Send(): [twai] TWAI Write Error: ESP_ERR_TIMEOUT
+[ 19461][E][BusMaster.hpp:77] RelayTask(): [bus] Failed to relay message: 107
+[ 19469][I][Debug.hpp:83] CanDump(): [can] 19372,1,300,0,0,8,0,5a,64,5a,0,0,0,9d
+[ 19519][E][TwaiCan.hpp:56] Send(): [twai] TWAI Write Error: ESP_ERR_TIMEOUT
+[ 19525][E][BusMaster.hpp:77] RelayTask(): [bus] Failed to relay message: 107
+[ 19533][I][Debug.hpp:83] CanDump(): [can] 19436,1,401,0,0,8,9b,a0,0,0,45,0,0,0
+[ 19583][E][TwaiCan.hpp:56] Send(): [twai] TWAI Write Error: ESP_ERR_TIMEOUT
+[ 19589][E][BusMaster.hpp:77] RelayTask(): [bus] Failed to relay message: 107
+[ 19597][I][Debug.hpp:83] CanDump(): [can] 19500,1,203,0,0,8,0,0,0,0,0,0,0,0
+[ 19647][E][TwaiCan.hpp:56] Send(): [twai] TWAI Write Error: ESP_ERR_TIMEOUT
+[ 19653][E][BusMaster.hpp:77] RelayTask(): [bus] Failed to relay message: 107
+[ 19661][I][Debug.hpp:83] CanDump(): [can] 19564,1,400,0,0,8,1,0,4c,0,0,0,0,0
+[ 19711][E][TwaiCan.hpp:56] Send(): [twai] TWAI Write Error: ESP_ERR_TIMEOUT
+[ 19717][E][BusMaster.hpp:77] RelayTask(): [bus] Failed to relay message: 107
+[ 19725][I][Debug.hpp:83] CanDump(): [can] 19628,1,403,0,0,8,64,0,0,0,40,e3,9,0
+[ 19775][E][TwaiCan.hpp:56] Send(): [twai] TWAI Write Error: ESP_ERR_TIMEOUT
+[ 19781][E][BusMaster.hpp:77] RelayTask(): [bus] Failed to relay message: 107
+[ 19789][I][Debug.hpp:83] CanDump(): [can] 19692,1,203,0,0,8,0,0,0,0,0,0,0,0
+[ 19839][E][TwaiCan.hpp:56] Send(): [twai] TWAI Write Error: ESP_ERR_TIMEOUT
+[ 19845][E][BusMaster.hpp:77] RelayTask(): [bus] Failed to relay message: 107
+[ 19853][I][Debug.hpp:83] CanDump(): [can] 19756,1,400,0,0,8,1,0,4c,0,0,0,0,0
+[ 19903][E][TwaiCan.hpp:56] Send(): [twai] TWAI Write Error: ESP_ERR_TIMEOUT
+[ 19909][E][BusMaster.hpp:77] RelayTask(): [bus] Failed to relay message: 107
+[ 19917][I][Debug.hpp:83] CanDump(): [can] 19820,1,300,0,0,8,0,5a,64,5a,0,0,0,26
+[ 19967][E][TwaiCan.hpp:56] Send(): [twai] TWAI Write Error: ESP_ERR_TIMEOUT
+[ 19973][E][BusMaster.hpp:77] RelayTask(): [bus] Failed to relay message: 107
+[ 19981][I][Debug.hpp:83] CanDump(): [can] 19884,1,201,0,0,5,0,0,0,0,2,0,0,26
+[ 20031][E][TwaiCan.hpp:56] Send(): [twai] TWAI Write Error: ESP_ERR_TIMEOUT
+[ 20037][E][BusMaster.hpp:77] RelayTask(): [bus] Failed to relay message: 107
+[ 20045][I][Debug.hpp:83] CanDump(): [can] 19948,1,401,0,0,8,9d,a0,0,0,45,0,0,0
+[ 20095][E][TwaiCan.hpp:56] Send(): [twai] TWAI Write Error: ESP_ERR_TIMEOUT
+[ 20101][E][BusMaster.hpp:77] RelayTask(): [bus] Failed to relay message: 107
+[ 20109][I][Debug.hpp:83] CanDump(): [can] 20012,1,300,0,0,8,0,5a,64,5a,0,0,0,ea
+[ 20159][E][TwaiCan.hpp:56] Send(): [twai] TWAI Write Error: ESP_ERR_TIMEOUT
+[ 20165][E][BusMaster.hpp:77] RelayTask(): [bus] Failed to relay message: 107
+[ 20173][I][Debug.hpp:83] CanDump(): [can] 20076,1,201,0,0,5,0,0,0,0,2,0,0,ea
+[ 20223][E][TwaiCan.hpp:56] Send(): [twai] TWAI Write Error: ESP_ERR_TIMEOUT
+[ 20229][E][BusMaster.hpp:77] RelayTask(): [bus] Failed to relay message: 107
+[ 20237][I][Debug.hpp:83] CanDump(): [can] 20140,1,401,0,0,8,9d,a0,0,0,45,0,0,0
+[ 20287][E][TwaiCan.hpp:56] Send(): [twai] TWAI Write Error: ESP_ERR_TIMEOUT
+[ 20293][E][BusMaster.hpp:77] RelayTask(): [bus] Failed to relay message: 107
+[ 20301][I][Debug.hpp:83] CanDump(): [can] 20204,1,300,0,0,8,0,5a,64,5a,0,0,0,ae
+[ 20344][D][main.cpp:44] operator()(): [test] SERIAL_ALIVE_CHECK
+[ 20351][E][TwaiCan.hpp:56] Send(): [twai] TWAI Write Error: ESP_ERR_TIMEOUT
+[ 20357][E][BusMaster.hpp:77] RelayTask(): [bus] Failed to relay message: 107
+[ 20365][I][Debug.hpp:83] CanDump(): [can] 20268,1,400,0,0,8,1,0,4c,0,0,0,0,0
+[ 20415][E][TwaiCan.hpp:56] Send(): [twai] TWAI Write Error: ESP_ERR_TIMEOUT
+[ 20421][E][BusMaster.hpp:77] RelayTask(): [bus] Failed to relay message: 107
+[ 20429][I][Debug.hpp:83] CanDump(): [can] 20332,1,401,0,0,8,9d,a0,0,0,45,0,0,0
+[ 20479][E][TwaiCan.hpp:56] Send(): [twai] TWAI Write Error: ESP_ERR_TIMEOUT
+[ 20485][E][BusMaster.hpp:77] RelayTask(): [bus] Failed to relay message: 107
+[ 20493][I][Debug.hpp:83] CanDump(): [can] 20396,1,203,0,0,8,0,0,0,0,0,0,0,0
+[ 20543][E][TwaiCan.hpp:56] Send(): [twai] TWAI Write Error: ESP_ERR_TIMEOUT
+[ 20549][E][BusMaster.hpp:77] RelayTask(): [bus] Failed to relay message: 107
+[ 20557][I][Debug.hpp:83] CanDump(): [can] 20460,1,400,0,0,8,1,0,4c,0,0,0,0,0
+[ 20607][E][TwaiCan.hpp:56] Send(): [twai] TWAI Write Error: ESP_ERR_TIMEOUT
+[ 20613][E][BusMaster.hpp:77] RelayTask(): [bus] Failed to relay message: 107
+[ 20621][I][Debug.hpp:83] CanDump(): [can] 20524,1,206,0,0,8,0,0,0,0,0,0,0,0
+[ 20671][E][TwaiCan.hpp:56] Send(): [twai] TWAI Write Error: ESP_ERR_TIMEOUT
+[ 20677][E][BusMaster.hpp:77] RelayTask(): [bus] Failed to relay message: 107
+[ 20685][I][Debug.hpp:83] CanDump(): [can] 20588,1,201,0,0,5,0,0,0,0,2,0,0,0
+[ 20735][E][TwaiCan.hpp:56] Send(): [twai] TWAI Write Error: ESP_ERR_TIMEOUT
+[ 20741][E][BusMaster.hpp:77] RelayTask(): [bus] Failed to relay message: 107
+[ 20749][I][Debug.hpp:83] CanDump(): [can] 20652,1,401,0,0,8,9d,a0,0,0,44,0,0,0
+[ 20799][E][TwaiCan.hpp:56] Send(): [twai] TWAI Write Error: ESP_ERR_TIMEOUT
+[ 20805][E][BusMaster.hpp:77] RelayTask(): [bus] Failed to relay message: 107
+[ 20813][I][Debug.hpp:83] CanDump(): [can] 20716,1,300,0,0,8,0,5a,64,5a,0,0,0,c8
+[ 20863][E][TwaiCan.hpp:56] Send(): [twai] TWAI Write Error: ESP_ERR_TIMEOUT
+[ 20869][E][BusMaster.hpp:77] RelayTask(): [bus] Failed to relay message: 107
+[ 20877][I][Debug.hpp:83] CanDump(): [can] 20780,1,201,0,0,5,0,0,0,0,2,0,0,c8
+[ 20927][E][TwaiCan.hpp:56] Send(): [twai] TWAI Write Error: ESP_ERR_TIMEOUT
+[ 20933][E][BusMaster.hpp:77] RelayTask(): [bus] Failed to relay message: 107
+[ 20941][I][Debug.hpp:83] CanDump(): [can] 20844,1,401,0,0,8,9d,a0,0,0,45,0,0,0
+[ 20991][E][TwaiCan.hpp:56] Send(): [twai] TWAI Write Error: ESP_ERR_TIMEOUT
+[ 20997][E][BusMaster.hpp:77] RelayTask(): [bus] Failed to relay message: 107
+[ 21005][I][Debug.hpp:83] CanDump(): [can] 20908,1,300,0,0,8,0,5a,64,5a,0,0,0,8c
+[ 21055][E][TwaiCan.hpp:56] Send(): [twai] TWAI Write Error: ESP_ERR_TIMEOUT
+[ 21061][E][BusMaster.hpp:77] RelayTask(): [bus] Failed to relay message: 107
+[ 21069][I][Debug.hpp:83] CanDump(): [can] 20972,1,300,0,0,8,0,5a,64,5a,0,0,0,9d
+[ 21119][E][TwaiCan.hpp:56] Send(): [twai] TWAI Write Error: ESP_ERR_TIMEOUT
+[ 21125][E][BusMaster.hpp:77] RelayTask(): [bus] Failed to relay message: 107
+[ 21133][I][Debug.hpp:83] CanDump(): [can] 21036,1,401,0,0,8,9b,a0,0,0,45,0,0,0
+[ 21183][E][TwaiCan.hpp:56] Send(): [twai] TWAI Write Error: ESP_ERR_TIMEOUT
+[ 21189][E][BusMaster.hpp:77] RelayTask(): [bus] Failed to relay message: 107
+[ 21197][I][Debug.hpp:83] CanDump(): [can] 21100,1,203,0,0,8,0,0,0,0,0,0,0,0
+[ 21247][E][TwaiCan.hpp:56] Send(): [twai] TWAI Write Error: ESP_ERR_TIMEOUT
+[ 21253][E][BusMaster.hpp:77] RelayTask(): [bus] Failed to relay message: 107
+[ 21261][I][Debug.hpp:83] CanDump(): [can] 21164,1,300,0,0,8,0,5a,64,5a,0,0,0,51
+[ 21311][E][TwaiCan.hpp:56] Send(): [twai] TWAI Write Error: ESP_ERR_TIMEOUT
+[ 21317][E][BusMaster.hpp:77] RelayTask(): [bus] Failed to relay message: 107
+[ 21325][I][Debug.hpp:83] CanDump(): [can] 21228,1,401,0,0,8,9b,a0,0,0,45,0,0,0
+[ 21375][E][TwaiCan.hpp:56] Send(): [twai] TWAI Write Error: ESP_ERR_TIMEOUT
+[ 21381][E][BusMaster.hpp:77] RelayTask(): [bus] Failed to relay message: 107
+[ 21389][I][Debug.hpp:83] CanDump(): [can] 21292,1,203,0,0,8,0,0,0,0,0,0,0,0
+[ 21439][E][TwaiCan.hpp:56] Send(): [twai] TWAI Write Error: ESP_ERR_TIMEOUT
+[ 21445][E][BusMaster.hpp:77] RelayTask(): [bus] Failed to relay message: 107
+[ 21453][I][Debug.hpp:83] CanDump(): [can] 21356,1,300,0,0,8,0,5a,64,5a,0,0,0,15
+[ 21503][E][TwaiCan.hpp:56] Send(): [twai] TWAI Write Error: ESP_ERR_TIMEOUT
+[ 21509][E][BusMaster.hpp:77] RelayTask(): [bus] Failed to relay message: 107
+[ 21517][I][Debug.hpp:83] CanDump(): [can] 21420,1,300,0,0,8,0,5a,64,5a,0,0,0,26
+[ 21567][E][TwaiCan.hpp:56] Send(): [twai] TWAI Write Error: ESP_ERR_TIMEOUT
+[ 21573][E][BusMaster.hpp:77] RelayTask(): [bus] Failed to relay message: 107
+[ 21581][I][Debug.hpp:83] CanDump(): [can] 21484,1,201,0,0,5,0,0,0,0,2,0,0,26
+[ 21631][E][TwaiCan.hpp:56] Send(): [twai] TWAI Write Error: ESP_ERR_TIMEOUT
+[ 21637][E][BusMaster.hpp:77] RelayTask(): [bus] Failed to relay message: 107
+[ 21645][I][Debug.hpp:83] CanDump(): [can] 21548,1,401,0,0,8,9b,a0,0,0,45,0,0,0
+[ 21695][E][TwaiCan.hpp:56] Send(): [twai] TWAI Write Error: ESP_ERR_TIMEOUT
+[ 21701][E][BusMaster.hpp:77] RelayTask(): [bus] Failed to relay message: 107
+[ 21709][I][Debug.hpp:83] CanDump(): [can] 21612,1,300,0,0,8,0,5a,64,5a,0,0,0,ea
+[ 21759][E][TwaiCan.hpp:56] Send(): [twai] TWAI Write Error: ESP_ERR_TIMEOUT
+[ 21765][E][BusMaster.hpp:77] RelayTask(): [bus] Failed to relay message: 107
+[ 21773][I][Debug.hpp:83] CanDump(): [can] 21676,1,400,0,0,8,1,0,4c,0,0,0,0,0
+[ 21823][E][TwaiCan.hpp:56] Send(): [twai] TWAI Write Error: ESP_ERR_TIMEOUT
+[ 21829][E][BusMaster.hpp:77] RelayTask(): [bus] Failed to relay message: 107
+[ 21837][I][Debug.hpp:83] CanDump(): [can] 21740,1,401,0,0,8,9b,a0,0,0,45,0,0,0
+[ 21887][E][TwaiCan.hpp:56] Send(): [twai] TWAI Write Error: ESP_ERR_TIMEOUT
+[ 21893][E][BusMaster.hpp:77] RelayTask(): [bus] Failed to relay message: 107
+[ 21901][I][Debug.hpp:83] CanDump(): [can] 21804,1,204,0,0,8,0,0,0,0,0,0,0,0
+[ 21951][E][TwaiCan.hpp:56] Send(): [twai] TWAI Write Error: ESP_ERR_TIMEOUT
+[ 21957][E][BusMaster.hpp:77] RelayTask(): [bus] Failed to relay message: 107
+[ 21965][I][Debug.hpp:83] CanDump(): [can] 21868,1,300,0,0,8,0,5a,64,5a,0,0,0,bf
+[ 22015][E][TwaiCan.hpp:56] Send(): [twai] TWAI Write Error: ESP_ERR_TIMEOUT
+[ 22021][E][BusMaster.hpp:77] RelayTask(): [bus] Failed to relay message: 107
+[ 22029][I][Debug.hpp:83] CanDump(): [can] 21932,1,401,0,0,8,9d,a0,0,0,45,0,0,0
+[ 22079][E][TwaiCan.hpp:56] Send(): [twai] TWAI Write Error: ESP_ERR_TIMEOUT
+[ 22085][E][BusMaster.hpp:77] RelayTask(): [bus] Failed to relay message: 107
+[ 22093][I][Debug.hpp:83] CanDump(): [can] 21996,1,203,0,0,8,0,0,0,0,0,0,0,0
+[ 22143][E][TwaiCan.hpp:56] Send(): [twai] TWAI Write Error: ESP_ERR_TIMEOUT
+[ 22149][E][BusMaster.hpp:77] RelayTask(): [bus] Failed to relay message: 107
+[ 22157][I][Debug.hpp:83] CanDump(): [can] 22060,1,300,0,0,8,0,5a,64,5a,0,0,0,73
+[ 22207][E][TwaiCan.hpp:56] Send(): [twai] TWAI Write Error: ESP_ERR_TIMEOUT
+[ 22213][E][BusMaster.hpp:77] RelayTask(): [bus] Failed to relay message: 107
+[ 22221][I][Debug.hpp:83] CanDump(): [can] 22124,1,206,0,0,8,0,0,0,0,0,0,0,0
+[ 22271][E][TwaiCan.hpp:56] Send(): [twai] TWAI Write Error: ESP_ERR_TIMEOUT
+[ 22277][E][BusMaster.hpp:77] RelayTask(): [bus] Failed to relay message: 107
+[ 22285][I][Debug.hpp:83] CanDump(): [can] 22188,1,201,0,0,5,0,0,0,0,2,0,0,0
+[ 22335][E][TwaiCan.hpp:56] Send(): [twai] TWAI Write Error: ESP_ERR_TIMEOUT
+[ 22341][E][BusMaster.hpp:77] RelayTask(): [bus] Failed to relay message: 107
+[ 22349][I][Debug.hpp:83] CanDump(): [can] 22252,1,401,0,0,8,9d,a0,0,0,45,0,0,0
+[ 22399][E][TwaiCan.hpp:56] Send(): [twai] TWAI Write Error: ESP_ERR_TIMEOUT
+[ 22405][E][BusMaster.hpp:77] RelayTask(): [bus] Failed to relay message: 107
+[ 22413][I][Debug.hpp:83] CanDump(): [can] 22316,1,300,0,0,8,0,5a,64,5a,0,0,0,c8
+[ 22463][E][TwaiCan.hpp:56] Send(): [twai] TWAI Write Error: ESP_ERR_TIMEOUT
+[ 22469][E][BusMaster.hpp:77] RelayTask(): [bus] Failed to relay message: 107
+[ 22477][I][Debug.hpp:83] CanDump(): [can] 22380,1,201,0,0,5,0,0,0,0,2,0,0,c8
+[ 22527][E][TwaiCan.hpp:56] Send(): [twai] TWAI Write Error: ESP_ERR_TIMEOUT
+[ 22533][E][BusMaster.hpp:77] RelayTask(): [bus] Failed to relay message: 107
+[ 22541][I][Debug.hpp:83] CanDump(): [can] 22444,1,401,0,0,8,9d,a0,0,0,45,0,0,0
+[ 22591][E][TwaiCan.hpp:56] Send(): [twai] TWAI Write Error: ESP_ERR_TIMEOUT
+[ 22597][E][BusMaster.hpp:77] RelayTask(): [bus] Failed to relay message: 107
+[ 22605][I][Debug.hpp:83] CanDump(): [can] 22508,1,300,0,0,8,0,5a,64,5a,0,0,0,8c
+[ 22655][E][TwaiCan.hpp:56] Send(): [twai] TWAI Write Error: ESP_ERR_TIMEOUT
+[ 22661][E][BusMaster.hpp:77] RelayTask(): [bus] Failed to relay message: 107
+[ 22669][I][Debug.hpp:83] CanDump(): [can] 22572,1,300,0,0,8,0,5a,64,5a,0,0,0,9d
+[ 22719][E][TwaiCan.hpp:56] Send(): [twai] TWAI Write Error: ESP_ERR_TIMEOUT
+[ 22725][E][BusMaster.hpp:77] RelayTask(): [bus] Failed to relay message: 107
+[ 22733][I][Debug.hpp:83] CanDump(): [can] 22636,1,403,0,0,8,64,0,0,0,40,e3,9,0
+[ 22783][E][TwaiCan.hpp:56] Send(): [twai] TWAI Write Error: ESP_ERR_TIMEOUT
+[ 22789][E][BusMaster.hpp:77] RelayTask(): [bus] Failed to relay message: 107
+[ 22797][I][Debug.hpp:83] CanDump(): [can] 22700,1,203,0,0,8,0,0,0,0,0,0,0,0
+[ 22847][E][TwaiCan.hpp:56] Send(): [twai] TWAI Write Error: ESP_ERR_TIMEOUT
+[ 22853][E][BusMaster.hpp:77] RelayTask(): [bus] Failed to relay message: 107
+[ 22861][I][Debug.hpp:83] CanDump(): [can] 22764,1,300,0,0,8,0,5a,64,5a,0,0,0,51
+[ 22911][E][TwaiCan.hpp:56] Send(): [twai] TWAI Write Error: ESP_ERR_TIMEOUT
+[ 22917][E][BusMaster.hpp:77] RelayTask(): [bus] Failed to relay message: 107
+[ 22925][I][Debug.hpp:83] CanDump(): [can] 22828,1,401,0,0,8,9b,a0,0,0,45,0,0,0
+[ 22975][E][TwaiCan.hpp:56] Send(): [twai] TWAI Write Error: ESP_ERR_TIMEOUT
+[ 22981][E][BusMaster.hpp:77] RelayTask(): [bus] Failed to relay message: 107
+[ 22989][I][Debug.hpp:83] CanDump(): [can] 22892,1,203,0,0,8,0,0,0,0,0,0,0,0
+[ 23039][E][TwaiCan.hpp:56] Send(): [twai] TWAI Write Error: ESP_ERR_TIMEOUT
+[ 23045][E][BusMaster.hpp:77] RelayTask(): [bus] Failed to relay message: 107
+[ 23053][I][Debug.hpp:83] CanDump(): [can] 22956,1,401,0,0,8,9b,a0,0,0,45,0,0,0
+[ 23103][E][TwaiCan.hpp:56] Send(): [twai] TWAI Write Error: ESP_ERR_TIMEOUT
+[ 23109][E][BusMaster.hpp:77] RelayTask(): [bus] Failed to relay message: 107
+[ 23117][I][Debug.hpp:83] CanDump(): [can] 23020,1,300,0,0,8,0,5a,64,5a,0,0,0,26
+[ 23167][E][TwaiCan.hpp:56] Send(): [twai] TWAI Write Error: ESP_ERR_TIMEOUT
+[ 23173][E][BusMaster.hpp:77] RelayTask(): [bus] Failed to relay message: 107
+[ 23181][I][Debug.hpp:83] CanDump(): [can] 23084,1,201,0,0,5,0,0,0,0,2,0,0,26
+[ 23231][E][TwaiCan.hpp:56] Send(): [twai] TWAI Write Error: ESP_ERR_TIMEOUT
+[ 23237][E][BusMaster.hpp:77] RelayTask(): [bus] Failed to relay message: 107
+[ 23245][I][Debug.hpp:83] CanDump(): [can] 23148,1,401,0,0,8,9b,a0,0,0,45,0,0,0
+[ 23295][E][TwaiCan.hpp:56] Send(): [twai] TWAI Write Error: ESP_ERR_TIMEOUT
+[ 23301][E][BusMaster.hpp:77] RelayTask(): [bus] Failed to relay message: 107
+[ 23309][I][Debug.hpp:83] CanDump(): [can] 23212,1,300,0,0,8,0,5a,64,5a,0,0,0,ea
+[ 23359][E][TwaiCan.hpp:56] Send(): [twai] TWAI Write Error: ESP_ERR_TIMEOUT
+[ 23365][E][BusMaster.hpp:77] RelayTask(): [bus] Failed to relay message: 107
+[ 23373][I][Debug.hpp:83] CanDump(): [can] 23276,1,400,0,0,8,1,0,4c,0,0,0,0,0
+[ 23423][E][TwaiCan.hpp:56] Send(): [twai] TWAI Write Error: ESP_ERR_TIMEOUT
+[ 23429][E][BusMaster.hpp:77] RelayTask(): [bus] Failed to relay message: 107
+[ 23437][I][Debug.hpp:83] CanDump(): [can] 23340,1,401,0,0,8,9b,a0,0,0,45,0,0,0
+[ 23487][E][TwaiCan.hpp:56] Send(): [twai] TWAI Write Error: ESP_ERR_TIMEOUT
+[ 23493][E][BusMaster.hpp:77] RelayTask(): [bus] Failed to relay message: 107
+[ 23501][I][Debug.hpp:83] CanDump(): [can] 23404,1,300,0,0,8,0,5a,64,5a,0,0,0,ae
+[ 23551][E][TwaiCan.hpp:56] Send(): [twai] TWAI Write Error: ESP_ERR_TIMEOUT
+[ 23557][E][BusMaster.hpp:77] RelayTask(): [bus] Failed to relay message: 107
+[ 23565][I][Debug.hpp:83] CanDump(): [can] 23468,1,300,0,0,8,0,5a,64,5a,0,0,0,bf
+[ 23615][E][TwaiCan.hpp:56] Send(): [twai] TWAI Write Error: ESP_ERR_TIMEOUT
+[ 23621][E][BusMaster.hpp:77] RelayTask(): [bus] Failed to relay message: 107
+[ 23629][I][Debug.hpp:83] CanDump(): [can] 23532,1,401,0,0,8,9b,a0,0,0,45,0,0,0
+[ 23679][E][TwaiCan.hpp:56] Send(): [twai] TWAI Write Error: ESP_ERR_TIMEOUT
+[ 23685][E][BusMaster.hpp:77] RelayTask(): [bus] Failed to relay message: 107
+[ 23693][I][Debug.hpp:83] CanDump(): [can] 23596,1,203,0,0,8,0,0,0,0,0,0,0,0
+[ 23743][E][TwaiCan.hpp:56] Send(): [twai] TWAI Write Error: ESP_ERR_TIMEOUT
+[ 23749][E][BusMaster.hpp:77] RelayTask(): [bus] Failed to relay message: 107
+[ 23757][I][Debug.hpp:83] CanDump(): [can] 23660,1,401,0,0,8,9d,a0,0,0,45,0,0,0
+[ 23807][E][TwaiCan.hpp:56] Send(): [twai] TWAI Write Error: ESP_ERR_TIMEOUT
+[ 23813][E][BusMaster.hpp:77] RelayTask(): [bus] Failed to relay message: 107
+[ 23821][I][Debug.hpp:83] CanDump(): [can] 23724,1,206,0,0,8,0,0,0,0,0,0,0,0
+[ 23871][E][TwaiCan.hpp:56] Send(): [twai] TWAI Write Error: ESP_ERR_TIMEOUT
+[ 23877][E][BusMaster.hpp:77] RelayTask(): [bus] Failed to relay message: 107
+[ 23885][I][Debug.hpp:83] CanDump(): [can] 23788,1,201,0,0,5,0,0,0,0,2,0,0,0
+[ 23935][E][TwaiCan.hpp:56] Send(): [twai] TWAI Write Error: ESP_ERR_TIMEOUT
+[ 23941][E][BusMaster.hpp:77] RelayTask(): [bus] Failed to relay message: 107
+[ 23949][I][Debug.hpp:83] CanDump(): [can] 23852,1,401,0,0,8,9d,a0,0,0,45,0,0,0
+[ 23999][E][TwaiCan.hpp:56] Send(): [twai] TWAI Write Error: ESP_ERR_TIMEOUT
+[ 24005][E][BusMaster.hpp:77] RelayTask(): [bus] Failed to relay message: 107
+[ 24013][I][Debug.hpp:83] CanDump(): [can] 23916,1,300,0,0,8,0,5a,64,5a,0,0,0,c8
+[ 24063][E][TwaiCan.hpp:56] Send(): [twai] TWAI Write Error: ESP_ERR_TIMEOUT
+[ 24069][E][BusMaster.hpp:77] RelayTask(): [bus] Failed to relay message: 107
+[ 24077][I][Debug.hpp:83] CanDump(): [can] 23980,1,400,0,0,8,1,0,4c,0,0,0,0,0
+[ 24127][E][TwaiCan.hpp:56] Send(): [twai] TWAI Write Error: ESP_ERR_TIMEOUT
+[ 24133][E][BusMaster.hpp:77] RelayTask(): [bus] Failed to relay message: 107
+[ 24141][I][Debug.hpp:83] CanDump(): [can] 24044,1,401,0,0,8,9b,a0,0,0,45,0,0,0
+[ 24191][E][TwaiCan.hpp:56] Send(): [twai] TWAI Write Error: ESP_ERR_TIMEOUT
+[ 24197][E][BusMaster.hpp:77] RelayTask(): [bus] Failed to relay message: 107
+[ 24205][I][Debug.hpp:83] CanDump(): [can] 24108,1,300,0,0,8,0,5a,64,5a,0,0,0,8c
+[ 24255][E][TwaiCan.hpp:56] Send(): [twai] TWAI Write Error: ESP_ERR_TIMEOUT
+[ 24261][E][BusMaster.hpp:77] RelayTask(): [bus] Failed to relay message: 107
+[ 24269][I][Debug.hpp:83] CanDump(): [can] 24172,1,300,0,0,8,0,5a,64,5a,0,0,0,9d
+[ 24319][E][TwaiCan.hpp:56] Send(): [twai] TWAI Write Error: ESP_ERR_TIMEOUT
+[ 24325][E][BusMaster.hpp:77] RelayTask(): [bus] Failed to relay message: 107
+[ 24333][I][Debug.hpp:83] CanDump(): [can] 24236,1,401,0,0,8,9d,a0,0,0,45,0,0,0
+[ 24383][E][TwaiCan.hpp:56] Send(): [twai] TWAI Write Error: ESP_ERR_TIMEOUT
+[ 24389][E][BusMaster.hpp:77] RelayTask(): [bus] Failed to relay message: 107
+[ 24397][I][Debug.hpp:83] CanDump(): [can] 24300,1,203,0,0,8,0,0,0,0,0,0,0,0
+[ 24447][E][TwaiCan.hpp:56] Send(): [twai] TWAI Write Error: ESP_ERR_TIMEOUT
+[ 24453][E][BusMaster.hpp:77] RelayTask(): [bus] Failed to relay message: 107
+[ 24461][I][Debug.hpp:83] CanDump(): [can] 24364,1,300,0,0,8,0,5a,64,5a,0,0,0,51
+[ 24511][E][TwaiCan.hpp:56] Send(): [twai] TWAI Write Error: ESP_ERR_TIMEOUT
+[ 24517][E][BusMaster.hpp:77] RelayTask(): [bus] Failed to relay message: 107
+[ 24525][I][Debug.hpp:83] CanDump(): [can] 24428,1,401,0,0,8,9b,a0,0,0,44,0,0,0
+[ 24575][E][TwaiCan.hpp:56] Send(): [twai] TWAI Write Error: ESP_ERR_TIMEOUT
+[ 24581][E][BusMaster.hpp:77] RelayTask(): [bus] Failed to relay message: 107
+[ 24589][I][Debug.hpp:83] CanDump(): [can] 24492,1,203,0,0,8,0,0,0,0,0,0,0,0
+[ 24639][E][TwaiCan.hpp:56] Send(): [twai] TWAI Write Error: ESP_ERR_TIMEOUT
+[ 24645][E][BusMaster.hpp:77] RelayTask(): [bus] Failed to relay message: 107
+[ 24653][I][Debug.hpp:83] CanDump(): [can] 24556,1,401,0,0,8,9b,a0,0,0,44,0,0,0
+[ 24703][E][TwaiCan.hpp:56] Send(): [twai] TWAI Write Error: ESP_ERR_TIMEOUT
+[ 24709][E][BusMaster.hpp:77] RelayTask(): [bus] Failed to relay message: 107
+[ 24717][I][Debug.hpp:83] CanDump(): [can] 24620,1,300,0,0,8,0,5a,64,5a,0,0,0,26
+[ 24767][E][TwaiCan.hpp:56] Send(): [twai] TWAI Write Error: ESP_ERR_TIMEOUT
+[ 24773][E][BusMaster.hpp:77] RelayTask(): [bus] Failed to relay message: 107
+[ 24781][I][Debug.hpp:83] CanDump(): [can] 24684,1,201,0,0,5,0,0,0,0,2,0,0,26
+[ 24831][E][TwaiCan.hpp:56] Send(): [twai] TWAI Write Error: ESP_ERR_TIMEOUT
+[ 24837][E][BusMaster.hpp:77] RelayTask(): [bus] Failed to relay message: 107
+[ 24845][I][Debug.hpp:83] CanDump(): [can] 24748,1,401,0,0,8,9b,a0,0,0,44,0,0,0
+[ 24895][E][TwaiCan.hpp:56] Send(): [twai] TWAI Write Error: ESP_ERR_TIMEOUT
+[ 24901][E][BusMaster.hpp:77] RelayTask(): [bus] Failed to relay message: 107
+[ 24909][I][Debug.hpp:83] CanDump(): [can] 24812,1,204,0,0,8,0,0,0,0,0,0,0,0
+[ 24959][E][TwaiCan.hpp:56] Send(): [twai] TWAI Write Error: ESP_ERR_TIMEOUT
+[ 24965][E][BusMaster.hpp:77] RelayTask(): [bus] Failed to relay message: 107
+[ 24973][I][Debug.hpp:83] CanDump(): [can] 24876,1,400,0,0,8,1,0,4c,0,0,0,0,0
+[ 25023][E][TwaiCan.hpp:56] Send(): [twai] TWAI Write Error: ESP_ERR_TIMEOUT
+[ 25029][E][BusMaster.hpp:77] RelayTask(): [bus] Failed to relay message: 107
+[ 25037][I][Debug.hpp:83] CanDump(): [can] 24940,1,401,0,0,8,9b,a0,0,0,45,0,0,0
+[ 25087][E][TwaiCan.hpp:56] Send(): [twai] TWAI Write Error: ESP_ERR_TIMEOUT
+[ 25093][E][BusMaster.hpp:77] RelayTask(): [bus] Failed to relay message: 107
+[ 25101][I][Debug.hpp:83] CanDump(): [can] 25004,1,300,0,0,8,0,5a,64,5a,0,0,0,ae
+[ 25151][E][TwaiCan.hpp:56] Send(): [twai] TWAI Write Error: ESP_ERR_TIMEOUT
+[ 25157][E][BusMaster.hpp:77] RelayTask(): [bus] Failed to relay message: 107
+[ 25165][I][Debug.hpp:83] CanDump(): [can] 25068,1,300,0,0,8,0,5a,64,5a,0,0,0,bf
+[ 25215][E][TwaiCan.hpp:56] Send(): [twai] TWAI Write Error: ESP_ERR_TIMEOUT
+[ 25221][E][BusMaster.hpp:77] RelayTask(): [bus] Failed to relay message: 107
+[ 25229][I][Debug.hpp:83] CanDump(): [can] 25132,1,402,0,0,8,60,0,0,0,84,66,9,0
+[ 25279][E][TwaiCan.hpp:56] Send(): [twai] TWAI Write Error: ESP_ERR_TIMEOUT
+[ 25285][E][BusMaster.hpp:77] RelayTask(): [bus] Failed to relay message: 107
+[ 25293][I][Debug.hpp:83] CanDump(): [can] 25196,1,203,0,0,8,0,0,0,0,0,0,0,0
+[ 25343][E][TwaiCan.hpp:56] Send(): [twai] TWAI Write Error: ESP_ERR_TIMEOUT
+[ 25349][E][BusMaster.hpp:77] RelayTask(): [bus] Failed to relay message: 107
+[ 25357][I][Debug.hpp:83] CanDump(): [can] 25260,1,401,0,0,8,9b,a0,0,0,45,0,0,0
+[ 25407][E][TwaiCan.hpp:56] Send(): [twai] TWAI Write Error: ESP_ERR_TIMEOUT
+[ 25413][E][BusMaster.hpp:77] RelayTask(): [bus] Failed to relay message: 107
+[ 25421][I][Debug.hpp:83] CanDump(): [can] 25324,1,206,0,0,8,0,0,0,0,0,0,0,0
+[ 25471][E][TwaiCan.hpp:56] Send(): [twai] TWAI Write Error: ESP_ERR_TIMEOUT
+[ 25477][E][BusMaster.hpp:77] RelayTask(): [bus] Failed to relay message: 107
+[ 25485][I][Debug.hpp:83] CanDump(): [can] 25388,1,201,0,0,5,0,0,0,0,2,0,0,0
+[ 25535][E][TwaiCan.hpp:56] Send(): [twai] TWAI Write Error: ESP_ERR_TIMEOUT
+[ 25541][E][BusMaster.hpp:77] RelayTask(): [bus] Failed to relay message: 107
+[ 25549][I][Debug.hpp:83] CanDump(): [can] 25452,1,404,0,0,2,4a,0,0,0,2,0,0,0
+[ 25599][E][TwaiCan.hpp:56] Send(): [twai] TWAI Write Error: ESP_ERR_TIMEOUT
+[ 25605][E][BusMaster.hpp:77] RelayTask(): [bus] Failed to relay message: 107
+[ 25613][I][Debug.hpp:83] CanDump(): [can] 25516,1,404,0,0,2,44,0,0,0,2,0,0,0
+[ 25663][E][TwaiCan.hpp:56] Send(): [twai] TWAI Write Error: ESP_ERR_TIMEOUT
+[ 25669][E][BusMaster.hpp:77] RelayTask(): [bus] Failed to relay message: 107
+[ 25677][I][Debug.hpp:83] CanDump(): [can] 25580,1,404,0,0,2,a3,1,0,0,2,0,0,0
+[ 25727][E][TwaiCan.hpp:56] Send(): [twai] TWAI Write Error: ESP_ERR_TIMEOUT
+[ 25733][E][BusMaster.hpp:77] RelayTask(): [bus] Failed to relay message: 107
+[ 25741][I][Debug.hpp:83] CanDump(): [can] 25644,1,404,0,0,2,21,0,0,0,2,0,0,0
+[ 25791][E][TwaiCan.hpp:56] Send(): [twai] TWAI Write Error: ESP_ERR_TIMEOUT
+[ 25797][E][BusMaster.hpp:77] RelayTask(): [bus] Failed to relay message: 107
+[ 25805][I][Debug.hpp:83] CanDump(): [can] 25708,1,404,0,0,2,23,0,0,0,2,0,0,0
+[ 25855][E][TwaiCan.hpp:56] Send(): [twai] TWAI Write Error: ESP_ERR_TIMEOUT
+[ 25861][E][BusMaster.hpp:77] RelayTask(): [bus] Failed to relay message: 107
+[ 25869][I][Debug.hpp:83] CanDump(): [can] 25772,1,300,0,0,8,0,5a,64,5a,0,0,0,9d
+[ 25919][E][TwaiCan.hpp:56] Send(): [twai] TWAI Write Error: ESP_ERR_TIMEOUT
+[ 25925][E][BusMaster.hpp:77] RelayTask(): [bus] Failed to relay message: 107
+[ 25933][I][Debug.hpp:83] CanDump(): [can] 25836,1,401,0,0,8,99,a0,0,0,45,0,0,0
+[ 25983][E][TwaiCan.hpp:56] Send(): [twai] TWAI Write Error: ESP_ERR_TIMEOUT
+[ 25989][E][BusMaster.hpp:77] RelayTask(): [bus] Failed to relay message: 107
+[ 25997][I][Debug.hpp:83] CanDump(): [can] 25900,1,203,0,0,8,0,0,0,0,0,0,0,0
+[ 26047][E][TwaiCan.hpp:56] Send(): [twai] TWAI Write Error: ESP_ERR_TIMEOUT
+[ 26053][E][BusMaster.hpp:77] RelayTask(): [bus] Failed to relay message: 107
+[ 26061][I][Debug.hpp:83] CanDump(): [can] 25964,1,401,0,0,8,9b,a0,0,0,45,0,0,0
+[ 26111][E][TwaiCan.hpp:56] Send(): [twai] TWAI Write Error: ESP_ERR_TIMEOUT
+[ 26117][E][BusMaster.hpp:77] RelayTask(): [bus] Failed to relay message: 107
+[ 26125][I][Debug.hpp:83] CanDump(): [can] 26028,1,404,0,0,2,4,0,0,0,45,0,0,0
+[ 26175][E][TwaiCan.hpp:56] Send(): [twai] TWAI Write Error: ESP_ERR_TIMEOUT
+[ 26181][E][BusMaster.hpp:77] RelayTask(): [bus] Failed to relay message: 107
+[ 26189][I][Debug.hpp:83] CanDump(): [can] 26092,1,203,0,0,8,0,0,0,0,0,0,0,0
+[ 26239][E][TwaiCan.hpp:56] Send(): [twai] TWAI Write Error: ESP_ERR_TIMEOUT
+[ 26245][E][BusMaster.hpp:77] RelayTask(): [bus] Failed to relay message: 107
+[ 26253][I][Debug.hpp:83] CanDump(): [can] 26156,1,401,0,0,8,9b,a0,0,0,45,0,0,0
+[ 26303][E][TwaiCan.hpp:56] Send(): [twai] TWAI Write Error: ESP_ERR_TIMEOUT
+[ 26309][E][BusMaster.hpp:77] RelayTask(): [bus] Failed to relay message: 107
+[ 26317][I][Debug.hpp:83] CanDump(): [can] 26220,1,300,0,0,8,0,5a,64,5a,0,0,0,26
+[ 26367][E][TwaiCan.hpp:56] Send(): [twai] TWAI Write Error: ESP_ERR_TIMEOUT
+[ 26373][E][BusMaster.hpp:77] RelayTask(): [bus] Failed to relay message: 107
+[ 26381][I][Debug.hpp:83] CanDump(): [can] 26284,1,400,0,0,8,1,0,4c,0,0,0,0,0
+[ 26431][E][TwaiCan.hpp:56] Send(): [twai] TWAI Write Error: ESP_ERR_TIMEOUT
+[ 26437][E][BusMaster.hpp:77] RelayTask(): [bus] Failed to relay message: 107
+[ 26445][I][Debug.hpp:83] CanDump(): [can] 26348,1,401,0,0,8,9b,a0,0,0,44,0,0,0
+[ 26495][E][TwaiCan.hpp:56] Send(): [twai] TWAI Write Error: ESP_ERR_TIMEOUT
+[ 26501][E][BusMaster.hpp:77] RelayTask(): [bus] Failed to relay message: 107
+[ 26509][I][Debug.hpp:83] CanDump(): [can] 26412,1,300,0,0,8,0,5a,64,5a,0,0,0,ea
+[ 26559][E][TwaiCan.hpp:56] Send(): [twai] TWAI Write Error: ESP_ERR_TIMEOUT
+[ 26565][E][BusMaster.hpp:77] RelayTask(): [bus] Failed to relay message: 107
+[ 26573][I][Debug.hpp:83] CanDump(): [can] 26476,1,400,0,0,8,1,0,4c,0,0,0,0,0
+[ 26623][E][TwaiCan.hpp:56] Send(): [twai] TWAI Write Error: ESP_ERR_TIMEOUT
+[ 26629][E][BusMaster.hpp:77] RelayTask(): [bus] Failed to relay message: 107
+[ 26637][I][Debug.hpp:83] CanDump(): [can] 26540,1,401,0,0,8,9b,a0,0,0,44,0,0,0
+[ 26687][E][TwaiCan.hpp:56] Send(): [twai] TWAI Write Error: ESP_ERR_TIMEOUT
+[ 26693][E][BusMaster.hpp:77] RelayTask(): [bus] Failed to relay message: 107
+[ 26701][I][Debug.hpp:83] CanDump(): [can] 26604,1,300,0,0,8,0,5a,64,5a,0,0,0,ae
+[ 26751][E][TwaiCan.hpp:56] Send(): [twai] TWAI Write Error: ESP_ERR_TIMEOUT
+[ 26757][E][BusMaster.hpp:77] RelayTask(): [bus] Failed to relay message: 107
+[ 26765][I][Debug.hpp:83] CanDump(): [can] 26668,1,401,0,0,8,9b,a0,0,0,44,0,0,0
+[ 26815][E][TwaiCan.hpp:56] Send(): [twai] TWAI Write Error: ESP_ERR_TIMEOUT
+[ 26821][E][BusMaster.hpp:77] RelayTask(): [bus] Failed to relay message: 107
+[ 26829][I][Debug.hpp:83] CanDump(): [can] 26732,1,401,0,0,8,9b,a0,0,0,44,0,0,0
+[ 26879][E][TwaiCan.hpp:56] Send(): [twai] TWAI Write Error: ESP_ERR_TIMEOUT
+[ 26885][E][BusMaster.hpp:77] RelayTask(): [bus] Failed to relay message: 107
+[ 26893][I][Debug.hpp:83] CanDump(): [can] 26796,1,203,0,0,8,0,0,0,0,0,0,0,0
+[ 26943][E][TwaiCan.hpp:56] Send(): [twai] TWAI Write Error: ESP_ERR_TIMEOUT
+[ 26949][E][BusMaster.hpp:77] RelayTask(): [bus] Failed to relay message: 107
+[ 26957][I][Debug.hpp:83] CanDump(): [can] 26860,1,401,0,0,8,9b,a0,0,0,45,0,0,0
+[ 27007][E][TwaiCan.hpp:56] Send(): [twai] TWAI Write Error: ESP_ERR_TIMEOUT
+[ 27013][E][BusMaster.hpp:77] RelayTask(): [bus] Failed to relay message: 107
+[ 27021][I][Debug.hpp:83] CanDump(): [can] 26924,1,206,0,0,8,0,0,0,0,0,0,0,0
+[ 27071][E][TwaiCan.hpp:56] Send(): [twai] TWAI Write Error: ESP_ERR_TIMEOUT
+[ 27077][E][BusMaster.hpp:77] RelayTask(): [bus] Failed to relay message: 107
+[ 27085][I][Debug.hpp:83] CanDump(): [can] 26988,1,400,0,0,8,1,0,4c,0,0,0,0,0
+[ 27135][E][TwaiCan.hpp:56] Send(): [twai] TWAI Write Error: ESP_ERR_TIMEOUT
+[ 27141][E][BusMaster.hpp:77] RelayTask(): [bus] Failed to relay message: 107
+[ 27149][I][Debug.hpp:83] CanDump(): [can] 27052,1,401,0,0,8,9b,a0,0,0,44,0,0,0
+[ 27199][E][TwaiCan.hpp:56] Send(): [twai] TWAI Write Error: ESP_ERR_TIMEOUT
+[ 27205][E][BusMaster.hpp:77] RelayTask(): [bus] Failed to relay message: 107
+[ 27213][I][Debug.hpp:83] CanDump(): [can] 27116,1,300,0,0,8,0,5a,64,5a,0,0,0,c8
+[ 27263][E][TwaiCan.hpp:56] Send(): [twai] TWAI Write Error: ESP_ERR_TIMEOUT
+[ 27269][E][BusMaster.hpp:77] RelayTask(): [bus] Failed to relay message: 107
+[ 27277][I][Debug.hpp:83] CanDump(): [can] 27180,1,400,0,0,8,1,0,4c,0,0,0,0,0
+[ 27327][E][TwaiCan.hpp:56] Send(): [twai] TWAI Write Error: ESP_ERR_TIMEOUT
+[ 27333][E][BusMaster.hpp:77] RelayTask(): [bus] Failed to relay message: 107
+[ 27341][I][Debug.hpp:83] CanDump(): [can] 27244,1,401,0,0,8,9b,a0,0,0,44,0,0,0
+[ 27391][E][TwaiCan.hpp:56] Send(): [twai] TWAI Write Error: ESP_ERR_TIMEOUT
+[ 27397][E][BusMaster.hpp:77] RelayTask(): [bus] Failed to relay message: 107
+[ 27405][I][Debug.hpp:83] CanDump(): [can] 27308,1,300,0,0,8,0,5a,64,5a,0,0,0,8c
+[ 27455][E][TwaiCan.hpp:56] Send(): [twai] TWAI Write Error: ESP_ERR_TIMEOUT
+[ 27461][E][BusMaster.hpp:77] RelayTask(): [bus] Failed to relay message: 107
+[ 27469][I][Debug.hpp:83] CanDump(): [can] 27372,1,300,0,0,8,0,5a,64,5a,0,0,0,9d
+[ 27519][E][TwaiCan.hpp:56] Send(): [twai] TWAI Write Error: ESP_ERR_TIMEOUT
+[ 27525][E][BusMaster.hpp:77] RelayTask(): [bus] Failed to relay message: 107
+[ 27533][I][Debug.hpp:83] CanDump(): [can] 27436,1,401,0,0,8,9b,a0,0,0,44,0,0,0
+[ 27583][E][TwaiCan.hpp:56] Send(): [twai] TWAI Write Error: ESP_ERR_TIMEOUT
+[ 27589][E][BusMaster.hpp:77] RelayTask(): [bus] Failed to relay message: 107
+[ 27597][I][Debug.hpp:83] CanDump(): [can] 27500,1,203,0,0,8,0,0,0,0,0,0,0,0
+[ 27647][E][TwaiCan.hpp:56] Send(): [twai] TWAI Write Error: ESP_ERR_TIMEOUT
+[ 27653][E][BusMaster.hpp:77] RelayTask(): [bus] Failed to relay message: 107
+[ 27661][I][Debug.hpp:83] CanDump(): [can] 27564,1,401,0,0,8,9b,a0,0,0,45,0,0,0
+[ 27711][E][TwaiCan.hpp:56] Send(): [twai] TWAI Write Error: ESP_ERR_TIMEOUT
+[ 27717][E][BusMaster.hpp:77] RelayTask(): [bus] Failed to relay message: 107
+[ 27725][I][Debug.hpp:83] CanDump(): [can] 27628,1,403,0,0,8,64,0,0,0,40,e3,9,0
+[ 27775][E][TwaiCan.hpp:56] Send(): [twai] TWAI Write Error: ESP_ERR_TIMEOUT
+[ 27781][E][BusMaster.hpp:77] RelayTask(): [bus] Failed to relay message: 107
+[ 27789][I][Debug.hpp:83] CanDump(): [can] 27692,1,203,0,0,8,0,0,0,0,0,0,0,0
+[ 27839][E][TwaiCan.hpp:56] Send(): [twai] TWAI Write Error: ESP_ERR_TIMEOUT
+[ 27845][E][BusMaster.hpp:77] RelayTask(): [bus] Failed to relay message: 107
+[ 27853][I][Debug.hpp:83] CanDump(): [can] 27756,1,401,0,0,8,9b,a0,0,0,45,0,0,0
+[ 27903][E][TwaiCan.hpp:56] Send(): [twai] TWAI Write Error: ESP_ERR_TIMEOUT
+[ 27909][E][BusMaster.hpp:77] RelayTask(): [bus] Failed to relay message: 107
+[ 27917][I][Debug.hpp:83] CanDump(): [can] 27820,1,300,0,0,8,0,5a,64,5a,0,0,0,26
+[ 27967][E][TwaiCan.hpp:56] Send(): [twai] TWAI Write Error: ESP_ERR_TIMEOUT
+[ 27973][E][BusMaster.hpp:77] RelayTask(): [bus] Failed to relay message: 107
+[ 27981][I][Debug.hpp:83] CanDump(): [can] 27884,1,201,0,0,5,0,0,0,0,2,0,0,26
+[ 28031][E][TwaiCan.hpp:56] Send(): [twai] TWAI Write Error: ESP_ERR_TIMEOUT
+[ 28037][E][BusMaster.hpp:77] RelayTask(): [bus] Failed to relay message: 107
+[ 28045][I][Debug.hpp:83] CanDump(): [can] 27948,1,401,0,0,8,9b,a0,0,0,45,0,0,0
+[ 28095][E][TwaiCan.hpp:56] Send(): [twai] TWAI Write Error: ESP_ERR_TIMEOUT
+[ 28101][E][BusMaster.hpp:77] RelayTask(): [bus] Failed to relay message: 107
+[ 28109][I][Debug.hpp:83] CanDump(): [can] 28012,1,300,0,0,8,0,5a,64,5a,0,0,0,ea
+[ 28159][E][TwaiCan.hpp:56] Send(): [twai] TWAI Write Error: ESP_ERR_TIMEOUT
+[ 28165][E][BusMaster.hpp:77] RelayTask(): [bus] Failed to relay message: 107
+[ 28173][I][Debug.hpp:83] CanDump(): [can] 28076,1,201,0,0,5,0,0,0,0,2,0,0,ea
+[ 28223][E][TwaiCan.hpp:56] Send(): [twai] TWAI Write Error: ESP_ERR_TIMEOUT
+[ 28229][E][BusMaster.hpp:77] RelayTask(): [bus] Failed to relay message: 107
+[ 28237][I][Debug.hpp:83] CanDump(): [can] 28140,1,402,0,0,8,60,0,0,0,84,66,9,0
+[ 28287][E][TwaiCan.hpp:56] Send(): [twai] TWAI Write Error: ESP_ERR_TIMEOUT
+[ 28293][E][BusMaster.hpp:77] RelayTask(): [bus] Failed to relay message: 107
+[ 28301][I][Debug.hpp:83] CanDump(): [can] 28204,1,300,0,0,8,0,5a,64,5a,0,0,0,ae
+[ 28351][E][TwaiCan.hpp:56] Send(): [twai] TWAI Write Error: ESP_ERR_TIMEOUT
+[ 28357][E][BusMaster.hpp:77] RelayTask(): [bus] Failed to relay message: 107
+[ 28365][I][Debug.hpp:83] CanDump(): [can] 28268,1,401,0,0,8,9b,a0,0,0,44,0,0,0
+[ 28415][E][TwaiCan.hpp:56] Send(): [twai] TWAI Write Error: ESP_ERR_TIMEOUT
+[ 28421][E][BusMaster.hpp:77] RelayTask(): [bus] Failed to relay message: 107
+[ 28429][I][Debug.hpp:83] CanDump(): [can] 28332,1,401,0,0,8,9b,a0,0,0,45,0,0,0
+[ 28479][E][TwaiCan.hpp:56] Send(): [twai] TWAI Write Error: ESP_ERR_TIMEOUT
+[ 28485][E][BusMaster.hpp:77] RelayTask(): [bus] Failed to relay message: 107
+[ 28493][I][Debug.hpp:83] CanDump(): [can] 28396,1,203,0,0,8,0,0,0,0,0,0,0,0
+[ 28543][E][TwaiCan.hpp:56] Send(): [twai] TWAI Write Error: ESP_ERR_TIMEOUT
+[ 28549][E][BusMaster.hpp:77] RelayTask(): [bus] Failed to relay message: 107
+[ 28557][I][Debug.hpp:83] CanDump(): [can] 28460,1,401,0,0,8,9b,a0,0,0,45,0,0,0
+[ 28607][E][TwaiCan.hpp:56] Send(): [twai] TWAI Write Error: ESP_ERR_TIMEOUT
+[ 28613][E][BusMaster.hpp:77] RelayTask(): [bus] Failed to relay message: 107
+[ 28621][I][Debug.hpp:83] CanDump(): [can] 28524,1,206,0,0,8,0,0,0,0,0,0,0,0
+[ 28671][E][TwaiCan.hpp:56] Send(): [twai] TWAI Write Error: ESP_ERR_TIMEOUT
+[ 28677][E][BusMaster.hpp:77] RelayTask(): [bus] Failed to relay message: 107
+[ 28685][I][Debug.hpp:83] CanDump(): [can] 28588,1,201,0,0,5,0,0,0,0,2,0,0,0
+[ 28735][E][TwaiCan.hpp:56] Send(): [twai] TWAI Write Error: ESP_ERR_TIMEOUT
+[ 28741][E][BusMaster.hpp:77] RelayTask(): [bus] Failed to relay message: 107
+[ 28749][I][Debug.hpp:83] CanDump(): [can] 28652,1,403,0,0,8,64,0,0,0,40,e3,9,0
+[ 28799][E][TwaiCan.hpp:56] Send(): [twai] TWAI Write Error: ESP_ERR_TIMEOUT
+[ 28805][E][BusMaster.hpp:77] RelayTask(): [bus] Failed to relay message: 107
+[ 28813][I][Debug.hpp:83] CanDump(): [can] 28716,1,300,0,0,8,0,5a,64,5a,0,0,0,c8
+[ 28863][E][TwaiCan.hpp:56] Send(): [twai] TWAI Write Error: ESP_ERR_TIMEOUT
+[ 28869][E][BusMaster.hpp:77] RelayTask(): [bus] Failed to relay message: 107
+[ 28877][I][Debug.hpp:83] CanDump(): [can] 28780,1,201,0,0,5,0,0,0,0,2,0,0,c8
+[ 28927][E][TwaiCan.hpp:56] Send(): [twai] TWAI Write Error: ESP_ERR_TIMEOUT
+[ 28933][E][BusMaster.hpp:77] RelayTask(): [bus] Failed to relay message: 107
+[ 28941][I][Debug.hpp:83] CanDump(): [can] 28844,1,300,0,0,8,0,5a,64,5a,0,0,0,fb
+[ 28991][E][TwaiCan.hpp:56] Send(): [twai] TWAI Write Error: ESP_ERR_TIMEOUT
+[ 28997][E][BusMaster.hpp:77] RelayTask(): [bus] Failed to relay message: 107
+[ 29005][I][Debug.hpp:83] CanDump(): [can] 28908,1,300,0,0,8,0,5a,64,5a,0,0,0,8c
+[ 29055][E][TwaiCan.hpp:56] Send(): [twai] TWAI Write Error: ESP_ERR_TIMEOUT
+[ 29061][E][BusMaster.hpp:77] RelayTask(): [bus] Failed to relay message: 107
+[ 29069][I][Debug.hpp:83] CanDump(): [can] 28972,1,300,0,0,8,0,5a,64,5a,0,0,0,9d
+[ 29119][E][TwaiCan.hpp:56] Send(): [twai] TWAI Write Error: ESP_ERR_TIMEOUT
+[ 29125][E][BusMaster.hpp:77] RelayTask(): [bus] Failed to relay message: 107
+[ 29133][I][Debug.hpp:83] CanDump(): [can] 29036,1,300,0,0,8,0,5a,64,5a,0,0,0,bf
+[ 29183][E][TwaiCan.hpp:56] Send(): [twai] TWAI Write Error: ESP_ERR_TIMEOUT
+[ 29189][E][BusMaster.hpp:77] RelayTask(): [bus] Failed to relay message: 107
+[ 29197][I][Debug.hpp:83] CanDump(): [can] 29100,1,203,0,0,8,0,0,0,0,0,0,0,0
+[ 29247][E][TwaiCan.hpp:56] Send(): [twai] TWAI Write Error: ESP_ERR_TIMEOUT
+[ 29253][E][BusMaster.hpp:77] RelayTask(): [bus] Failed to relay message: 107
+[ 29261][I][Debug.hpp:83] CanDump(): [can] 29164,1,300,0,0,8,0,0,0,0,0,0,0,0
+[ 29311][E][TwaiCan.hpp:56] Send(): [twai] TWAI Write Error: ESP_ERR_TIMEOUT
+[ 29317][E][BusMaster.hpp:77] RelayTask(): [bus] Failed to relay message: 107
+[ 29325][I][Debug.hpp:83] CanDump(): [can] 29228,1,300,0,0,8,0,5a,64,5a,0,0,0,73
+[ 29374][E][TwaiCan.hpp:56] Send(): [twai] TWAI Write Error: ESP_ERR_TIMEOUT
+[ 29380][E][BusMaster.hpp:77] RelayTask(): [bus] Failed to relay message: 107
+[ 29388][I][Debug.hpp:83] CanDump(): [can] 29291,1,400,0,0,8,1,0,4c,0,0,0,0,0
+[ 29437][E][TwaiCan.hpp:56] Send(): [twai] TWAI Write Error: ESP_ERR_TIMEOUT
+[ 29443][E][BusMaster.hpp:77] RelayTask(): [bus] Failed to relay message: 107
+[ 29451][I][Debug.hpp:83] CanDump(): [can] 29354,1,300,0,0,8,0,5a,64,5a,0,0,0,15
+[ 29500][E][TwaiCan.hpp:56] Send(): [twai] TWAI Write Error: ESP_ERR_TIMEOUT
+[ 29506][E][BusMaster.hpp:77] RelayTask(): [bus] Failed to relay message: 107
+[ 29514][I][Debug.hpp:83] CanDump(): [can] 29417,1,300,0,0,8,0,5a,64,5a,0,0,0,26
+[ 29563][E][TwaiCan.hpp:56] Send(): [twai] TWAI Write Error: ESP_ERR_TIMEOUT
+[ 29569][E][BusMaster.hpp:77] RelayTask(): [bus] Failed to relay message: 107
+[ 29577][I][Debug.hpp:83] CanDump(): [can] 29480,1,201,0,0,5,0,0,0,0,2,0,0,26
+[ 29626][E][TwaiCan.hpp:56] Send(): [twai] TWAI Write Error: ESP_ERR_TIMEOUT
+[ 29632][E][BusMaster.hpp:77] RelayTask(): [bus] Failed to relay message: 107
+[ 29640][I][Debug.hpp:83] CanDump(): [can] 29543,1,300,0,0,8,0,5a,64,5a,0,0,0,d9
+[ 29690][E][TwaiCan.hpp:56] Send(): [twai] TWAI Write Error: ESP_ERR_TIMEOUT
+[ 29696][E][BusMaster.hpp:77] RelayTask(): [bus] Failed to relay message: 107
+[ 29704][I][Debug.hpp:83] CanDump(): [can] 29607,1,300,0,0,8,0,5a,64,5a,0,0,0,ea
+[ 29753][E][TwaiCan.hpp:56] Send(): [twai] TWAI Write Error: ESP_ERR_TIMEOUT
+[ 29759][E][BusMaster.hpp:77] RelayTask(): [bus] Failed to relay message: 107
+[ 29767][I][Debug.hpp:83] CanDump(): [can] 29670,1,300,0,0,8,0,5a,64,5a,0,0,0,fb
+[ 29817][E][TwaiCan.hpp:56] Send(): [twai] TWAI Write Error: ESP_ERR_TIMEOUT
+[ 29823][E][BusMaster.hpp:77] RelayTask(): [bus] Failed to relay message: 107
+[ 29831][I][Debug.hpp:83] CanDump(): [can] 29734,1,300,0,0,8,0,5a,64,5a,0,0,0,9d
