@@ -1,0 +1,3 @@
+## CMakeLists changes:
+### `esp32-mcp2515`:
+- `REQUIRES` statement changed from `mcp2515` to `driver`.
