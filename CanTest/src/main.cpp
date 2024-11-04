@@ -1,7 +1,7 @@
 // #define TEST_CHIP
 
 //https://community.platformio.org/t/esp-log-not-working-on-wemos-s2-mini-but-fine-on-s3-devkit/34717/4
-#include <Arduino.h>
+// #include <Arduino.h>
 #define MAX_LOG_LEVEL ESP_LOG_DEBUG
 #ifdef LOG_LOCAL_LEVEL
 #undef LOG_LOCAL_LEVEL
@@ -37,12 +37,9 @@
 void SetLogLevel()
 {
     //These seem to do nothing :/
-    esp_log_level_set("test", ESP_LOG_DEBUG);
+    esp_log_level_set("test", ESP_LOG_VERBOSE);
     esp_log_level_set("spi", ESP_LOG_VERBOSE);
-    esp_log_level_set("twai", ESP_LOG_NONE);
-    esp_log_level_set("bus", ESP_LOG_ERROR);
-    esp_log_level_set("dbg", ESP_LOG_DEBUG);
-    esp_log_level_set("can", ESP_LOG_INFO);
+    esp_log_level_set("twai", ESP_LOG_VERBOSE);
 }
 
 spi_device_handle_t _spiDevice;
@@ -58,7 +55,7 @@ static esp_err_t MCPErrorToESPError(MCP2515::ERROR error)
     case MCP2515::ERROR_FAILINIT:
         return ESP_ERR_INVALID_STATE;
     case MCP2515::ERROR_NOMSG:
-        return ESP_ERR_INVALID_STATE;
+        return ESP_ERR_NOT_FOUND;
     case MCP2515::ERROR_FAIL:
     case MCP2515::ERROR_FAILTX:
     default:
@@ -68,25 +65,14 @@ static esp_err_t MCPErrorToESPError(MCP2515::ERROR error)
 
 void setup()
 {
-    Serial.begin(115200);
+    // Serial.begin(115200);
     vTaskDelay(pdMS_TO_TICKS(5000));
 
     SetLogLevel();
 
-    xTaskCreate([](void*)
-    {
-        while(true)
-        {
-            // SetLogLevel();
-            ESP_LOGD("test", "SERIAL_ALIVE_CHECK");
-            vTaskDelay(pdMS_TO_TICKS(10 * 1000));
-        }
-    }, "AliveCheck", configIDLE_TASK_STACK_SIZE + 1024, nullptr, (configMAX_PRIORITIES * 0.35), nullptr);
-    //It is critical that this is the first service to be started.
-
     //TWAI setup.
-    pinMode(TWAI_RX_PIN, INPUT);
-    pinMode(TWAI_TX_PIN, OUTPUT);
+    // pinMode(TWAI_RX_PIN, INPUT);
+    // pinMode(TWAI_TX_PIN, OUTPUT);
     twai_general_config_t generalConfig = TWAI_GENERAL_CONFIG_DEFAULT(
         TWAI_TX_PIN,
         TWAI_RX_PIN,
@@ -99,10 +85,10 @@ void setup()
     ESP_ERROR_CHECK(twai_reconfigure_alerts(TWAI_ALERT_RX_DATA, NULL));
 
     //SPI setup.
-    pinMode(SPI_MISO_PIN, INPUT);
-    pinMode(SPI_MOSI_PIN, OUTPUT);
-    pinMode(SPI_CS_PIN, OUTPUT);
-    pinMode(SPI_INT_PIN, INPUT);
+    // pinMode(SPI_MISO_PIN, INPUT);
+    // pinMode(SPI_MOSI_PIN, OUTPUT);
+    // pinMode(SPI_CS_PIN, OUTPUT);
+    // pinMode(SPI_INT_PIN, INPUT);
     spi_bus_config_t busConfig = {
         .mosi_io_num = SPI_MOSI_PIN,
         .miso_io_num = SPI_MISO_PIN,
@@ -126,7 +112,6 @@ void setup()
     ESP_ERROR_CHECK(MCPErrorToESPError(_mcp2515->setNormalMode()));
 }
 
-#ifdef ARDUINO
 void loop()
 {
     //Send on CAN.
@@ -136,23 +121,26 @@ void loop()
     };
     twaiMessage.extd = false;
     twaiMessage.rtr = false;
-    twaiMessage.data[0] = millis();
+    twaiMessage.data[0] = xTaskGetTickCount();
     esp_err_t twaiRes = twai_transmit(&twaiMessage, pdMS_TO_TICKS(500));
     if (twaiRes != ESP_OK)
     {
         ESP_LOGE("twai", "TWAI Write Error: %s", esp_err_to_name(twaiRes));
+        twai_status_info_t status;
+        twai_get_status_info(&status);
+        ESP_LOGI("twai", "TWAI state 0x%X", status.state);
     }
     else
     {
         ESP_LOGI("twai", "TWAI Written.");
     }
-    Serial.println();
+    // Serial.println();
 
     //Read on SPI.
-    long start = millis();
+    long start = pdTICKS_TO_MS(xTaskGetTickCount());
     while (gpio_get_level(SPI_INT_PIN) != 1)
     {
-        long now = millis();
+        long now = pdTICKS_TO_MS(xTaskGetTickCount());
         if (now - start > 500)
         {
             ESP_LOGE("spi", "SPI Read Timeout");
@@ -188,14 +176,14 @@ void loop()
             frame.data[0]
         );
     }
-    Serial.println();
+    // Serial.println();
 
     //Send on SPI.
     can_frame sendFrame = {
         .can_id = 456 | (false ? CAN_EFF_FLAG : 0) | (false ? CAN_RTR_FLAG : 0),
         .can_dlc = 1
     };
-    sendFrame.data[0] = millis();
+    sendFrame.data[0] = xTaskGetTickCount();
     MCP2515::ERROR mcpRes = _mcp2515->sendMessage(&sendFrame);
     if (mcpRes != MCP2515::ERROR_OK)
     {
@@ -205,11 +193,11 @@ void loop()
     {
         ESP_LOGI("spi", "SPI Written.");
     }
-    Serial.println();
+    // Serial.println();
 
     //Read on TWAI.
     uint32_t alerts;
-    if (twaiRes = twai_read_alerts(&alerts, pdMS_TO_TICKS(500)) != ESP_OK)
+    if ((twaiRes = twai_read_alerts(&alerts, pdMS_TO_TICKS(500))) != ESP_OK)
     {
         ESP_LOGV("twai", "TWAI Wait Timeout: %d", twaiRes);
     }
@@ -218,6 +206,9 @@ void loop()
     if (twaiRes != ESP_OK)
     {
         ESP_LOGE("twai", "TWAI Read Error: %s", esp_err_to_name(twaiRes));
+        twai_status_info_t status;
+        twai_get_status_info(&status);
+        ESP_LOGI("twai", "TWAI state 0x%X", status.state);
     }
     else
     {
@@ -226,14 +217,16 @@ void loop()
             twaiRecvMessage.data[0]
         );
     }
-    Serial.println();
+    // Serial.println();
 
     vTaskDelay(1000);
 }
-#else
+#ifndef ARDUINO
 extern "C" void app_main()
 {
     setup();
+    while (true)
+        loop();
     //app_main IS allowed to return as per the ESP32 documentation (other FreeRTOS tasks will continue to run).
 }
 #endif
