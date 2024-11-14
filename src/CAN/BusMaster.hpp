@@ -3,6 +3,7 @@
 #include <Arduino.h>
 #include "pch.h"
 #include <freertos/FreeRTOS.h>
+#include <freertos/FreeRTOSConfig.h>
 #include <freertos/task.h>
 #include <driver/gpio.h>
 #include <driver/spi_master.h>
@@ -35,8 +36,8 @@ namespace ReadieFur::OpenTCU::CAN
 
         Config::JsonFlash* _config;
         spi_device_handle_t _mcpDeviceHandle = nullptr;
-        McpCan* _mcpCan = nullptr;
-        TwaiCan* _twaiCan = nullptr;
+        ACan* _can1 = nullptr;
+        ACan* _can2 = nullptr;
         TaskHandle_t _configTaskHandle = NULL;
         TaskHandle_t _mcpToTwaiTaskHandle = NULL;
         TaskHandle_t _twaiToMcpTaskHandle = NULL;
@@ -85,6 +86,7 @@ namespace ReadieFur::OpenTCU::CAN
     protected:
         int InstallServiceImpl() override
         {
+            #if SPI_BUS
             #pragma region Setup MCP CAN
             //Configure the pins, all pins should be written low to start with (pulldown).
             pinMode(MCP_MOSI_PIN, OUTPUT);
@@ -112,8 +114,8 @@ namespace ReadieFur::OpenTCU::CAN
             };
             ESP_RETURN_ON_FALSE(spi_bus_add_device(SPI2_HOST, &dev_config, &_mcpDeviceHandle) == ESP_OK, 1, nameof(BusMaster), "Failed to initialize SPI bus: %i", 1);
 
-            _mcpCan = McpCan::Initialize(_mcpDeviceHandle, CAN_250KBPS, MCP_8MHZ, MCP_INT_PIN);
-            ESP_RETURN_ON_FALSE(_mcpCan != nullptr, 2, nameof(BusMaster), "Failed to initialize MCP device: %i", 2);
+            _can1 = McpCan::Initialize(_mcpDeviceHandle, CAN_250KBPS, MCP_8MHZ, MCP_INT_PIN);
+            ESP_RETURN_ON_FALSE(_can1 != nullptr, 2, nameof(BusMaster), "Failed to initialize MCP device: %i", 2);
             #pragma endregion
 
             #pragma region Setup TWAI CAN
@@ -121,7 +123,7 @@ namespace ReadieFur::OpenTCU::CAN
             pinMode(TWAI_TX_PIN, OUTPUT);
             pinMode(TWAI_RX_PIN, INPUT_PULLDOWN);
 
-            _twaiCan = TwaiCan::Initialize(
+            _can2 = TwaiCan::Initialize(
                 TWAI_GENERAL_CONFIG_DEFAULT(
                     TWAI_TX_PIN,
                     TWAI_RX_PIN,
@@ -130,7 +132,7 @@ namespace ReadieFur::OpenTCU::CAN
                 TWAI_TIMING_CONFIG_250KBITS(),
                 TWAI_FILTER_CONFIG_ACCEPT_ALL()
             );
-            ESP_RETURN_ON_FALSE(_twaiCan != nullptr, 3, nameof(BusMaster), "Failed to initialize TWAI device: %i", 3);
+            ESP_RETURN_ON_FALSE(_can2 != nullptr, 3, nameof(BusMaster), "Failed to initialize TWAI device: %i", 3);
             #pragma endregion
 
             return 0;
@@ -138,11 +140,11 @@ namespace ReadieFur::OpenTCU::CAN
 
         int UninstallServiceImpl() override
         {
-            delete _mcpCan;
-            _mcpCan = nullptr;
+            delete _can1;
+            _can1 = nullptr;
 
-            delete _twaiCan;
-            _twaiCan = nullptr;
+            delete _can2;
+            _can2 = nullptr;
 
             spi_bus_remove_device(_mcpDeviceHandle);
             spi_bus_free(SPI2_HOST);
@@ -156,8 +158,8 @@ namespace ReadieFur::OpenTCU::CAN
             //I am creating the parameters on the heap just in case this method returns before the task starts which will result in an error.
 
             //TODO: Determine if I should run both CAN tasks on one core and do secondary processing (i.e. metrics, user control, etc) on the other core, or split the load between all cores with CAN bus getting their own core.
-            SRelayTaskParameters* mcpToTwaiParams = new SRelayTaskParameters { this, _mcpCan, _twaiCan };
-            SRelayTaskParameters* twaiToMcpParams = new SRelayTaskParameters { this, _twaiCan, _mcpCan };
+            SRelayTaskParameters* params1 = new SRelayTaskParameters { this, _can1, _can2 };
+            SRelayTaskParameters* params2 = new SRelayTaskParameters { this, _can2, _can1 };
             if constexpr (SOC_CPU_CORES_NUM > 1)
             {
                 ESP_RETURN_ON_FALSE(
@@ -165,11 +167,11 @@ namespace ReadieFur::OpenTCU::CAN
                     1, nameof(BusMaster), "Failed to create config watcher task."
                 );
                 ESP_RETURN_ON_FALSE(
-                    xTaskCreatePinnedToCore(RelayTask, "MCP->TWAI", RELAY_TASK_STACK_SIZE, mcpToTwaiParams, RELAY_TASK_PRIORITY, &_mcpToTwaiTaskHandle, 0) == pdPASS,
+                    xTaskCreatePinnedToCore(RelayTask, "MCP->TWAI", RELAY_TASK_STACK_SIZE, params1, RELAY_TASK_PRIORITY, &_mcpToTwaiTaskHandle, 0) == pdPASS,
                     2, nameof(BusMaster), "Failed to create relay task for MCP->TWAI."
                 );
                 ESP_RETURN_ON_FALSE(
-                    xTaskCreatePinnedToCore(RelayTask, "TWAI->MCP", RELAY_TASK_STACK_SIZE, twaiToMcpParams, RELAY_TASK_PRIORITY, &_twaiToMcpTaskHandle, 1) == pdPASS,
+                    xTaskCreatePinnedToCore(RelayTask, "TWAI->MCP", RELAY_TASK_STACK_SIZE, params2, RELAY_TASK_PRIORITY, &_twaiToMcpTaskHandle, 1) == pdPASS,
                     3, nameof(BusMaster), "Failed to create relay task for TWAI->MCP."
                 );
             }
@@ -180,11 +182,11 @@ namespace ReadieFur::OpenTCU::CAN
                     1, nameof(BusMaster), "Failed to create config watcher task."
                 );
                 ESP_RETURN_ON_FALSE(
-                    xTaskCreate(RelayTask, "MCP->TWAI", RELAY_TASK_STACK_SIZE, mcpToTwaiParams, RELAY_TASK_PRIORITY, &_mcpToTwaiTaskHandle) == pdPASS,
+                    xTaskCreate(RelayTask, "MCP->TWAI", RELAY_TASK_STACK_SIZE, params1, RELAY_TASK_PRIORITY, &_mcpToTwaiTaskHandle) == pdPASS,
                     2, nameof(BusMaster), "Failed to create relay task for MCP->TWAI."
                 );
                 ESP_RETURN_ON_FALSE(
-                    xTaskCreate(RelayTask, "TWAI->MCP", RELAY_TASK_STACK_SIZE, twaiToMcpParams, RELAY_TASK_PRIORITY, &_twaiToMcpTaskHandle) == pdPASS,
+                    xTaskCreate(RelayTask, "TWAI->MCP", RELAY_TASK_STACK_SIZE, params2, RELAY_TASK_PRIORITY, &_twaiToMcpTaskHandle) == pdPASS,
                     3, nameof(BusMaster), "Failed to create relay task for TWAI->MCP."
                 );
             }
