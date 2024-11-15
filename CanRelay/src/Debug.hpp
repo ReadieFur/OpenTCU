@@ -7,11 +7,12 @@
 #include <freertos/queue.h>
 #include <queue>
 #include "CAN/SCanMessage.h"
-#include <SPIFFS.h>
+// #include <SPIFFS.h>
 #include "CAN/BusMaster.hpp"
 #include <vector>
 #include <esp_check.h>
 #include <esp_log.h>
+#include <string.h>
 
 class Debug
 {
@@ -41,7 +42,8 @@ private:
             if (xQueueReceive(BusMaster::canDumpQueue, &dump, pdMS_TO_TICKS(1000)) == pdTRUE)
                 _canDumpBuffer.push(dump);
 
-            if (millis() - _lastCanDump > 1000)
+            // if (millis() - _lastCanDump > 1000)
+            if (xTaskGetTickCount() - _lastCanDump > pdMS_TO_TICKS(1000))
             {
                 while (!_canDumpBuffer.empty())
                 {

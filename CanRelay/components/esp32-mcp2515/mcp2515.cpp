@@ -38,7 +38,7 @@ MCP2515::ERROR MCP2515::reset(void)
         printf("spi_device_transmit failed\n");
     }
 
-    vTaskDelay(10 / portTICK_RATE_MS);
+    vTaskDelay(pdMS_TO_TICKS(10));
 
     uint8_t zeros[14];
     memset(zeros, 0, sizeof(zeros));
@@ -284,7 +284,7 @@ MCP2515::ERROR MCP2515::setMode(const CANCTRL_REQOP_MODE mode)
             break;
         }
 
-        vTaskDelay(10 / portTICK_RATE_MS);
+        vTaskDelay(pdMS_TO_TICKS(10));
     }
 
     return modeMatch ? ERROR_OK : ERROR_FAIL;

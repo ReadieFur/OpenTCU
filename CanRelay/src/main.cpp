@@ -1,7 +1,9 @@
 // #define TEST_CHIP
 
 //https://community.platformio.org/t/esp-log-not-working-on-wemos-s2-mini-but-fine-on-s3-devkit/34717/4
+#ifdef ARDUINO
 #include <Arduino.h>
+#endif
 #define MAX_LOG_LEVEL ESP_LOG_DEBUG
 #ifdef LOG_LOCAL_LEVEL
 #undef LOG_LOCAL_LEVEL
@@ -13,12 +15,18 @@
 #define CONFIG_LOG_MAXIMUM_LEVEL MAX_LOG_LEVEL
 #include <esp_log.h>
 
+#ifndef configIDLE_TASK_STACK_SIZE
+#define configIDLE_TASK_STACK_SIZE CONFIG_FREERTOS_IDLE_TASK_STACKSIZE
+#endif
+
 #ifndef TEST_CHIP
 #include <freertos/FreeRTOS.h> //Has to always be the first included FreeRTOS related header.
 #include "Debug.hpp"
 #include "CAN/BusMaster.hpp"
 #include <freertos/task.h>
 #endif
+
+#include <freertos/task.h>
 
 void SetLogLevel()
 {
@@ -52,7 +60,6 @@ void setup()
     #endif
 }
 
-#ifdef ARDUINO
 void loop()
 {
     #ifndef TEST_CHIP
@@ -63,10 +70,16 @@ void loop()
     vTaskDelay(pdMS_TO_TICKS(1000));
     #endif
 }
-#else
+
+#ifndef ARDUINO
 extern "C" void app_main()
 {
     setup();
     //app_main IS allowed to return as per the ESP32 documentation (other FreeRTOS tasks will continue to run).
+    while (eTaskGetState(NULL) != eTaskState::eDeleted)
+    {
+        loop();
+        portYIELD();
+    }
 }
 #endif

@@ -48,7 +48,7 @@ private:
         delete params;
 
         #ifdef ENABLE_CAN_DUMP
-        bool isSPI = pcTaskGetTaskName(NULL)[0] == 'S';
+        bool isSPI = pcTaskGetName(NULL)[0] == 'S';
         #endif
 
         while (true)
@@ -103,82 +103,115 @@ private:
 
     static void Init()
     {
-        #pragma region Setup SPI CAN
-        //Configure the pins, all pins should be written low to start with.
-        gpio_config_t mosiPinConfig = {
-            .pin_bit_mask = 1ULL << SPI_MOSI_PIN,
-            .mode = GPIO_MODE_OUTPUT,
-            .pull_up_en = GPIO_PULLUP_DISABLE,
-            .pull_down_en = GPIO_PULLDOWN_ENABLE,
-            .intr_type = GPIO_INTR_DISABLE
-        };
-        gpio_config_t misoPinConfig = {
-            .pin_bit_mask = 1ULL << SPI_MISO_PIN,
-            .mode = GPIO_MODE_INPUT,
-            .pull_up_en = GPIO_PULLUP_DISABLE,
-            .pull_down_en = GPIO_PULLDOWN_ENABLE,
-            .intr_type = GPIO_INTR_DISABLE
-        };
-        gpio_config_t sckPinConfig = {
-            .pin_bit_mask = 1ULL << SPI_SCK_PIN,
-            .mode = GPIO_MODE_OUTPUT,
-            .pull_up_en = GPIO_PULLUP_DISABLE,
-            .pull_down_en = GPIO_PULLDOWN_ENABLE,
-            .intr_type = GPIO_INTR_DISABLE
-        };
-        gpio_config_t csPinConfig = {
-            .pin_bit_mask = 1ULL << SPI_CS_PIN,
-            .mode = GPIO_MODE_OUTPUT,
-            .pull_up_en = GPIO_PULLUP_DISABLE,
-            .pull_down_en = GPIO_PULLDOWN_ENABLE,
-            .intr_type = GPIO_INTR_DISABLE
-        };
-        gpio_config_t intPinConfig = {
-            .pin_bit_mask = 1ULL << SPI_INT_PIN,
-            .mode = GPIO_MODE_INPUT,
-            .pull_up_en = GPIO_PULLUP_ENABLE, //Use the internal pullup resistor as the trigger state of the MCP2515 is LOW.
-            .pull_down_en = GPIO_PULLDOWN_DISABLE,
-            .intr_type = GPIO_INTR_NEGEDGE //Trigger on the falling edge.
-        };
-        ESP_ERROR_CHECK(gpio_config(&mosiPinConfig));
-        ESP_ERROR_CHECK(gpio_config(&misoPinConfig));
-        ESP_ERROR_CHECK(gpio_config(&sckPinConfig));
-        ESP_ERROR_CHECK(gpio_config(&csPinConfig));
-        ESP_ERROR_CHECK(gpio_config(&intPinConfig));
+        if constexpr (SOC_TWAI_CONTROLLER_NUM > 1)
+        {
+            gpio_config_t txPinConfig = {
+                .pin_bit_mask = 1ULL << TWAI2_TX_PIN,
+                .mode = GPIO_MODE_OUTPUT,
+                .pull_up_en = GPIO_PULLUP_DISABLE,
+                .pull_down_en = GPIO_PULLDOWN_ENABLE,
+                .intr_type = GPIO_INTR_DISABLE
+            };
+            gpio_config_t rxPinConfig = {
+                .pin_bit_mask = 1ULL << TWAI2_RX_PIN,
+                .mode = GPIO_MODE_INPUT,
+                .pull_up_en = GPIO_PULLUP_DISABLE,
+                .pull_down_en = GPIO_PULLDOWN_ENABLE,
+                .intr_type = GPIO_INTR_DISABLE
+            };
+            ESP_ERROR_CHECK(gpio_config(&txPinConfig));
+            ESP_ERROR_CHECK(gpio_config(&rxPinConfig));
 
-        spi_bus_config_t busConfig = {
-            .mosi_io_num = SPI_MOSI_PIN,
-            .miso_io_num = SPI_MISO_PIN,
-            .sclk_io_num = SPI_SCK_PIN,
-            .quadwp_io_num = -1,
-            .quadhd_io_num = -1,
-            .max_transfer_sz = SOC_SPI_MAXIMUM_BUFFER_SIZE,
-        };
-        //SPI2_HOST is the only SPI bus that can be used as GPSPI on the C3.
-        ESP_ERROR_CHECK(spi_bus_initialize(SPI2_HOST, &busConfig, SPI_DMA_CH_AUTO));
+            canB = new TwaiCan(
+                TWAI_GENERAL_CONFIG_DEFAULT_V2(
+                    1,
+                    TWAI2_TX_PIN,
+                    TWAI2_RX_PIN,
+                    TWAI_MODE_NORMAL
+                ),
+                TWAI_TIMING_CONFIG_250KBITS(),
+                TWAI_FILTER_CONFIG_ACCEPT_ALL()
+            );
+        }
+        else
+        {
+            // #pragma region Setup SPI CAN
+            // //Configure the pins, all pins should be written low to start with.
+            // gpio_config_t mosiPinConfig = {
+            //     .pin_bit_mask = 1ULL << SPI_MOSI_PIN,
+            //     .mode = GPIO_MODE_OUTPUT,
+            //     .pull_up_en = GPIO_PULLUP_DISABLE,
+            //     .pull_down_en = GPIO_PULLDOWN_ENABLE,
+            //     .intr_type = GPIO_INTR_DISABLE
+            // };
+            // gpio_config_t misoPinConfig = {
+            //     .pin_bit_mask = 1ULL << SPI_MISO_PIN,
+            //     .mode = GPIO_MODE_INPUT,
+            //     .pull_up_en = GPIO_PULLUP_DISABLE,
+            //     .pull_down_en = GPIO_PULLDOWN_ENABLE,
+            //     .intr_type = GPIO_INTR_DISABLE
+            // };
+            // gpio_config_t sckPinConfig = {
+            //     .pin_bit_mask = 1ULL << SPI_SCK_PIN,
+            //     .mode = GPIO_MODE_OUTPUT,
+            //     .pull_up_en = GPIO_PULLUP_DISABLE,
+            //     .pull_down_en = GPIO_PULLDOWN_ENABLE,
+            //     .intr_type = GPIO_INTR_DISABLE
+            // };
+            // gpio_config_t csPinConfig = {
+            //     .pin_bit_mask = 1ULL << SPI_CS_PIN,
+            //     .mode = GPIO_MODE_OUTPUT,
+            //     .pull_up_en = GPIO_PULLUP_DISABLE,
+            //     .pull_down_en = GPIO_PULLDOWN_ENABLE,
+            //     .intr_type = GPIO_INTR_DISABLE
+            // };
+            // gpio_config_t intPinConfig = {
+            //     .pin_bit_mask = 1ULL << SPI_INT_PIN,
+            //     .mode = GPIO_MODE_INPUT,
+            //     .pull_up_en = GPIO_PULLUP_ENABLE, //Use the internal pullup resistor as the trigger state of the MCP2515 is LOW.
+            //     .pull_down_en = GPIO_PULLDOWN_DISABLE,
+            //     .intr_type = GPIO_INTR_NEGEDGE //Trigger on the falling edge.
+            // };
+            // ESP_ERROR_CHECK(gpio_config(&mosiPinConfig));
+            // ESP_ERROR_CHECK(gpio_config(&misoPinConfig));
+            // ESP_ERROR_CHECK(gpio_config(&sckPinConfig));
+            // ESP_ERROR_CHECK(gpio_config(&csPinConfig));
+            // ESP_ERROR_CHECK(gpio_config(&intPinConfig));
 
-        spi_device_interface_config_t dev_config = {
-            .mode = 0,
-            .clock_speed_hz = SPI_MASTER_FREQ_8M, //Match the SPI CAN controller.
-            .spics_io_num = SPI_CS_PIN,
-            .queue_size = 2, //2 as per the specification: https://ww1.microchip.com/downloads/en/DeviceDoc/MCP2515-Stand-Alone-CAN-Controller-with-SPI-20001801J.pdf
-        };
-        ESP_ERROR_CHECK(spi_bus_add_device(SPI2_HOST, &dev_config, &_spiDevice));
+            // spi_bus_config_t busConfig = {
+            //     .mosi_io_num = SPI_MOSI_PIN,
+            //     .miso_io_num = SPI_MISO_PIN,
+            //     .sclk_io_num = SPI_SCK_PIN,
+            //     .quadwp_io_num = -1,
+            //     .quadhd_io_num = -1,
+            //     .max_transfer_sz = SOC_SPI_MAXIMUM_BUFFER_SIZE,
+            // };
+            // //SPI2_HOST is the only SPI bus that can be used as GPSPI on the C3.
+            // ESP_ERROR_CHECK(spi_bus_initialize(SPI2_HOST, &busConfig, SPI_DMA_CH_AUTO));
 
-        spiCan = new SpiCan(_spiDevice, CAN_250KBPS, MCP_8MHZ, SPI_INT_PIN);
-        #pragma endregion
+            // spi_device_interface_config_t dev_config = {
+            //     .mode = 0,
+            //     .clock_speed_hz = SPI_MASTER_FREQ_8M, //Match the SPI CAN controller.
+            //     .spics_io_num = SPI_CS_PIN,
+            //     .queue_size = 2, //2 as per the specification: https://ww1.microchip.com/downloads/en/DeviceDoc/MCP2515-Stand-Alone-CAN-Controller-with-SPI-20001801J.pdf
+            // };
+            // ESP_ERROR_CHECK(spi_bus_add_device(SPI2_HOST, &dev_config, &_spiDevice));
+
+            // canA = new SpiCan(_spiDevice, CAN_250KBPS, MCP_8MHZ, SPI_INT_PIN);
+            // #pragma endregion
+        }
 
         #pragma region Setup TWAI CAN
         //Configure GPIO.
         gpio_config_t txPinConfig = {
-            .pin_bit_mask = 1ULL << TWAI_TX_PIN,
+            .pin_bit_mask = 1ULL << TWAI1_TX_PIN,
             .mode = GPIO_MODE_OUTPUT,
             .pull_up_en = GPIO_PULLUP_DISABLE,
             .pull_down_en = GPIO_PULLDOWN_ENABLE,
             .intr_type = GPIO_INTR_DISABLE
         };
         gpio_config_t rxPinConfig = {
-            .pin_bit_mask = 1ULL << TWAI_RX_PIN,
+            .pin_bit_mask = 1ULL << TWAI1_RX_PIN,
             .mode = GPIO_MODE_INPUT,
             .pull_up_en = GPIO_PULLUP_DISABLE,
             .pull_down_en = GPIO_PULLDOWN_ENABLE,
@@ -187,10 +220,11 @@ private:
         ESP_ERROR_CHECK(gpio_config(&txPinConfig));
         ESP_ERROR_CHECK(gpio_config(&rxPinConfig));
 
-        twaiCan = new TwaiCan(
-            TWAI_GENERAL_CONFIG_DEFAULT(
-                TWAI_TX_PIN,
-                TWAI_RX_PIN,
+        canB = new TwaiCan(
+            TWAI_GENERAL_CONFIG_DEFAULT_V2(
+                0,
+                TWAI1_TX_PIN,
+                TWAI1_RX_PIN,
                 TWAI_MODE_NORMAL
             ),
             TWAI_TIMING_CONFIG_250KBITS(),
@@ -210,13 +244,13 @@ private:
         //TODO: Determine if I should run both CAN tasks on one core and do secondary processing (i.e. metrics, user control, etc) on the other core, or split the load between all cores with CAN bus getting their own core.
         if constexpr (configNUM_CORES > 1)
         {
-            ESP_ERROR_CHECK(xTaskCreatePinnedToCore(RelayTask, "SPI->TWAI", RELAY_TASK_STACK_SIZE, new SRelayTaskParameters { spiCan, twaiCan }, RELAY_TASK_PRIORITY, &spiToTwaiTaskHandle, 0) == pdPASS ? ESP_OK : ESP_FAIL);
-            ESP_ERROR_CHECK(xTaskCreatePinnedToCore(RelayTask, "TWAI->SPI", RELAY_TASK_STACK_SIZE, new SRelayTaskParameters { twaiCan, spiCan }, RELAY_TASK_PRIORITY, &twaiToSpiTaskHandle, 1) == pdPASS ? ESP_OK : ESP_FAIL);
+            ESP_ERROR_CHECK(xTaskCreatePinnedToCore(RelayTask, "SPI->TWAI", RELAY_TASK_STACK_SIZE, new SRelayTaskParameters { canA, canB }, RELAY_TASK_PRIORITY, &spiToTwaiTaskHandle, 0) == pdPASS ? ESP_OK : ESP_FAIL);
+            ESP_ERROR_CHECK(xTaskCreatePinnedToCore(RelayTask, "TWAI->SPI", RELAY_TASK_STACK_SIZE, new SRelayTaskParameters { canB, canA }, RELAY_TASK_PRIORITY, &twaiToSpiTaskHandle, 1) == pdPASS ? ESP_OK : ESP_FAIL);
         }
         else
         {
-            ESP_ERROR_CHECK(xTaskCreate(RelayTask, "SPI->TWAI", RELAY_TASK_STACK_SIZE, new SRelayTaskParameters { spiCan, twaiCan }, RELAY_TASK_PRIORITY, &spiToTwaiTaskHandle) == pdPASS ? ESP_OK : ESP_FAIL);
-            ESP_ERROR_CHECK(xTaskCreate(RelayTask, "TWAI->SPI", RELAY_TASK_STACK_SIZE, new SRelayTaskParameters { twaiCan, spiCan }, RELAY_TASK_PRIORITY, &twaiToSpiTaskHandle) == pdPASS ? ESP_OK : ESP_FAIL);
+            ESP_ERROR_CHECK(xTaskCreate(RelayTask, "SPI->TWAI", RELAY_TASK_STACK_SIZE, new SRelayTaskParameters { canA, canB }, RELAY_TASK_PRIORITY, &spiToTwaiTaskHandle) == pdPASS ? ESP_OK : ESP_FAIL);
+            ESP_ERROR_CHECK(xTaskCreate(RelayTask, "TWAI->SPI", RELAY_TASK_STACK_SIZE, new SRelayTaskParameters { canB, canA }, RELAY_TASK_PRIORITY, &twaiToSpiTaskHandle) == pdPASS ? ESP_OK : ESP_FAIL);
         }
         #pragma endregion
     }
@@ -226,19 +260,19 @@ private:
         if (_running)
             Stop();
 
-        delete spiCan;
-        spiCan = nullptr;
+        delete canA;
+        canA = nullptr;
 
-        delete twaiCan;
-        twaiCan = nullptr;
+        delete canB;
+        canB = nullptr;
 
         spi_bus_remove_device(_spiDevice);
         spi_bus_free(SPI2_HOST);
     }
 
 public:
-    static SpiCan* spiCan;
-    static TwaiCan* twaiCan;
+    static SpiCan* canA;
+    static TwaiCan* canB;
     static TaskHandle_t spiToTwaiTaskHandle;
     static TaskHandle_t twaiToSpiTaskHandle;
     #ifdef ENABLE_CAN_DUMP
@@ -274,8 +308,8 @@ public:
 
 bool BusMaster::_running = false;
 spi_device_handle_t BusMaster::_spiDevice;
-SpiCan* BusMaster::spiCan = nullptr;
-TwaiCan* BusMaster::twaiCan = nullptr;
+SpiCan* BusMaster::canA = nullptr;
+TwaiCan* BusMaster::canB = nullptr;
 TaskHandle_t BusMaster::spiToTwaiTaskHandle;
 TaskHandle_t BusMaster::twaiToSpiTaskHandle;
 #ifdef ENABLE_CAN_DUMP
