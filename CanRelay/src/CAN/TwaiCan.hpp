@@ -12,18 +12,21 @@
 
 class TwaiCan : public ACan
 {
+private:
+    twai_handle_t _handle;
+
 public:
     TwaiCan(twai_general_config_t generalConfig, twai_timing_config_t timingConfig, twai_filter_config_t filterConfig) : ACan()
     {
-        ESP_ERROR_CHECK(twai_driver_install(&generalConfig, &timingConfig, &filterConfig));
-        ESP_ERROR_CHECK(twai_start());
-        ESP_ERROR_CHECK(twai_reconfigure_alerts(TWAI_ALERT_RX_DATA, NULL));
+        ESP_ERROR_CHECK(twai_driver_install_v2(&generalConfig, &timingConfig, &filterConfig, &_handle));
+        ESP_ERROR_CHECK(twai_start_v2(_handle));
+        ESP_ERROR_CHECK(twai_reconfigure_alerts_v2(_handle, TWAI_ALERT_RX_DATA, NULL));
     }
 
     ~TwaiCan()
     {
-        twai_stop();
-        twai_driver_uninstall();
+        twai_stop_v2(_handle);
+        twai_driver_uninstall_v2(_handle);
     }
 
     esp_err_t Send(SCanMessage message, TickType_t timeout)
@@ -46,7 +49,7 @@ public:
             return ESP_ERR_TIMEOUT;
         }
         #endif
-        esp_err_t res = twai_transmit(&twaiMessage, timeout);
+        esp_err_t res = twai_transmit_v2(_handle, &twaiMessage, timeout);
         #ifdef USE_DRIVER_LOCK
         xSemaphoreGive(_driverMutex);
         #endif
@@ -69,7 +72,7 @@ public:
         //ESP_LOGV("twai", "TWAI Wait");
 
         uint32_t alerts;
-        if (esp_err_t err = twai_read_alerts(&alerts, timeout) != ESP_OK)
+        if (esp_err_t err = twai_read_alerts_v2(_handle, &alerts, timeout) != ESP_OK)
         {
             //ESP_LOGV("twai", "TWAI Wait Timeout: %d", err);
             return err;
@@ -89,7 +92,7 @@ public:
         #endif
 
         twai_message_t twaiMessage;
-        esp_err_t err = twai_receive(&twaiMessage, timeout);
+        esp_err_t err = twai_receive_v2(_handle, &twaiMessage, timeout);
 
         #ifdef USE_DRIVER_LOCK
         xSemaphoreGive(_driverMutex);
@@ -124,7 +127,7 @@ public:
         #endif
         
         // esp_err_t res = twai_get_status_info((twai_status_info_t*)status);
-        esp_err_t res = twai_read_alerts(status, timeout);
+        esp_err_t res = twai_read_alerts_v2(_handle, status, timeout);
 
         #ifdef USE_DRIVER_LOCK
         xSemaphoreGive(_driverMutex);
