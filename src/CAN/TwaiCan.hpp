@@ -21,7 +21,7 @@ namespace ReadieFur::OpenTCU::CAN
         twai_filter_config_t _filterConfig;
 
         TwaiCan(twai_general_config_t generalConfig, twai_timing_config_t timingConfig, twai_filter_config_t filterConfig) : ACan(),
-        _generalConfig(generalConfig), _timingConfig(timingConfig), _filterConfig(filterConfig) {}
+            _generalConfig(generalConfig), _timingConfig(timingConfig), _filterConfig(filterConfig) {}
 
         int Install()
         {

@@ -1,5 +1,9 @@
 #pragma once
 
+#if SOC_SPI_PERIPH_NUM <= 0
+#error "Chip does not support SPI."
+#endif
+
 #include <driver/spi_master.h>
 #include "pch.h"
 #include <mcp2515.h>
@@ -13,10 +17,6 @@
 #include "SCanMessage.h"
 #if DEBUG
 #include <esp_log.h>
-#endif
-
-#if SOC_SPI_PERIPH_NUM <= 0
-#error "Chip does not support SPI."
 #endif
 
 namespace ReadieFur::OpenTCU::CAN

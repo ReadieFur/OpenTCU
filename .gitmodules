@@ -1,7 +1,3 @@
-[submodule "lib/TinyGSM"]
-	path = lib/TinyGSM
-	url = https://github.com/lewisxhe/TinyGSM
-	branch = master
 [submodule "lib/esp32-mcp2515"]
 	path = lib/esp32-mcp2515
 	url = https://github.com/dedalqq/esp32-mcp2515
