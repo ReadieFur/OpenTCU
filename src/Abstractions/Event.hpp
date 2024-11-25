@@ -2,7 +2,6 @@
 
 #include <functional>
 #include <map>
-#include <Arduino.h>
 #include <mutex>
 #include <list>
 
@@ -33,7 +32,7 @@ namespace ReadieFur::Abstractions
             _mutex.lock();
 
             ulong id;
-            do { id = millis(); }
+            do { id = xTaskGetTickCount(); }
             while (_callbacks.find(id) != _callbacks.end());
 
             _callbacks[id] = callback;

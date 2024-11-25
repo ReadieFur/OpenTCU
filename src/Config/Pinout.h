@@ -1,59 +1,21 @@
 #pragma once
 
-#include "hal/gpio_hal.h"
+#include <hal/gpio_hal.h>
+#include <hal/adc_hal.h>
 
 /**
- * Pinout configuration for the MCP2515.
+ * Pinout configuration for the TWAI controller(s).
  */
-#define MCP_INT_PIN                 GPIO_NUM_2
-#define MCP_SCK_PIN                 GPIO_NUM_15
-#define MCP_MOSI_PIN                GPIO_NUM_14
-#define MCP_MISO_PIN                GPIO_NUM_13
-#define MCP_CS_PIN                  GPIO_NUM_18
+#define TWAI1_TX_PIN                 GPIO_NUM_7
+#define TWAI1_RX_PIN                 GPIO_NUM_6
+#define TWAI2_TX_PIN                 GPIO_NUM_5                 //If not using a second TWAI controller, use the MCP2515.
+#define TWAI2_RX_PIN                 GPIO_NUM_4                 //If not using a second TWAI controller, use the MCP2515.
 
 /**
- * Pinout configuration for the TWAI controller.
+ * Pinout configuration for the MCP2515 (if being used).
  */
-#define TWAI_TX_PIN                 GPIO_NUM_32
-#define TWAI_RX_PIN                 GPIO_NUM_34
-
-//TODO: Mux these pins or see what can be combined due to running out of IO.
-/**
- * Pinout for battery module.
- * TODO: Future add-in for battery powered operations.
- */
-#define BAT_ADC                     GPIO_NUM_35
-
-/**
- * Pinout for GSM module.
- * TODO: Future add-in for remote logging. https://lastminuteengineers.com/sim800l-gsm-module-arduino-tutorial/
- */
-#define GSM_TX_PIN                  GPIO_NUM_26
-#define GSM_RX_PIN                  GPIO_NUM_27
-#define GSM_RST_PIN                 GPIO_NUM_5
-#define GSM_PWR_PIN                 GPIO_NUM_12
-#define GSM_PWRKEY_PIN              GPIO_NUM_4
-#define GSM_RING_PIN                GPIO_NUM_33
-#define TINY_GSM_MODEM_A7670
-
-/**
- * Pinout for GPS module.
- * TODO: Future add-in for location tracking. https://lastminuteengineers.com/neo6m-gps-arduino-tutorial/
- */
-#define GPS_TX_PIN                  GPIO_NUM_21
-#define GPS_RX_PIN                  GPIO_NUM_22
-
-/**
- * Pinout for gyroscope module.
- * TODO: Future add-in for motion detection. https://lastminuteengineers.com/mpu6050-accel-gyro-arduino-tutorial/
- */
-#define GYRO_SCL_PIN                GPIO_NUM_NC
-#define GYRO_SDA_PIN                GPIO_NUM_NC
-#define GYRO_INT_PIN                GPIO_NUM_NC
-
-/**
- * Pinout for display module.
- * TODO: Future add-in for HUD.
- */
-#define DISP_SCL_PIN                GPIO_NUM_NC
-#define DISP_SDA_PIN                GPIO_NUM_NC
+// #define MCP_INT_PIN                 GPIO_NUM_2
+// #define MCP_SCK_PIN                 GPIO_NUM_15
+// #define MCP_MOSI_PIN                GPIO_NUM_14
+// #define MCP_MISO_PIN                GPIO_NUM_13
+// #define MCP_CS_PIN                  GPIO_NUM_18
