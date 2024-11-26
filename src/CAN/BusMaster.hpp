@@ -8,17 +8,18 @@
 #include <driver/spi_master.h>
 #include <driver/spi_common.h>
 #include <driver/twai.h>
-#include "Abstractions/AService.hpp"
+#include <Service/AService.hpp>
 #include "ACan.h"
 #if SOC_TWAI_CONTROLLER_NUM <= 1
 #include "McpCan.hpp"
 #endif
 #include "TwaiCan.hpp"
 #include "Config/JsonFlash.hpp"
+#include "Logging.hpp"
 
 namespace ReadieFur::OpenTCU::CAN
 {
-    class BusMaster : public Abstractions::AService
+    class BusMaster : public Service::AService
     {
     protected:
         static const int CAN_TIMEOUT_TICKS = pdMS_TO_TICKS(50);
@@ -35,8 +36,9 @@ namespace ReadieFur::OpenTCU::CAN
             ACan* can2;
         };
 
-        Config::JsonFlash* _config;
+        #if SOC_TWAI_CONTROLLER_NUM <= 1
         spi_device_handle_t _mcpDeviceHandle = nullptr;
+        #endif
         ACan* _can1 = nullptr;
         ACan* _can2 = nullptr;
         TaskHandle_t _configTaskHandle = NULL;
@@ -44,13 +46,29 @@ namespace ReadieFur::OpenTCU::CAN
         TaskHandle_t _can2TaskHandle = NULL;
 
     private:
+        static void ReadConfigTask(void* param)
+        {
+            BusMaster* self = static_cast<BusMaster*>(param);
+
+            while (eTaskGetState(NULL) != eTaskState::eDeleted)
+            {
+                //TODO: Implement.
+                vTaskDelay(CONFIG_TASK_INTERVAL);
+            }
+        }
+
         static void RelayTask(void* param)
+        {
+            static_cast<SRelayTaskParameters*>(param)->self->RelayTaskLocal(param);
+        }
+
+    protected:
+        void RelayTaskLocal(void* param)
         {
             SRelayTaskParameters* params = static_cast<SRelayTaskParameters*>(param);
 
             //Check if the task has been signalled for deletion.
-            TaskHandle_t taskHandle = xTaskGetHandle(pcTaskGetName(NULL));
-            while (eTaskGetState(taskHandle) != eTaskState::eDeleted)
+            while (!params->self->ServiceCancellationToken.IsCancellationRequested())
             {
                 //Attempt to read a message from the bus.
                 SCanMessage message;
@@ -67,18 +85,8 @@ namespace ReadieFur::OpenTCU::CAN
                 taskYIELD();
             }
 
+            vTaskDelete(NULL);
             delete params;
-        }
-
-        static void ReadConfigTask(void* param)
-        {
-            BusMaster* self = static_cast<BusMaster*>(param);
-
-            while (eTaskGetState(NULL) != eTaskState::eDeleted)
-            {
-                //TODO: Implement.
-                vTaskDelay(CONFIG_TASK_INTERVAL);
-            }
         }
 
         inline void InterceptMessage(SCanMessage* message)
@@ -86,11 +94,10 @@ namespace ReadieFur::OpenTCU::CAN
             //TODO: Implement.
         }
 
-    protected:
-        int InstallServiceImpl() override
+        void RunServiceImpl() override
         {
             #pragma region CAN1
-            ESP_LOGI(nameof(BusMaster), "Installing service 1.");
+            LOGI(nameof(BusMaster), "Installing service 1.");
             gpio_config_t txPinConfig1 = {
                 .pin_bit_mask = 1ULL << TWAI1_TX_PIN,
                 .mode = GPIO_MODE_OUTPUT,
@@ -118,11 +125,11 @@ namespace ReadieFur::OpenTCU::CAN
                 TWAI_TIMING_CONFIG_250KBITS(),
                 TWAI_FILTER_CONFIG_ACCEPT_ALL()
             );
-            ESP_RETURN_ON_FALSE(_can1 != nullptr, 3, nameof(BusMaster), "Failed to initialize TWAI device: %i", 3);
+            ESP_RETURN_ON_FALSE(_can1 != nullptr,, nameof(BusMaster), "Failed to initialize TWAI device: %i", 3);
             #pragma endregion
 
             #pragma region CAN2
-            ESP_LOGI(nameof(BusMaster), "Installing service 2.");
+            LOGI(nameof(BusMaster), "Installing service 2.");
             #if SOC_TWAI_CONTROLLER_NUM > 1
             gpio_config_t txPinConfig2 = {
                 .pin_bit_mask = 1ULL << TWAI2_TX_PIN,
@@ -188,11 +195,11 @@ namespace ReadieFur::OpenTCU::CAN
                 .pull_down_en = GPIO_PULLDOWN_DISABLE,
                 .intr_type = GPIO_INTR_NEGEDGE //Trigger on the falling edge.
             };
-            ESP_RETURN_ON_FALSE(gpio_config(&mosiPinConfig) == ESP_OK, 4, nameof(BusMaster), "Failed to initialize SPI bus: %i", 4);
-            ESP_RETURN_ON_FALSE(gpio_config(&misoPinConfig) == ESP_OK, 4, nameof(BusMaster), "Failed to initialize SPI bus: %i", 4);
-            ESP_RETURN_ON_FALSE(gpio_config(&sckPinConfig) == ESP_OK, 4, nameof(BusMaster), "Failed to initialize SPI bus: %i", 4);
-            ESP_RETURN_ON_FALSE(gpio_config(&csPinConfig) == ESP_OK, 4, nameof(BusMaster), "Failed to initialize SPI bus: %i", 4);
-            ESP_RETURN_ON_FALSE(gpio_config(&intPinConfig) == ESP_OK, 4, nameof(BusMaster), "Failed to initialize SPI bus: %i", 4);
+            ESP_RETURN_ON_FALSE(gpio_config(&mosiPinConfig) == ESP_OK,, nameof(BusMaster), "Failed to initialize SPI bus: %i", 4);
+            ESP_RETURN_ON_FALSE(gpio_config(&misoPinConfig) == ESP_OK,, nameof(BusMaster), "Failed to initialize SPI bus: %i", 4);
+            ESP_RETURN_ON_FALSE(gpio_config(&sckPinConfig) == ESP_OK,, nameof(BusMaster), "Failed to initialize SPI bus: %i", 4);
+            ESP_RETURN_ON_FALSE(gpio_config(&csPinConfig) == ESP_OK,, nameof(BusMaster), "Failed to initialize SPI bus: %i", 4);
+            ESP_RETURN_ON_FALSE(gpio_config(&intPinConfig) == ESP_OK,, nameof(BusMaster), "Failed to initialize SPI bus: %i", 4);
 
             spi_bus_config_t busConfig = {
                 .mosi_io_num = SPI_MOSI_PIN,
@@ -203,7 +210,7 @@ namespace ReadieFur::OpenTCU::CAN
                 .max_transfer_sz = SOC_SPI_MAXIMUM_BUFFER_SIZE,
             };
             //SPI2_HOST is the only SPI bus that can be used as GPSPI on the C3.
-            ESP_RETURN_ON_FALSE(spi_bus_initialize(SPI2_HOST, &busConfig, SPI_DMA_CH_AUTO) == ESP_OK, 1, nameof(BusMaster), "Failed to initialize SPI bus: %i", 1);
+            ESP_RETURN_ON_FALSE(spi_bus_initialize(SPI2_HOST, &busConfig, SPI_DMA_CH_AUTO) == ESP_OK,, nameof(BusMaster), "Failed to initialize SPI bus: %i", 1);
 
             spi_device_interface_config_t dev_config = {
                 .mode = 0,
@@ -211,32 +218,14 @@ namespace ReadieFur::OpenTCU::CAN
                 .spics_io_num = SPI_CS_PIN,
                 .queue_size = 2, //2 as per the specification: https://ww1.microchip.com/downloads/en/DeviceDoc/MCP2515-Stand-Alone-CAN-Controller-with-SPI-20001801J.pdf
             };
-            ESP_RETURN_ON_FALSE(spi_bus_add_device(SPI2_HOST, &dev_config, &_mcpDeviceHandle) == ESP_OK, 1, nameof(BusMaster), "Failed to initialize SPI bus: %i", 1);
+            ESP_RETURN_ON_FALSE(spi_bus_add_device(SPI2_HOST, &dev_config, &_mcpDeviceHandle) == ESP_OK,, nameof(BusMaster), "Failed to initialize SPI bus: %i", 1);
 
             _can2 = new SpiCan(_spiDevice, CAN_250KBPS, MCP_8MHZ, SPI_INT_PIN);
             #endif
-            ESP_RETURN_ON_FALSE(_can2 != nullptr, 2, nameof(BusMaster), "Failed to initialize MCP device: %i", 2);
+            ESP_RETURN_ON_FALSE(_can2 != nullptr,, nameof(BusMaster), "Failed to initialize MCP device: %i", 2);
             #pragma endregion
 
-            return 0;
-        }
-
-        int UninstallServiceImpl() override
-        {
-            delete _can1;
-            _can1 = nullptr;
-
-            delete _can2;
-            _can2 = nullptr;
-
-            spi_bus_remove_device(_mcpDeviceHandle);
-            spi_bus_free(SPI2_HOST);
-
-            return 0;
-        }
-
-        int StartServiceImpl() override
-        {
+            #pragma region Tasks
             //Create high priority tasks to handle CAN relay tasks.
             //I am creating the parameters on the heap just in case this method returns before the task starts which will result in an error.
 
@@ -248,46 +237,49 @@ namespace ReadieFur::OpenTCU::CAN
             {
                 ESP_RETURN_ON_FALSE(
                     xTaskCreate(ReadConfigTask, "CANReadCfg", CONFIG_TASK_STACK_SIZE, this, CONFIG_TASK_PRIORITY, &_configTaskHandle),
-                    1, nameof(BusMaster), "Failed to create config watcher task."
+                    , nameof(BusMaster), "Failed to create config watcher task."
                 );
                 ESP_RETURN_ON_FALSE(
                     xTaskCreatePinnedToCore(RelayTask, "CAN1->CAN2", RELAY_TASK_STACK_SIZE, params1, RELAY_TASK_PRIORITY, &_can1TaskHandle, 0) == pdPASS,
-                    2, nameof(BusMaster), "Failed to create relay task for CAN1->CAN2."
+                    , nameof(BusMaster), "Failed to create relay task for CAN1->CAN2."
                 );
                 ESP_RETURN_ON_FALSE(
                     xTaskCreatePinnedToCore(RelayTask, "CAN2->CAN1", RELAY_TASK_STACK_SIZE, params2, RELAY_TASK_PRIORITY, &_can2TaskHandle, 1) == pdPASS,
-                    3, nameof(BusMaster), "Failed to create relay task for CAN2->CAN1."
+                    , nameof(BusMaster), "Failed to create relay task for CAN2->CAN1."
                 );
             }
             #else
             {
                 ESP_RETURN_ON_FALSE(
                     xTaskCreate(ReadConfigTask, "CANReadCfg", CONFIG_TASK_STACK_SIZE, this, CONFIG_TASK_PRIORITY, &_configTaskHandle),
-                    1, nameof(BusMaster), "Failed to create config watcher task."
+                    , nameof(BusMaster), "Failed to create config watcher task."
                 );
                 ESP_RETURN_ON_FALSE(
                     xTaskCreate(RelayTask, "CAN1->CAN2", RELAY_TASK_STACK_SIZE, params1, RELAY_TASK_PRIORITY, &_can1TaskHandle) == pdPASS,
-                    2, nameof(BusMaster), "Failed to create relay task for CAN1->CAN2."
+                    , nameof(BusMaster), "Failed to create relay task for CAN1->CAN2."
                 );
                 ESP_RETURN_ON_FALSE(
                     xTaskCreate(RelayTask, "CAN2->CAN1", RELAY_TASK_STACK_SIZE, params2, RELAY_TASK_PRIORITY, &_can2TaskHandle) == pdPASS,
-                    3, nameof(BusMaster), "Failed to create relay task for CAN2->CAN1."
+                    , nameof(BusMaster), "Failed to create relay task for CAN2->CAN1."
                 );
             }
             #endif
+            #pragma endregion
+        
+            ServiceCancellationToken.WaitForCancellation();
 
-            return 0;
-        }
+            #pragma region Cleanup
+            //Tasks should kill themselves when the cancellation token is triggered.
+            delete _can1;
+            _can1 = nullptr;
+            delete _can2;
+            _can2 = nullptr;
 
-        int StopServiceImpl() override
-        {
-            if (_configTaskHandle != NULL)
-                vTaskDelete(_configTaskHandle);
-            if (_can1TaskHandle != NULL)
-                vTaskDelete(_can1TaskHandle);
-            if (_can2TaskHandle != NULL)
-                vTaskDelete(_can2TaskHandle);
-            return 0;
+            #if SOC_TWAI_CONTROLLER_NUM <= 1
+            spi_bus_remove_device(_mcpDeviceHandle);
+            spi_bus_free(SPI2_HOST);
+            #endif
+            #pragma endregion
         }
 
     public:
@@ -300,7 +292,5 @@ namespace ReadieFur::OpenTCU::CAN
             SCanMessage message;
         };
         #endif
-
-        BusMaster(Config::JsonFlash* config) : _config(config) {}
     };
 };

@@ -15,9 +15,6 @@
 #include <driver/gpio.h>
 #include "ACan.h"
 #include "SCanMessage.h"
-#if DEBUG
-#include <esp_log.h>
-#endif
 
 namespace ReadieFur::OpenTCU::CAN
 {
