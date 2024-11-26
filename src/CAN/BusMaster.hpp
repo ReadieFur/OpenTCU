@@ -14,7 +14,6 @@
 #include "McpCan.hpp"
 #endif
 #include "TwaiCan.hpp"
-#include "Config/JsonFlash.hpp"
 #include "Logging.hpp"
 
 namespace ReadieFur::OpenTCU::CAN
@@ -45,7 +44,6 @@ namespace ReadieFur::OpenTCU::CAN
         TaskHandle_t _can1TaskHandle = NULL;
         TaskHandle_t _can2TaskHandle = NULL;
 
-    private:
         static void ReadConfigTask(void* param)
         {
             BusMaster* self = static_cast<BusMaster*>(param);
@@ -61,8 +59,6 @@ namespace ReadieFur::OpenTCU::CAN
         {
             static_cast<SRelayTaskParameters*>(param)->self->RelayTaskLocal(param);
         }
-
-    protected:
         void RelayTaskLocal(void* param)
         {
             SRelayTaskParameters* params = static_cast<SRelayTaskParameters*>(param);
@@ -292,5 +288,10 @@ namespace ReadieFur::OpenTCU::CAN
             SCanMessage message;
         };
         #endif
+
+        BusMaster()
+        {
+            ServiceEntrypointStackDepth += 1024;
+        }
     };
 };

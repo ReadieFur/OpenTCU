@@ -50,5 +50,8 @@ namespace ReadieFur::OpenTCU::CAN
 
             delete params;
         }
+
+    public:
+        Test() : BusMaster() {}
     };
 };
