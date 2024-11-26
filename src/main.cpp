@@ -7,7 +7,6 @@
 #include "Service/ServiceManager.hpp"
 #include "Config/Device.h"
 #include "CAN/BusMaster.hpp"
-#include "Config/JsonFlash.hpp"
 #include <esp_sleep.h>
 #include <freertos/task.h>
 #include "Logging.hpp"
@@ -24,12 +23,9 @@
 
 using namespace ReadieFur::OpenTCU;
 
-Config::JsonFlash* _config;
-
 void setup()
 {
     #ifdef _CAN_TEST
-    vTaskDelay(pdMS_TO_TICKS(2500)); //Delay to allow for the debugger to attach.
     xTaskCreate([](void*)
     {
         while (true)
@@ -39,13 +35,6 @@ void setup()
         }
     }, "AliveTask", IDLE_TASK_STACK_SIZE + 1024, nullptr, configMAX_PRIORITIES * 0.5, nullptr);
     #endif
-
-    _config = Config::JsonFlash::Open("config.json");
-    if (_config == nullptr)
-    {
-        LOGE(pcTaskGetName(NULL), "Failed to load config.");
-        abort();
-    }
 
     #ifndef _CAN_TEST
     CHECK_SERVICE_RESULT(ReadieFur::Service::ServiceManager::InstallService<CAN::BusMaster>());
