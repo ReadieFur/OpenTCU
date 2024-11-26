@@ -25,6 +25,13 @@ using namespace ReadieFur::OpenTCU;
 
 void setup()
 {
+    #ifdef DEBUG
+    // esp_log_level_set("*", ESP_LOG_VERBOSE);
+    esp_log_level_set("*", ESP_LOG_DEBUG);
+    #else
+    esp_log_level_set("*", ESP_LOG_INFO);
+    #endif
+
     #ifdef _CAN_TEST
     xTaskCreate([](void*)
     {

@@ -9,7 +9,7 @@ namespace ReadieFur::OpenTCU::CAN
     private:
         static const int TEST_CAN_TIMEOUT_TICKS = pdMS_TO_TICKS(500);
 
-        void RelayTaskLocal(void* param)
+        void RelayTaskLocal(void* param) override
         {
             SRelayTaskParameters* params = static_cast<SRelayTaskParameters*>(param);
 
@@ -17,7 +17,7 @@ namespace ReadieFur::OpenTCU::CAN
             uint32_t id = pcTaskGetName(taskHandle)[3] == '1' ? 0x1 : 0x2;
 
             //Check if the task has been signalled for deletion.
-            while (eTaskGetState(taskHandle) != eTaskState::eDeleted)
+            while (!ServiceCancellationToken.IsCancellationRequested())
             {
                 //Generate a message to send.
                 SCanMessage txMessage =
@@ -30,7 +30,7 @@ namespace ReadieFur::OpenTCU::CAN
                 //Attempt to send a message to the bus.
                 if (params->can1->Send(txMessage, TEST_CAN_TIMEOUT_TICKS) != ESP_OK)
                 {
-                    LOGW("Test", "%i failed to send message.", id);
+                    LOGW(nameof(Test), "%i failed to send message.", id);
                     continue;
                 }
 
@@ -38,16 +38,17 @@ namespace ReadieFur::OpenTCU::CAN
                 SCanMessage rxMessage;
                 if (esp_err_t receiveResult = params->can2->Receive(&rxMessage, TEST_CAN_TIMEOUT_TICKS) != ESP_OK)
                 {
-                    LOGW("Test", "%i failed to receive message.", id);
+                    LOGW(nameof(Test), "%i failed to receive message.", id);
                     continue;
                 }
 
                 //Print the received message.
-                LOGI("Test", "%i received message: %i, %i", id, rxMessage.id, rxMessage.data[0]);
+                LOGI(nameof(Test), "%i received message: %i, %i", id, rxMessage.id, rxMessage.data[0]);
 
                 taskYIELD();
             }
 
+            vTaskDelete(NULL);
             delete params;
         }
 
