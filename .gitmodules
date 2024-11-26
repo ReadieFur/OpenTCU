@@ -2,3 +2,6 @@
 	path = lib/esp32-mcp2515
 	url = https://github.com/dedalqq/esp32-mcp2515
 	branch = master
+[submodule "lib/esp32-libs"]
+	path = lib/esp32-libs
+	url = https://github.com/ReadieFur/esp32-libs
