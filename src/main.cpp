@@ -4,27 +4,27 @@
 
 #include <freertos/FreeRTOS.h> //Has to always be the first included FreeRTOS related header.
 #include "pch.h"
+#include "Service/ServiceManager.hpp"
 #include "Config/Device.h"
 #include "CAN/BusMaster.hpp"
 #include "Config/JsonFlash.hpp"
 #include <esp_sleep.h>
 #include <freertos/task.h>
-#include <esp_log.h>
+#include "Logging.hpp"
 #ifdef _CAN_TEST
 #include "CAN/Test.hpp"
 #endif
 
-#define ABORT_ON_FAIL(a, format) do {                                                   \
-        if (unlikely(!(a))) {                                                           \
-            ESP_LOGE("main", "%s(%d): " format ": %i", __FUNCTION__, __LINE__, a);      \
-            abort();                                                                    \
-        }                                                                               \
-    } while(0)
+#define CHECK_SERVICE_RESULT(func) do {                                     \
+        ReadieFur::Service::EServiceResult result = func;                   \
+        if (result == ReadieFur::Service::Ok) break;                        \
+        LOGE(pcTaskGetName(NULL), "Failed with result: %i", result);        \
+        abort();                                                            \
+    } while (0)
 
 using namespace ReadieFur::OpenTCU;
 
 Config::JsonFlash* _config;
-CAN::BusMaster* _busMaster;
 
 void setup()
 {
@@ -34,22 +34,26 @@ void setup()
     {
         while (true)
         {
-            ESP_LOGI("AliveTask", "Alive");
+            LOGI("AliveTask", "Alive");
             vTaskDelay(pdMS_TO_TICKS(5000));
         }
-    }, "AliveTask", CONFIG_FREERTOS_IDLE_TASK_STACKSIZE + 1024, nullptr, configMAX_PRIORITIES * 0.5, nullptr);
+    }, "AliveTask", IDLE_TASK_STACK_SIZE + 1024, nullptr, configMAX_PRIORITIES * 0.5, nullptr);
     #endif
 
     _config = Config::JsonFlash::Open("config.json");
-    ABORT_ON_FAIL(_config != nullptr, "Failed to load config.");
+    if (_config == nullptr)
+    {
+        LOGE(pcTaskGetName(NULL), "Failed to load config.");
+        abort();
+    }
 
     #ifndef _CAN_TEST
-    _busMaster = new CAN::BusMaster(_config);
+    CHECK_SERVICE_RESULT(ReadieFur::Service::ServiceManager::InstallService<CAN::BusMaster>());
+    CHECK_SERVICE_RESULT(ReadieFur::Service::ServiceManager::StartService<CAN::BusMaster>());
     #else
-    _busMaster = new CAN::Test(_config);
+    CHECK_SERVICE_RESULT(ReadieFur::Service::ServiceManager::InstallService<CAN::Test>());
+    CHECK_SERVICE_RESULT(ReadieFur::Service::ServiceManager::StartService<CAN::Test>());
     #endif
-    ABORT_ON_FAIL(_busMaster->InstallService(), "Failed to install " nameof(CAN::BusMaster) " service.");
-    ABORT_ON_FAIL(_busMaster->StartService(), "Failed to start " nameof(CAN::BusMaster) " service.");
 }
 
 void loop()

@@ -125,4 +125,6 @@ namespace ReadieFur::OpenTCU::Config
             return retVal;
         }
     };
+
+    JsonFlash* Config = JsonFlash::Open("config.json");
 };
