@@ -20,7 +20,7 @@ namespace ReadieFur::OpenTCU::CAN
 {
     class BusMaster : public Abstractions::AService
     {
-    private:
+    protected:
         static const int CAN_TIMEOUT_TICKS = pdMS_TO_TICKS(50);
         static const int RELAY_TASK_STACK_SIZE = CONFIG_FREERTOS_IDLE_TASK_STACKSIZE * 2.5;
         static const int RELAY_TASK_PRIORITY = configMAX_PRIORITIES * 0.6;
@@ -43,12 +43,14 @@ namespace ReadieFur::OpenTCU::CAN
         TaskHandle_t _can1TaskHandle = NULL;
         TaskHandle_t _can2TaskHandle = NULL;
 
+    private:
         static void RelayTask(void* param)
         {
             SRelayTaskParameters* params = static_cast<SRelayTaskParameters*>(param);
 
             //Check if the task has been signalled for deletion.
-            while (eTaskGetState(NULL) != eTaskState::eDeleted)
+            TaskHandle_t taskHandle = xTaskGetHandle(pcTaskGetName(NULL));
+            while (eTaskGetState(taskHandle) != eTaskState::eDeleted)
             {
                 //Attempt to read a message from the bus.
                 SCanMessage message;
@@ -88,6 +90,7 @@ namespace ReadieFur::OpenTCU::CAN
         int InstallServiceImpl() override
         {
             #pragma region CAN1
+            ESP_LOGI(nameof(BusMaster), "Installing service 1.");
             gpio_config_t txPinConfig1 = {
                 .pin_bit_mask = 1ULL << TWAI1_TX_PIN,
                 .mode = GPIO_MODE_OUTPUT,
@@ -119,6 +122,7 @@ namespace ReadieFur::OpenTCU::CAN
             #pragma endregion
 
             #pragma region CAN2
+            ESP_LOGI(nameof(BusMaster), "Installing service 2.");
             #if SOC_TWAI_CONTROLLER_NUM > 1
             gpio_config_t txPinConfig2 = {
                 .pin_bit_mask = 1ULL << TWAI2_TX_PIN,
@@ -239,6 +243,7 @@ namespace ReadieFur::OpenTCU::CAN
             //TODO: Determine if I should run both CAN tasks on one core and do secondary processing (i.e. metrics, user control, etc) on the other core, or split the load between all cores with CAN bus getting their own core.
             SRelayTaskParameters* params1 = new SRelayTaskParameters { this, _can1, _can2 };
             SRelayTaskParameters* params2 = new SRelayTaskParameters { this, _can2, _can1 };
+
             #if SOC_CPU_CORES_NUM > 1
             {
                 ESP_RETURN_ON_FALSE(
@@ -276,9 +281,12 @@ namespace ReadieFur::OpenTCU::CAN
 
         int StopServiceImpl() override
         {
-            vTaskDelete(_configTaskHandle);
-            vTaskDelete(_can1TaskHandle);
-            vTaskDelete(_can2TaskHandle);
+            if (_configTaskHandle != NULL)
+                vTaskDelete(_configTaskHandle);
+            if (_can1TaskHandle != NULL)
+                vTaskDelete(_can1TaskHandle);
+            if (_can2TaskHandle != NULL)
+                vTaskDelete(_can2TaskHandle);
             return 0;
         }
 
