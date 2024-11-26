@@ -32,33 +32,44 @@ namespace ReadieFur::OpenTCU::Config
     public:
         static JsonFlash* Open(const char* filename)
         {
-            // ESP_RETURN_ON_FALSE(SPIFFS.begin(), nullptr, nameof(JsonFlash), "Failed to start SPIFFS.");
             esp_vfs_spiffs_conf_t conf = {
-                .base_path = "/",
+                .base_path = "/spiffs",
                 .partition_label = NULL,
                 .max_files = 5,
                 .format_if_mount_failed = true
             };
             ESP_RETURN_ON_FALSE(esp_vfs_spiffs_register(&conf) == ESP_OK, nullptr, nameof(JsonFlash), "Failed to register SPIFFS.");
 
+            std::string filenameStr = conf.base_path;
+            if (filenameStr.back() != '/')
+                filenameStr.append("/");
+            filenameStr.append(filename);
+            const char* filenameCStr = filenameStr.c_str();
+
             std::string fileContent;
-            if (access(filename, F_OK) == 0)
+            if (access(filenameCStr, F_OK) == 0)
             {
-                FILE* readHandle = fopen(filename, "r");
-                ESP_RETURN_ON_FALSE(readHandle == nullptr, nullptr, nameof(JsonFlash), "Failed to open file '%s' for reading.", filename);
+                //File exists, read it.
+                FILE* readHandle = fopen(filenameCStr, "r");
+                ESP_RETURN_ON_FALSE(readHandle != nullptr, nullptr, nameof(JsonFlash), "Failed to open file '%s' for reading: %s, %i", filenameCStr, strerror(errno), errno);
 
                 char buffer[256];
                 while (fgets(buffer, sizeof(buffer), readHandle) != nullptr)
                     fileContent.append(buffer);
                 fclose(readHandle);
             }
+            else
+            {
+                //File does not exist, create filler content.
+                fileContent = "{}";
+            }
 
             JsonDocument jsonDoc;
             DeserializationError jsonError = deserializeJson(jsonDoc, fileContent);
-            ESP_RETURN_ON_FALSE(jsonError.code() == DeserializationError::Code::Ok, nullptr, nameof(JsonFlash), "Failed to parse file '%s': ", filename, jsonError.c_str());
+            ESP_RETURN_ON_FALSE(jsonError.code() == DeserializationError::Code::Ok, nullptr, nameof(JsonFlash), "Failed to parse file '%s': %s", filenameCStr, jsonError.c_str());
 
-            FILE* writeHandle = fopen(filename, "w");
-            ESP_RETURN_ON_FALSE(writeHandle == nullptr, nullptr, nameof(JsonFlash), "Failed to open file '%s' for writing.", filename);
+            FILE* writeHandle = fopen(filenameCStr, "w");
+            ESP_RETURN_ON_FALSE(writeHandle != nullptr, nullptr, nameof(JsonFlash), "Failed to open file '%s' for writing: %s, %i", filenameCStr, strerror(errno), errno);
 
             return new JsonFlash(writeHandle, jsonDoc);
         }
