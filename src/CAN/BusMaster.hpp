@@ -27,6 +27,9 @@ namespace ReadieFur::OpenTCU::CAN
         static const uint CONFIG_TASK_STACK_SIZE = CONFIG_FREERTOS_IDLE_TASK_STACKSIZE * 2.5;
         static const uint CONFIG_TASK_PRIORITY = configMAX_PRIORITIES * 0.3;
         static const TickType_t CONFIG_TASK_INTERVAL = pdMS_TO_TICKS(1000);
+        #ifdef ENABLE_CAN_DUMP
+        static const uint CAN_DUMP_QUEUE_SIZE = 100;
+        #endif
 
         struct SRelayTaskParameters
         {
@@ -55,7 +58,7 @@ namespace ReadieFur::OpenTCU::CAN
         {
             SRelayTaskParameters* params = static_cast<SRelayTaskParameters*>(param);
 
-            bool isCan1 = pcTaskGetName(xTaskGetHandle(pcTaskGetName(NULL)))[3] == '1';
+            char bus = pcTaskGetName(xTaskGetHandle(pcTaskGetName(NULL)))[3]; //Only really used for logging & debugging.
 
             //Check if the task has been signalled for deletion.
             while (!params->self->ServiceCancellationToken.IsCancellationRequested())
@@ -65,10 +68,28 @@ namespace ReadieFur::OpenTCU::CAN
                 esp_err_t res = ESP_OK;
                 if ((res = params->can1->Receive(&message, CAN_TIMEOUT_TICKS)) != ESP_OK)
                 {
-                    LOGW(nameof(BusMaster), "CAN%i failed to receive message: %i", isCan1 ? 1 : 2, res);
+                    // LOGW(nameof(BusMaster), "CAN%c failed to receive message: %i", bus, res);
                     taskYIELD();
                     continue;
                 }
+
+                #ifdef ENABLE_CAN_DUMP
+                //Copy the original message for logging.
+                SCanDump dump =
+                {
+                    .timestamp = xTaskGetTickCount(),
+                    .bus = bus,
+                    .message = message //Creates a copy of the struct.
+                };
+
+                //Set wait time to 0 as this should not delay the task.
+                while (xQueueSend(BusMaster::CanDumpQueue, &dump, 0) == errQUEUE_FULL)
+                {
+                    //If the queue is full, remove the oldest item.
+                    SCanDump oldDump;
+                    xQueueReceive(BusMaster::CanDumpQueue, &oldDump, 0);
+                }
+                #endif
 
                 //Analyze the message and modify it if needed.
                 params->self->InterceptMessage(&message);
@@ -77,7 +98,7 @@ namespace ReadieFur::OpenTCU::CAN
                 res = ESP_OK;
                 if ((res = params->can2->Send(message, CAN_TIMEOUT_TICKS)) != ESP_OK)
                 {
-                    LOGW(nameof(BusMaster), "CAN%i failed to relay message: %i", isCan1 ? 1 : 2, res);
+                    // LOGW(nameof(BusMaster), "CAN%c failed to relay message: %i", bus, res);
                     taskYIELD();
                     continue;
                 }
@@ -225,6 +246,11 @@ namespace ReadieFur::OpenTCU::CAN
             ESP_RETURN_ON_FALSE(_can2 != nullptr,, nameof(BusMaster), "Failed to initialize CAN2: %i", 2);
             #pragma endregion
 
+            #ifdef ENABLE_CAN_DUMP
+            CanDumpQueue = xQueueCreate(CAN_DUMP_QUEUE_SIZE, sizeof(BusMaster::SCanDump));
+            ESP_RETURN_ON_FALSE(CanDumpQueue != NULL,, nameof(BusMaster), "Failed to create log queue.");
+            #endif
+
             #pragma region Tasks
             //Create high priority tasks to handle CAN relay tasks.
             //I am creating the parameters on the heap just in case this method returns before the task starts which will result in an error.
@@ -272,22 +298,29 @@ namespace ReadieFur::OpenTCU::CAN
             spi_bus_free(SPI2_HOST);
             #endif
             #pragma endregion
+
+            #ifdef ENABLE_CAN_DUMP
+            vQueueDelete(CanDumpQueue);
+            CanDumpQueue = NULL;
+            #endif
         }
 
     public:
         #ifdef ENABLE_CAN_DUMP
-        QueueHandle_t canDumpQueue = xQueueCreate(100, sizeof(BusMaster::SCanDump));
+        QueueHandle_t CanDumpQueue = NULL;
         struct SCanDump
         {
-            long timestamp;
-            bool isSPI;
+            ulong timestamp;
+            char bus;
             SCanMessage message;
+            //TODO: Add modified values.
         };
         #endif
 
         BusMaster()
         {
             ServiceEntrypointStackDepth += 1024;
+            ServiceEntrypointPriority = RELAY_TASK_PRIORITY;
         }
     };
 };
