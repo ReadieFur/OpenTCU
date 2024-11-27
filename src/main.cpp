@@ -1,5 +1,5 @@
 #ifdef DEBUG
-#define _CAN_TEST
+// #define _CAN_TEST
 #endif
 
 #include <freertos/FreeRTOS.h> //Has to always be the first included FreeRTOS related header.
