@@ -118,7 +118,7 @@ namespace ReadieFur::OpenTCU::CAN
                 frame.data[i] = message.data[i];
 
             #ifdef USE_CAN_DRIVER_LOCK
-            ESP_RETURN_ON_FALSE(xSemaphoreTake(_driverMutex, timeout) == pdTRUE, ESP_ERR_TIMEOUT, nameof(McpCan) "_dbg", "Timeout.");
+            ESP_RETURN_ON_FALSE(xSemaphoreTake(_driverMutex, timeout) == pdTRUE, ESP_ERR_TIMEOUT, nameof(McpCan), "Timeout.");
             #endif
 
             MCP2515::ERROR res = _mcp2515->sendMessage(&frame);
@@ -128,7 +128,7 @@ namespace ReadieFur::OpenTCU::CAN
             #endif
 
             esp_err_t retVal = MCPErrorToESPError(res);
-            ESP_RETURN_ON_FALSE(retVal == ESP_OK, retVal, nameof(McpCan) "_dbg", "Failed to send message: %i", retVal);
+            ESP_RETURN_ON_FALSE(retVal == ESP_OK, retVal, nameof(McpCan), "Failed to send message: %i", retVal);
             return retVal;
         }
 
@@ -140,7 +140,7 @@ namespace ReadieFur::OpenTCU::CAN
                 // TRACE("SPI Wait: %d, %d", uxSemaphoreGetCount(interruptSemaphore), gpio_get_level(interruptPin));
 
                 //Wait in a "non-blocking" manner by allowing the CPU to do other things while waiting for a message.
-                ESP_RETURN_ON_FALSE(xSemaphoreTake(_interruptSemaphore, timeout) == pdTRUE, ESP_ERR_TIMEOUT, nameof(McpCan) "_dbg", "Timeout.");
+                ESP_RETURN_ON_FALSE(xSemaphoreTake(_interruptSemaphore, timeout) == pdTRUE, ESP_ERR_TIMEOUT, nameof(McpCan), "Timeout.");
             }
             else
             {
@@ -150,7 +150,7 @@ namespace ReadieFur::OpenTCU::CAN
 
             #ifdef USE_CAN_DRIVER_LOCK
             //Lock the driver from other operations while we read the message.
-            ESP_RETURN_ON_FALSE(xSemaphoreTake(_driverMutex, timeout) == pdTRUE, ESP_ERR_TIMEOUT, nameof(McpCan) "_dbg", "Timeout.");
+            ESP_RETURN_ON_FALSE(xSemaphoreTake(_driverMutex, timeout) == pdTRUE, ESP_ERR_TIMEOUT, nameof(McpCan), "Timeout.");
             #endif
 
             //https://github.com/autowp/arduino-canhacker/blob/master/CanHacker.cpp#L216-L271
@@ -183,7 +183,7 @@ namespace ReadieFur::OpenTCU::CAN
             //At some point in this development I broke the interrupt and it seems it never fires now.
             //As a result of I am using gpio_get_level. However an issue has occurred where I can reach this point and read empty messages (error code 5).
             //I would like to fix this as we are wasting CPU cycles with this bug.
-            ESP_RETURN_ON_FALSE(readResult == MCP2515::ERROR_OK, MCPErrorToESPError(readResult), nameof(McpCan) "_dbg", "Failed to receive message: %i", readResult);
+            ESP_RETURN_ON_FALSE(readResult == MCP2515::ERROR_OK, MCPErrorToESPError(readResult), nameof(McpCan), "Failed to receive message: %i", readResult);
 
             message->id = frame.can_id & (frame.can_id & CAN_EFF_FLAG ? CAN_EFF_MASK : CAN_SFF_MASK);
             message->length = frame.can_dlc;
@@ -198,7 +198,7 @@ namespace ReadieFur::OpenTCU::CAN
         esp_err_t GetStatus(uint32_t* status, TickType_t timeout = 0)
         {
             #ifdef USE_CAN_DRIVER_LOCK
-            ESP_RETURN_ON_FALSE(xSemaphoreTake(_driverMutex, timeout) == pdTRUE, ESP_ERR_TIMEOUT, nameof(McpCan) "_dbg", "Timeout.");
+            ESP_RETURN_ON_FALSE(xSemaphoreTake(_driverMutex, timeout) == pdTRUE, ESP_ERR_TIMEOUT, nameof(McpCan), "Timeout.");
             #endif
             *status = _mcp2515->getInterrupts();
             #ifdef USE_CAN_DRIVER_LOCK

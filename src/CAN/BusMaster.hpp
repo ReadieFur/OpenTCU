@@ -55,13 +55,17 @@ namespace ReadieFur::OpenTCU::CAN
         {
             SRelayTaskParameters* params = static_cast<SRelayTaskParameters*>(param);
 
+            bool isCan1 = pcTaskGetName(xTaskGetHandle(pcTaskGetName(NULL)))[3] == '1';
+
             //Check if the task has been signalled for deletion.
             while (!params->self->ServiceCancellationToken.IsCancellationRequested())
             {
                 //Attempt to read a message from the bus.
                 SCanMessage message;
-                if (esp_err_t receiveResult = params->can1->Receive(&message, CAN_TIMEOUT_TICKS) != ESP_OK)
+                esp_err_t res = ESP_OK;
+                if ((res = params->can1->Receive(&message, CAN_TIMEOUT_TICKS)) != ESP_OK)
                 {
+                    LOGW(nameof(BusMaster), "CAN%i failed to receive message: %i", isCan1 ? 1 : 2, res);
                     taskYIELD();
                     continue;
                 }
@@ -70,8 +74,13 @@ namespace ReadieFur::OpenTCU::CAN
                 params->self->InterceptMessage(&message);
 
                 //Relay the message to the other CAN bus.
-                //The result of this is not checked as that is not needed just yet and logging will happen internally if it fails.
-                params->can2->Send(message, CAN_TIMEOUT_TICKS);
+                res = ESP_OK;
+                if ((res = params->can2->Send(message, CAN_TIMEOUT_TICKS)) != ESP_OK)
+                {
+                    LOGW(nameof(BusMaster), "CAN%i failed to relay message: %i", isCan1 ? 1 : 2, res);
+                    taskYIELD();
+                    continue;
+                }
 
                 //Yield to allow other higher priority tasks to run, but use this method over vTaskDelay(0) keep delay time to a minimal as this is a very high priority task.
                 taskYIELD();
