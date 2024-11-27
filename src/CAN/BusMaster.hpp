@@ -21,12 +21,12 @@ namespace ReadieFur::OpenTCU::CAN
     class BusMaster : public Service::AService
     {
     protected:
-        static const int CAN_TIMEOUT_TICKS = pdMS_TO_TICKS(50);
-        static const int RELAY_TASK_STACK_SIZE = CONFIG_FREERTOS_IDLE_TASK_STACKSIZE * 2.5;
-        static const int RELAY_TASK_PRIORITY = configMAX_PRIORITIES * 0.6;
-        static const int CONFIG_TASK_STACK_SIZE = CONFIG_FREERTOS_IDLE_TASK_STACKSIZE * 2.5;
-        static const int CONFIG_TASK_PRIORITY = configMAX_PRIORITIES * 0.3;
-        static const int CONFIG_TASK_INTERVAL = pdMS_TO_TICKS(1000);
+        static const TickType_t CAN_TIMEOUT_TICKS = pdMS_TO_TICKS(50);
+        static const uint RELAY_TASK_STACK_SIZE = CONFIG_FREERTOS_IDLE_TASK_STACKSIZE * 2.5;
+        static const uint RELAY_TASK_PRIORITY = configMAX_PRIORITIES * 0.6;
+        static const uint CONFIG_TASK_STACK_SIZE = CONFIG_FREERTOS_IDLE_TASK_STACKSIZE * 2.5;
+        static const uint CONFIG_TASK_PRIORITY = configMAX_PRIORITIES * 0.3;
+        static const TickType_t CONFIG_TASK_INTERVAL = pdMS_TO_TICKS(1000);
 
         struct SRelayTaskParameters
         {

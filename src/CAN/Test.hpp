@@ -7,9 +7,11 @@ namespace ReadieFur::OpenTCU::CAN
     class Test : public BusMaster
     {
     private:
-        static const int TEST_CAN_TIMEOUT_TICKS = pdMS_TO_TICKS(500);
+        static const uint TEST_CAN_DELAY_MIN = 500;
+        static const uint TEST_CAN_DELAY_MAX = 1500;
+        static const TickType_t TEST_CAN_TIMEOUT_TICKS = pdMS_TO_TICKS(500);
 
-        TickType_t GetRandomDelay(uint32_t min, uint32_t max)
+        TickType_t GetRandomDelay(uint min, uint max)
         {
             return pdMS_TO_TICKS(min + (rand() % (max - min)));
         }
@@ -93,7 +95,7 @@ namespace ReadieFur::OpenTCU::CAN
                 LOGI(nameof(Test), "%i valid message received: %i, %i", id, rxMessage.id, receivedTimestamp);
 
                 // taskYIELD();
-                vTaskDelay(GetRandomDelay(500, 1500)); //Random delay to stagger the messages.
+                vTaskDelay(GetRandomDelay(TEST_CAN_DELAY_MIN, TEST_CAN_DELAY_MAX)); //Random delay to stagger the messages.
             }
 
             vTaskDelete(NULL);
