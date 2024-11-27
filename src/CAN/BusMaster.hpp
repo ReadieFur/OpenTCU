@@ -90,7 +90,7 @@ namespace ReadieFur::OpenTCU::CAN
             delete params;
         }
 
-        //Force inline for performance reasons.
+        //Force inline for minor performance improvements, ideal in this program as it will be called extremely frequently and is used for real-time data analysis.
         inline virtual void InterceptMessage(SCanMessage* message)
         {
             //TODO: Implement.
