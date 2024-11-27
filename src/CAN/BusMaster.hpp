@@ -35,8 +35,9 @@ namespace ReadieFur::OpenTCU::CAN
             ACan* can2;
         };
 
+    private:
         #if SOC_TWAI_CONTROLLER_NUM <= 1
-        spi_device_handle_t _mcpDeviceHandle = nullptr;
+        spi_device_handle_t _mcpDeviceHandle = nullptr; //TODO: Move this to the MCP2515 file.
         #endif
         ACan* _can1 = nullptr;
         ACan* _can2 = nullptr;
@@ -49,6 +50,7 @@ namespace ReadieFur::OpenTCU::CAN
             static_cast<SRelayTaskParameters*>(param)->self->RelayTaskLocal(param);
         }
 
+    protected:
         virtual void RelayTaskLocal(void* param)
         {
             SRelayTaskParameters* params = static_cast<SRelayTaskParameters*>(param);
@@ -59,7 +61,10 @@ namespace ReadieFur::OpenTCU::CAN
                 //Attempt to read a message from the bus.
                 SCanMessage message;
                 if (esp_err_t receiveResult = params->can1->Receive(&message, CAN_TIMEOUT_TICKS) != ESP_OK)
+                {
+                    taskYIELD();
                     continue;
+                }
 
                 //Analyze the message and modify it if needed.
                 params->self->InterceptMessage(&message);
@@ -83,27 +88,27 @@ namespace ReadieFur::OpenTCU::CAN
         void RunServiceImpl() override
         {
             #pragma region CAN1
-            gpio_config_t txPinConfig1 = {
-                .pin_bit_mask = 1ULL << TWAI1_TX_PIN,
+            gpio_config_t hostTxPinConfig1 = {
+                .pin_bit_mask = 1ULL << TWAI1_RX_PIN, //Have the GPIO config inverted, e.g. the RX of the CAN controller is the TX of the host.
                 .mode = GPIO_MODE_OUTPUT,
                 .pull_up_en = GPIO_PULLUP_DISABLE,
                 .pull_down_en = GPIO_PULLDOWN_ENABLE,
                 .intr_type = GPIO_INTR_DISABLE
             };
-            gpio_config_t rxPinConfig1 = {
-                .pin_bit_mask = 1ULL << TWAI1_RX_PIN,
+            gpio_config_t hostRxPinConfig1 = {
+                .pin_bit_mask = 1ULL << TWAI1_TX_PIN,
                 .mode = GPIO_MODE_INPUT,
                 .pull_up_en = GPIO_PULLUP_DISABLE,
                 .pull_down_en = GPIO_PULLDOWN_ENABLE,
                 .intr_type = GPIO_INTR_DISABLE
             };
-            ESP_ERROR_CHECK(gpio_config(&txPinConfig1));
-            ESP_ERROR_CHECK(gpio_config(&rxPinConfig1));
+            ESP_ERROR_CHECK(gpio_config(&hostTxPinConfig1));
+            ESP_ERROR_CHECK(gpio_config(&hostRxPinConfig1));
 
             _can1 = TwaiCan::Initialize(
                 TWAI_GENERAL_CONFIG_DEFAULT_V2(
                     0,
-                    TWAI1_TX_PIN,
+                    TWAI1_TX_PIN, //It seems this driver wants the pinout of the controller, not the host, i.e. pass the controller TX pin to the TX parameter, instead of the host TX pin (which would be the RX pin of the controller).
                     TWAI1_RX_PIN,
                     TWAI_MODE_NORMAL
                 ),
@@ -115,22 +120,22 @@ namespace ReadieFur::OpenTCU::CAN
 
             #pragma region CAN2
             #if SOC_TWAI_CONTROLLER_NUM > 1
-            gpio_config_t txPinConfig2 = {
-                .pin_bit_mask = 1ULL << TWAI2_TX_PIN,
+            gpio_config_t hostTxPinConfig2 = {
+                .pin_bit_mask = 1ULL << TWAI2_RX_PIN,
                 .mode = GPIO_MODE_OUTPUT,
                 .pull_up_en = GPIO_PULLUP_DISABLE,
                 .pull_down_en = GPIO_PULLDOWN_ENABLE,
                 .intr_type = GPIO_INTR_DISABLE
             };
-            gpio_config_t rxPinConfig2 = {
-                .pin_bit_mask = 1ULL << TWAI2_RX_PIN,
+            gpio_config_t hostRxPinConfig2 = {
+                .pin_bit_mask = 1ULL << TWAI2_TX_PIN,
                 .mode = GPIO_MODE_INPUT,
                 .pull_up_en = GPIO_PULLUP_DISABLE,
                 .pull_down_en = GPIO_PULLDOWN_ENABLE,
                 .intr_type = GPIO_INTR_DISABLE
             };
-            ESP_ERROR_CHECK(gpio_config(&txPinConfig2));
-            ESP_ERROR_CHECK(gpio_config(&rxPinConfig2));
+            ESP_ERROR_CHECK(gpio_config(&hostTxPinConfig2));
+            ESP_ERROR_CHECK(gpio_config(&hostRxPinConfig2));
 
             _can2 = TwaiCan::Initialize(
                 TWAI_GENERAL_CONFIG_DEFAULT_V2(
