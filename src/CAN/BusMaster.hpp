@@ -90,7 +90,8 @@ namespace ReadieFur::OpenTCU::CAN
             delete params;
         }
 
-        inline void InterceptMessage(SCanMessage* message)
+        //Force inline for performance reasons.
+        inline virtual void InterceptMessage(SCanMessage* message)
         {
             //TODO: Implement.
         }
