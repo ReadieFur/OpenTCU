@@ -1,5 +1,6 @@
 #ifdef DEBUG
 // #define _CAN_TEST
+#define ENABLE_CAN_DUMP
 #endif
 
 #include <freertos/FreeRTOS.h> //Has to always be the first included FreeRTOS related header.
@@ -7,11 +8,15 @@
 #include "Service/ServiceManager.hpp"
 #include "Config/Device.h"
 #include "CAN/BusMaster.hpp"
+#include "CAN/Logger.hpp"
 #include <esp_sleep.h>
 #include <freertos/task.h>
 #include "Logging.hpp"
 #ifdef _CAN_TEST
 #include "CAN/Test.hpp"
+#endif
+#ifdef DEBUG
+#include "Diagnostic/DiagnosticsService.hpp"
 #endif
 
 #define CHECK_SERVICE_RESULT(func) do {                                     \
@@ -49,6 +54,16 @@ void setup()
     #else
     CHECK_SERVICE_RESULT(ReadieFur::Service::ServiceManager::InstallService<CAN::Test>());
     CHECK_SERVICE_RESULT(ReadieFur::Service::ServiceManager::StartService<CAN::Test>());
+    #endif
+
+    #ifdef DEBUG
+    CHECK_SERVICE_RESULT(ReadieFur::Service::ServiceManager::InstallService<ReadieFur::Diagnostic::DiagnosticsService>());
+    CHECK_SERVICE_RESULT(ReadieFur::Service::ServiceManager::StartService<ReadieFur::Diagnostic::DiagnosticsService>());
+    #endif
+
+    #ifdef ENABLE_CAN_DUMP
+    CHECK_SERVICE_RESULT(ReadieFur::Service::ServiceManager::InstallService<CAN::Logger>());
+    CHECK_SERVICE_RESULT(ReadieFur::Service::ServiceManager::StartService<CAN::Logger>());
     #endif
 }
 
