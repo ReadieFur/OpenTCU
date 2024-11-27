@@ -70,6 +70,7 @@ namespace ReadieFur::OpenTCU::CAN
                 params->self->InterceptMessage(&message);
 
                 //Relay the message to the other CAN bus.
+                //The result of this is not checked as that is not needed just yet and logging will happen internally if it fails.
                 params->can2->Send(message, CAN_TIMEOUT_TICKS);
 
                 //Yield to allow other higher priority tasks to run, but use this method over vTaskDelay(0) keep delay time to a minimal as this is a very high priority task.
