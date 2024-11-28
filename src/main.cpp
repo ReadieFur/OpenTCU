@@ -21,6 +21,13 @@
 #include <Network/OTA/API.hpp>
 #include <esp_pm.h>
 
+#include <esp_bt.h>
+#include <esp_blufi_api.h>
+#include <esp_bt_defs.h>
+#include <esp_gap_ble_api.h>
+#include <esp_bt_main.h>
+#include <esp_bt_device.h>
+
 #define CHECK_SERVICE_RESULT(func) do {                                     \
         ReadieFur::Service::EServiceResult result = func;                   \
         if (result == ReadieFur::Service::Ok) break;                        \
