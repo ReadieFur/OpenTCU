@@ -19,6 +19,7 @@
 #include "Diagnostic/DiagnosticsService.hpp"
 #endif
 #include <Network/OTA/API.hpp>
+#include <esp_pm.h>
 
 #define CHECK_SERVICE_RESULT(func) do {                                     \
         ReadieFur::Service::EServiceResult result = func;                   \
@@ -27,17 +28,26 @@
         abort();                                                            \
     } while (0)
 
-#define CHECK_ESP_RESULT(func) do {                                         \
-        esp_err_t result = func;                                            \
-        if (result == ESP_OK) break;                                        \
-        LOGE(pcTaskGetName(NULL), "Failed with result: %i", result);        \
-        abort();                                                            \
+#define CHECK_ESP_RESULT(func) do {                                                     \
+        esp_err_t result = func;                                                        \
+        if (result == ESP_OK) break;                                                    \
+        LOGE(pcTaskGetName(NULL), "Failed with result: %s", esp_err_to_name(result));   \
+        abort();                                                                        \
     } while (0)
 
 using namespace ReadieFur::OpenTCU;
 
 void setup()
 {
+    //Set CPU frequency to the highest available as this real-time system needs to be as fast as possible.
+    // esp_pm_config_t cpuConfig = {
+    //     .max_freq_mhz = ESP_PM_CPU_FREQ_MAX,
+    //     .min_freq_mhz = ESP_PM_CPU_FREQ_MAX,
+    //     .light_sleep_enable = false
+    // };
+    // CHECK_ESP_RESULT(esp_pm_configure(&cpuConfig));
+    //Setting the CPU frequency is not strictly required as when TWAI is enabled, the frequency is locked at ESP_PM_APB_FREQ_MAX as per the ESP-IDF documentation.
+
     #ifdef DEBUG
     //Set base log level.
     esp_log_level_set("*", ESP_LOG_VERBOSE);
