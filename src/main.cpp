@@ -29,7 +29,7 @@
 
 #define CHECK_ESP_RESULT(func) do {                                         \
         esp_err_t result = func;                                            \
-        if (result == ESP_OK) break;                                         \
+        if (result == ESP_OK) break;                                        \
         LOGE(pcTaskGetName(NULL), "Failed with result: %i", result);        \
         abort();                                                            \
     } while (0)
