@@ -21,6 +21,9 @@
 #include <Network/OTA/API.hpp>
 #include <esp_pm.h>
 #include "Bluetooth/TCU.hpp"
+#include <string>
+#include <esp_mac.h>
+#include <cstring>
 
 #define CHECK_SERVICE_RESULT(func) do {                                     \
         ReadieFur::Service::EServiceResult result = func;                   \
@@ -87,12 +90,25 @@ void setup()
     CHECK_SERVICE_RESULT(ReadieFur::Service::ServiceManager::InstallAndStartService<CAN::Logger>());
     #endif
 
+    //Get the device name based on the TCU ID.
+    vTaskDelay(pdMS_TO_TICKS(2000));
+    std::string deviceId = TCU_NAME;
+    while (deviceId.length() > 0 && !isdigit(deviceId.front()))
+        deviceId.erase(0, 1);
+    if (deviceId.empty())
+    {
+        //Use the mac address as the device name.
+        uint8_t mac[6];
+        esp_read_mac(mac, ESP_MAC_BASE);
+        deviceId = std::to_string(mac[0]) + std::to_string(mac[1]) + std::to_string(mac[2]) + std::to_string(mac[3]) + std::to_string(mac[4]) + std::to_string(mac[5]);
+    }
+    std::string deviceName = "OpenTCU" + deviceId;
+
+    //Initialize the WiFi interface.
     CHECK_ESP_RESULT(ReadieFur::Network::WiFi::Init());
     wifi_config_t apConfig = {
         .ap = {
-            .ssid = DEVICE_NAME,
-            .password = "",
-            .ssid_len = strlen(DEVICE_NAME),
+            .password = "OpenTCU" TCU_PIN, //Temporary, still left open for now.
             .channel = 1,
             .authmode = WIFI_AUTH_OPEN,
             .ssid_hidden = 0,
@@ -100,6 +116,8 @@ void setup()
             .beacon_interval = 100,
         }
     };
+    std::strncpy(reinterpret_cast<char*>(apConfig.ap.ssid), deviceName.c_str(), sizeof(apConfig.ap.ssid));
+    apConfig.ap.ssid_len = deviceName.length();
     CHECK_ESP_RESULT(ReadieFur::Network::WiFi::ConfigureInterface(WIFI_IF_AP, apConfig));
     CHECK_ESP_RESULT(ReadieFur::Network::OTA::API::Init());
 
