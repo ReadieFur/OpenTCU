@@ -20,6 +20,7 @@
 #endif
 #include <Network/OTA/API.hpp>
 #include <esp_pm.h>
+#include "Bluetooth/TCU.hpp"
 
 #define CHECK_SERVICE_RESULT(func) do {                                     \
         ReadieFur::Service::EServiceResult result = func;                   \
@@ -101,6 +102,8 @@ void setup()
     };
     CHECK_ESP_RESULT(ReadieFur::Network::WiFi::ConfigureInterface(WIFI_IF_AP, apConfig));
     CHECK_ESP_RESULT(ReadieFur::Network::OTA::API::Init());
+
+    CHECK_SERVICE_RESULT(ReadieFur::Service::ServiceManager::InstallAndStartService<Bluetooth::TCU>());
 }
 
 void loop()
