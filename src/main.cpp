@@ -31,8 +31,13 @@ using namespace ReadieFur::OpenTCU;
 void setup()
 {
     #ifdef DEBUG
-    // esp_log_level_set("*", ESP_LOG_VERBOSE);
+    //Set base log level.
     esp_log_level_set("*", ESP_LOG_DEBUG);
+    //Set custom log levels.
+    esp_log_level_set(nameof(CAN::BusMaster), ESP_LOG_ERROR);
+    esp_log_level_set(nameof(CAN::TwaiCan), ESP_LOG_ERROR);
+    // esp_log_level_set(nameof(CAN::McpCan), ESP_LOG_ERROR);
+    esp_log_level_set(nameof(CAN::Logger), ESP_LOG_INFO);
     #else
     esp_log_level_set("*", ESP_LOG_INFO);
     #endif

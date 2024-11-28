@@ -68,7 +68,7 @@ namespace ReadieFur::OpenTCU::CAN
                 esp_err_t res = ESP_OK;
                 if ((res = params->can1->Receive(&message, CAN_TIMEOUT_TICKS)) != ESP_OK)
                 {
-                    // LOGW(nameof(BusMaster), "CAN%c failed to receive message: %i", bus, res);
+                    LOGW(nameof(CAN::BusMaster), "CAN%c failed to receive message: %i", bus, res);
                     taskYIELD();
                     continue;
                 }
@@ -77,7 +77,7 @@ namespace ReadieFur::OpenTCU::CAN
                 //Copy the original message for logging.
                 SCanDump dump =
                 {
-                    .timestamp = xTaskGetTickCount(),
+                    .timestamp = esp_log_timestamp(),
                     .bus = bus,
                     .message = message //Creates a copy of the struct.
                 };
@@ -98,7 +98,7 @@ namespace ReadieFur::OpenTCU::CAN
                 res = ESP_OK;
                 if ((res = params->can2->Send(message, CAN_TIMEOUT_TICKS)) != ESP_OK)
                 {
-                    // LOGW(nameof(BusMaster), "CAN%c failed to relay message: %i", bus, res);
+                    LOGW(nameof(CAN::BusMaster), "CAN%c failed to relay message: %i", bus, res);
                     taskYIELD();
                     continue;
                 }
@@ -147,7 +147,11 @@ namespace ReadieFur::OpenTCU::CAN
                 TWAI_TIMING_CONFIG_250KBITS(),
                 TWAI_FILTER_CONFIG_ACCEPT_ALL()
             );
-            ESP_RETURN_ON_FALSE(_can1 != nullptr,, nameof(BusMaster), "Failed to initialize CAN1: %i", 3);
+            if (_can1 == nullptr)
+            {
+                LOGE(nameof(CAN::BusMaster), "Failed to initialize CAN1.");
+                return;
+            }
             #pragma endregion
 
             #pragma region CAN2
@@ -216,11 +220,15 @@ namespace ReadieFur::OpenTCU::CAN
                 .pull_down_en = GPIO_PULLDOWN_DISABLE,
                 .intr_type = GPIO_INTR_NEGEDGE //Trigger on the falling edge.
             };
-            ESP_RETURN_ON_FALSE(gpio_config(&mosiPinConfig) == ESP_OK,, nameof(BusMaster), "Failed to initialize SPI bus: %i", 4);
-            ESP_RETURN_ON_FALSE(gpio_config(&misoPinConfig) == ESP_OK,, nameof(BusMaster), "Failed to initialize SPI bus: %i", 4);
-            ESP_RETURN_ON_FALSE(gpio_config(&sckPinConfig) == ESP_OK,, nameof(BusMaster), "Failed to initialize SPI bus: %i", 4);
-            ESP_RETURN_ON_FALSE(gpio_config(&csPinConfig) == ESP_OK,, nameof(BusMaster), "Failed to initialize SPI bus: %i", 4);
-            ESP_RETURN_ON_FALSE(gpio_config(&intPinConfig) == ESP_OK,, nameof(BusMaster), "Failed to initialize SPI bus: %i", 4);
+            if (gpio_config(&mosiPinConfig) != ESP_OK
+                || gpio_config(&misoPinConfig) != ESP_OK
+                || gpio_config(&sckPinConfig) != ESP_OK
+                || gpio_config(&csPinConfig) != ESP_OK
+                || gpio_config(&intPinConfig) != ESP_OK)
+            {
+                LOGE(nameof(CAN::BusMaster), "Failed to initialize SPI bus: %i", 4);
+                return;
+            }
 
             spi_bus_config_t busConfig = {
                 .mosi_io_num = SPI_MOSI_PIN,
@@ -231,7 +239,11 @@ namespace ReadieFur::OpenTCU::CAN
                 .max_transfer_sz = SOC_SPI_MAXIMUM_BUFFER_SIZE,
             };
             //SPI2_HOST is the only SPI bus that can be used as GPSPI on the C3.
-            ESP_RETURN_ON_FALSE(spi_bus_initialize(SPI2_HOST, &busConfig, SPI_DMA_CH_AUTO) == ESP_OK,, nameof(BusMaster), "Failed to initialize SPI bus: %i", 1);
+            if (spi_bus_initialize(SPI2_HOST, &busConfig, SPI_DMA_CH_AUTO) != ESP_OK)
+            {
+                LOGE(nameof(CAN::BusMaster), "Failed to initialize SPI bus: %i", 1);
+                return;
+            }
 
             spi_device_interface_config_t dev_config = {
                 .mode = 0,
@@ -239,16 +251,28 @@ namespace ReadieFur::OpenTCU::CAN
                 .spics_io_num = SPI_CS_PIN,
                 .queue_size = 2, //2 as per the specification: https://ww1.microchip.com/downloads/en/DeviceDoc/MCP2515-Stand-Alone-CAN-Controller-with-SPI-20001801J.pdf
             };
-            ESP_RETURN_ON_FALSE(spi_bus_add_device(SPI2_HOST, &dev_config, &_mcpDeviceHandle) == ESP_OK,, nameof(BusMaster), "Failed to initialize SPI bus: %i", 1);
+            if (spi_bus_add_device(SPI2_HOST, &dev_config, &_mcpDeviceHandle) != ESP_OK)
+            {
+                LOGE(nameof(CAN::BusMaster), "Failed to initialize SPI bus: %i", 1);
+                return;
+            }
 
             _can2 = new SpiCan(_spiDevice, CAN_250KBPS, MCP_8MHZ, SPI_INT_PIN);
             #endif
-            ESP_RETURN_ON_FALSE(_can2 != nullptr,, nameof(BusMaster), "Failed to initialize CAN2: %i", 2);
+            if (_can2 == nullptr)
+            {
+                LOGE(nameof(CAN::BusMaster), "Failed to initialize CAN2: %i", 2);
+                return;
+            }
             #pragma endregion
 
             #ifdef ENABLE_CAN_DUMP
             CanDumpQueue = xQueueCreate(CAN_DUMP_QUEUE_SIZE, sizeof(BusMaster::SCanDump));
-            ESP_RETURN_ON_FALSE(CanDumpQueue != NULL,, nameof(BusMaster), "Failed to create log queue.");
+            if (CanDumpQueue == NULL)
+            {
+                LOGE(nameof(CAN::BusMaster), "Failed to create log queue.");
+                return;
+            }
             #endif
 
             #pragma region Tasks
@@ -261,25 +285,29 @@ namespace ReadieFur::OpenTCU::CAN
 
             #if SOC_CPU_CORES_NUM > 1
             {
-                ESP_RETURN_ON_FALSE(
-                    xTaskCreatePinnedToCore(RelayTask, "CAN1->CAN2", RELAY_TASK_STACK_SIZE, params1, RELAY_TASK_PRIORITY, &_can1TaskHandle, 0) == pdPASS,
-                    , nameof(BusMaster), "Failed to create relay task for CAN1->CAN2."
-                );
-                ESP_RETURN_ON_FALSE(
-                    xTaskCreatePinnedToCore(RelayTask, "CAN2->CAN1", RELAY_TASK_STACK_SIZE, params2, RELAY_TASK_PRIORITY, &_can2TaskHandle, 1) == pdPASS,
-                    , nameof(BusMaster), "Failed to create relay task for CAN2->CAN1."
-                );
+                if (xTaskCreatePinnedToCore(RelayTask, "CAN1->CAN2", RELAY_TASK_STACK_SIZE, params1, RELAY_TASK_PRIORITY, &_can1TaskHandle, 0) != pdPASS)
+                {
+                    LOGE(nameof(CAN::BusMaster), "Failed to create relay task for CAN1->CAN2.");
+                    return;
+                }
+                if (xTaskCreatePinnedToCore(RelayTask, "CAN2->CAN1", RELAY_TASK_STACK_SIZE, params2, RELAY_TASK_PRIORITY, &_can2TaskHandle, 1) != pdPASS)
+                {
+                    LOGE(nameof(CAN::BusMaster), "Failed to create relay task for CAN2->CAN1.");
+                    return;
+                }
             }
             #else
             {
-                ESP_RETURN_ON_FALSE(
-                    xTaskCreate(RelayTask, "CAN1->CAN2", RELAY_TASK_STACK_SIZE, params1, RELAY_TASK_PRIORITY, &_can1TaskHandle) == pdPASS,
-                    , nameof(BusMaster), "Failed to create relay task for CAN1->CAN2."
-                );
-                ESP_RETURN_ON_FALSE(
-                    xTaskCreate(RelayTask, "CAN2->CAN1", RELAY_TASK_STACK_SIZE, params2, RELAY_TASK_PRIORITY, &_can2TaskHandle) == pdPASS,
-                    , nameof(BusMaster), "Failed to create relay task for CAN2->CAN1."
-                );
+                if (xTaskCreate(RelayTask, "CAN1->CAN2", RELAY_TASK_STACK_SIZE, params1, RELAY_TASK_PRIORITY, &_can1TaskHandle) != pdPASS)
+                {
+                    LOGE(nameof(CAN::BusMaster), "Failed to create relay task for CAN1->CAN2.");
+                    return;
+                }
+                if (xTaskCreate(RelayTask, "CAN2->CAN1", RELAY_TASK_STACK_SIZE, params2, RELAY_TASK_PRIORITY, &_can2TaskHandle) != pdPASS)
+                {
+                    LOGE(nameof(CAN::BusMaster), "Failed to create relay task for CAN2->CAN1.");
+                    return;
+                }
             }
             #endif
             #pragma endregion

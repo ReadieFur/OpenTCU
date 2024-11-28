@@ -27,9 +27,21 @@ namespace ReadieFur::OpenTCU::CAN
         int Install()
         {
             esp_err_t res = ESP_OK;
-            ESP_RETURN_ON_FALSE((res = twai_driver_install_v2(&_generalConfig, &_timingConfig, &_filterConfig, &_driverHandle)) == ESP_OK, res, nameof(TwaiCan), "Failed to install TWAI driver: %#08x", res);
-            ESP_RETURN_ON_FALSE((res = twai_start_v2(_driverHandle)) == ESP_OK, res, nameof(TwaiCan), "Failed to start TWAI driver: %#08x", res);
-            ESP_RETURN_ON_FALSE((res = twai_reconfigure_alerts_v2(_driverHandle, TWAI_ALERT_RX_DATA, NULL)) == ESP_OK, res, nameof(TwaiCan), "Failed to configure TWAI driver: %#08x", res);
+            if ((res = twai_driver_install_v2(&_generalConfig, &_timingConfig, &_filterConfig, &_driverHandle)) != ESP_OK)
+            {
+                LOGE(nameof(CAN::TwaiCan), "Failed to install TWAI driver: %#08x", res);
+                return res;
+            }
+            if ((res = twai_start_v2(_driverHandle)) != ESP_OK)
+            {
+                LOGE(nameof(CAN::TwaiCan), "Failed to start TWAI driver: %#08x", res);
+                return res;
+            }
+            if ((res = twai_reconfigure_alerts_v2(_driverHandle, TWAI_ALERT_RX_DATA, NULL)) != ESP_OK)
+            {
+                LOGE(nameof(CAN::TwaiCan), "Failed to configure TWAI driver: %#08x", res);
+                return res;
+            }
             return 0;
         }
 
@@ -62,14 +74,19 @@ namespace ReadieFur::OpenTCU::CAN
                 twaiMessage.data[i] = message.data[i];
 
             #ifdef USE_CAN_DRIVER_LOCK
-            ESP_RETURN_ON_FALSE(xSemaphoreTake(_driverMutex, timeout) == pdTRUE, ESP_ERR_TIMEOUT, nameof(TwaiCan), "Timeout.");
+            if (xSemaphoreTake(_driverMutex, timeout) != pdTRUE)
+            {
+                LOGW(nameof(CAN::TwaiCan), "Timeout.");
+                return ESP_ERR_TIMEOUT;
+            }
             #endif
 
             esp_err_t res = twai_transmit_v2(_driverHandle, &twaiMessage, timeout);
             #ifdef USE_CAN_DRIVER_LOCK
             xSemaphoreGive(_driverMutex);
             #endif
-            ESP_RETURN_ON_FALSE(res == ESP_OK, res, nameof(TwaiCan), "Failed to send message: %i", res);
+            if (res != ESP_OK)
+                LOGE(nameof(CAN::TwaiCan), "Failed to send message: %i", res);
 
             return res;
         }
@@ -83,7 +100,11 @@ namespace ReadieFur::OpenTCU::CAN
             //We don't need to check the alert type because we have only subscribed to the RX_DATA alert.
 
             #ifdef USE_CAN_DRIVER_LOCK
-            ESP_RETURN_ON_FALSE(xSemaphoreTake(_driverMutex, timeout) == pdTRUE, ESP_ERR_TIMEOUT, nameof(TwaiCan), "Timeout.");
+            if (xSemaphoreTake(_driverMutex, timeout) != pdTRUE)
+            {
+                LOGW(nameof(CAN::TwaiCan), "Timeout.");
+                return ESP_ERR_TIMEOUT;
+            }
             #endif
 
             twai_message_t twaiMessage;
@@ -92,7 +113,11 @@ namespace ReadieFur::OpenTCU::CAN
             //TODO: Handle potential failing of this release. If this fails the program will enter a catastrophic state.
             xSemaphoreGive(_driverMutex);
             #endif
-            ESP_RETURN_ON_FALSE(err == ESP_OK, err, nameof(TwaiCan), "Failed to receive message: %i", err);
+            if (err != ESP_OK)
+            {
+                LOGE(nameof(CAN::TwaiCan), "Failed to receive message: %i", err);
+                return err;
+            }
 
             message->id = twaiMessage.identifier;
             message->length = twaiMessage.data_length_code;
@@ -107,7 +132,11 @@ namespace ReadieFur::OpenTCU::CAN
         esp_err_t GetStatus(uint32_t* status, TickType_t timeout)
         {
             #ifdef USE_CAN_DRIVER_LOCK
-            ESP_RETURN_ON_FALSE(xSemaphoreTake(_driverMutex, timeout) == pdTRUE, ESP_ERR_TIMEOUT, nameof(TwaiCan), "Timeout.");
+            if (xSemaphoreTake(_driverMutex, timeout) != pdTRUE)
+            {
+                LOGW(nameof(CAN::TwaiCan), "Timeout.");
+                return ESP_ERR_TIMEOUT;
+            }
             #endif
             
             // esp_err_t res = twai_get_status_info_v2(_driverHandle, (twai_status_info_t*)status);

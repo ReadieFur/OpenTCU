@@ -25,7 +25,7 @@ namespace ReadieFur::OpenTCU::CAN
                 #ifdef ENABLE_CAN_DUMP
                 //Only process messages in batches.
                 UBaseType_t capturedQueueLength = uxQueueMessagesWaiting(_busMaster->CanDumpQueue);
-                LOGD(nameof(Logger), "Captured %d messages.", capturedQueueLength);
+                LOGD(nameof(CAN::Logger), "Captured %d messages.", capturedQueueLength);
                 while (capturedQueueLength > 0 && uxQueueMessagesWaiting(_busMaster->CanDumpQueue) > 0)
                 {
                     BusMaster::SCanDump dump;
@@ -33,7 +33,7 @@ namespace ReadieFur::OpenTCU::CAN
                         break;
 
                     //It is faster to just dump all values rather than filter for only the amount of data sent, so instead we will post-process this data when it is not needed in real-time/is received on a more powerful device.
-                    LOGI(nameof(Logger), "%li,%c,%x,%d,%d,%d,%x,%x,%x,%x,%x,%x,%x,%x",
+                    LOGI(nameof(CAN::Logger), "%li,%c,%x,%d,%d,%d,%x,%x,%x,%x,%x,%x,%x,%x",
                         dump.timestamp,
                         dump.bus,
                         dump.message.id,
