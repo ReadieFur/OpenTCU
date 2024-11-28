@@ -68,7 +68,7 @@ namespace ReadieFur::OpenTCU::CAN
                 esp_err_t res = ESP_OK;
                 if ((res = params->can1->Receive(&message, CAN_TIMEOUT_TICKS)) != ESP_OK)
                 {
-                    LOGW(nameof(CAN::BusMaster), "CAN%c failed to receive message: %i", bus, res);
+                    LOGW(nameof(CAN::BusMaster), "CAN%c failed to receive message: %i", bus, res); //This should probably be an error not a warning.
                     taskYIELD();
                     continue;
                 }
