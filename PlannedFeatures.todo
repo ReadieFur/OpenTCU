@@ -1,4 +1,5 @@
-☐ CAN
-☐ WiFi off
-☐ Plain CAN relay
+✔ CAN @done(24-11-28 15:17)
 ☐ Decrypt bus messages
+✔ OTA @done(24-11-28 15:18)
+☐ BLE
+☐ TCU Power
