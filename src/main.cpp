@@ -18,10 +18,18 @@
 #ifdef DEBUG
 #include "Diagnostic/DiagnosticsService.hpp"
 #endif
+#include <Network/OTA/API.hpp>
 
 #define CHECK_SERVICE_RESULT(func) do {                                     \
         ReadieFur::Service::EServiceResult result = func;                   \
         if (result == ReadieFur::Service::Ok) break;                        \
+        LOGE(pcTaskGetName(NULL), "Failed with result: %i", result);        \
+        abort();                                                            \
+    } while (0)
+
+#define CHECK_ESP_RESULT(func) do {                                         \
+        esp_err_t result = func;                                            \
+        if (result == ESP_OK) break;                                         \
         LOGE(pcTaskGetName(NULL), "Failed with result: %i", result);        \
         abort();                                                            \
     } while (0)
@@ -32,12 +40,13 @@ void setup()
 {
     #ifdef DEBUG
     //Set base log level.
-    esp_log_level_set("*", ESP_LOG_DEBUG);
+    esp_log_level_set("*", ESP_LOG_VERBOSE);
     //Set custom log levels.
     esp_log_level_set(nameof(CAN::BusMaster), ESP_LOG_ERROR);
     esp_log_level_set(nameof(CAN::TwaiCan), ESP_LOG_ERROR);
     // esp_log_level_set(nameof(CAN::McpCan), ESP_LOG_ERROR);
     esp_log_level_set(nameof(CAN::Logger), ESP_LOG_INFO);
+    esp_log_level_set(nameof(OTA::API), ESP_LOG_VERBOSE);
     #else
     esp_log_level_set("*", ESP_LOG_INFO);
     #endif
@@ -54,22 +63,34 @@ void setup()
     #endif
 
     #ifndef _CAN_TEST
-    CHECK_SERVICE_RESULT(ReadieFur::Service::ServiceManager::InstallService<CAN::BusMaster>());
-    CHECK_SERVICE_RESULT(ReadieFur::Service::ServiceManager::StartService<CAN::BusMaster>());
+    CHECK_SERVICE_RESULT(ReadieFur::Service::ServiceManager::InstallAndStartService<CAN::BusMaster>());
     #else
-    CHECK_SERVICE_RESULT(ReadieFur::Service::ServiceManager::InstallService<CAN::Test>());
-    CHECK_SERVICE_RESULT(ReadieFur::Service::ServiceManager::StartService<CAN::Test>());
+    CHECK_SERVICE_RESULT(ReadieFur::Service::ServiceManager::InstallAndStartService<CAN::Test>());
     #endif
 
     #ifdef DEBUG
-    CHECK_SERVICE_RESULT(ReadieFur::Service::ServiceManager::InstallService<ReadieFur::Diagnostic::DiagnosticsService>());
-    CHECK_SERVICE_RESULT(ReadieFur::Service::ServiceManager::StartService<ReadieFur::Diagnostic::DiagnosticsService>());
+    CHECK_SERVICE_RESULT(ReadieFur::Service::ServiceManager::InstallAndStartService<ReadieFur::Diagnostic::DiagnosticsService>());
     #endif
 
     #ifdef ENABLE_CAN_DUMP
-    CHECK_SERVICE_RESULT(ReadieFur::Service::ServiceManager::InstallService<CAN::Logger>());
-    CHECK_SERVICE_RESULT(ReadieFur::Service::ServiceManager::StartService<CAN::Logger>());
+    CHECK_SERVICE_RESULT(ReadieFur::Service::ServiceManager::InstallAndStartService<CAN::Logger>());
     #endif
+
+    CHECK_ESP_RESULT(ReadieFur::Network::WiFi::Init());
+    wifi_config_t apConfig = {
+        .ap = {
+            .ssid = DEVICE_NAME,
+            .password = "",
+            .ssid_len = strlen(DEVICE_NAME),
+            .channel = 1,
+            .authmode = WIFI_AUTH_OPEN,
+            .ssid_hidden = 0,
+            .max_connection = 4,
+            .beacon_interval = 100,
+        }
+    };
+    CHECK_ESP_RESULT(ReadieFur::Network::WiFi::ConfigureInterface(WIFI_IF_AP, apConfig));
+    CHECK_ESP_RESULT(ReadieFur::Network::OTA::API::Init());
 }
 
 void loop()
