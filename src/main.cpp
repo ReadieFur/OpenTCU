@@ -74,7 +74,7 @@ void SetLogLevel()
     //Set base log level.
     esp_log_level_set("*", ESP_LOG_VERBOSE);
     //Set custom log levels.
-    esp_log_level_set(nameof(CAN::BusMaster), ESP_LOG_WARN);
+    esp_log_level_set(nameof(CAN::BusMaster), ESP_LOG_ERROR);
     esp_log_level_set(nameof(CAN::TwaiCan), ESP_LOG_ERROR);
     // esp_log_level_set(nameof(CAN::McpCan), ESP_LOG_ERROR);
     esp_log_level_set(nameof(CAN::Logger), ESP_LOG_INFO);
