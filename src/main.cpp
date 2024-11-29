@@ -142,6 +142,10 @@ void ConfigureAdditionalLoggers()
 
 void setup()
 {
+    #ifdef _ENABLE_STDOUT_HOOK
+    ReadieFur::Logging::OverrideStdout();
+    #endif
+
     // SetCPUFrequency();
     SetLogLevel();
 
