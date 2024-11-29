@@ -117,7 +117,7 @@ void ConfigureAdditionalLoggers()
         return;
     }
 
-    UdpDestAddr.sin_addr.s_addr = inet_addr("192.168.4.255");
+    UdpDestAddr.sin_addr.s_addr = inet_addr("192.168.4.255"); //Default broadcast address for the AP network.
     UdpDestAddr.sin_family = AF_INET;
     UdpDestAddr.sin_port = htons(49152);
 
