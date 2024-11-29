@@ -29,6 +29,7 @@ namespace ReadieFur::OpenTCU::CAN
                     if (xQueueReceive(_busMaster->CanDumpQueue, &dump, 0) != pdTRUE)
                         break;
 
+                    #if false
                     std::string dataStr = std::to_string(dump.timestamp)
                     + "," + dump.bus
                     + "," + std::to_string(dump.message.id)
@@ -39,6 +40,121 @@ namespace ReadieFur::OpenTCU::CAN
                         dataStr += "," + std::to_string(dump.message.data[i]);
                     const char* data = dataStr.c_str();
                     dataStr.clear();
+                    #else
+                    //The above wasn't working with output so I am going to do it the longer snprintf way.
+                    char data[256];
+                    switch (dump.message.length)
+                    {
+                    case 1:
+                        snprintf(data, sizeof(data), "%lu,%u,%u,%u,%u,%u,%u",
+                            dump.timestamp,
+                            dump.bus,
+                            dump.message.id,
+                            dump.message.isExtended,
+                            dump.message.isRemote,
+                            dump.message.length,
+                            dump.message.data[0]);
+                        break;
+                    case 2:
+                        snprintf(data, sizeof(data), "%lu,%u,%u,%u,%u,%u,%u,%u",
+                            dump.timestamp,
+                            dump.bus,
+                            dump.message.id,
+                            dump.message.isExtended,
+                            dump.message.isRemote,
+                            dump.message.length,
+                            dump.message.data[0],
+                            dump.message.data[1]);
+                        break;
+                    case 3:
+                        snprintf(data, sizeof(data), "%lu,%u,%u,%u,%u,%u,%u,%u,%u",
+                            dump.timestamp,
+                            dump.bus,
+                            dump.message.id,
+                            dump.message.isExtended,
+                            dump.message.isRemote,
+                            dump.message.length,
+                            dump.message.data[0],
+                            dump.message.data[1],
+                            dump.message.data[2]);
+                        break;
+                    case 4:
+                        snprintf(data, sizeof(data), "%lu,%u,%u,%u,%u,%u,%u,%u,%u,%u",
+                            dump.timestamp,
+                            dump.bus,
+                            dump.message.id,
+                            dump.message.isExtended,
+                            dump.message.isRemote,
+                            dump.message.length,
+                            dump.message.data[0],
+                            dump.message.data[1],
+                            dump.message.data[2],
+                            dump.message.data[3]);
+                        break;
+                    case 5:
+                        snprintf(data, sizeof(data), "%lu,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u",
+                            dump.timestamp,
+                            dump.bus,
+                            dump.message.id,
+                            dump.message.isExtended,
+                            dump.message.isRemote,
+                            dump.message.length,
+                            dump.message.data[0],
+                            dump.message.data[1],
+                            dump.message.data[2],
+                            dump.message.data[3],
+                            dump.message.data[4]);
+                        break;
+                    case 6:
+                        snprintf(data, sizeof(data), "%lu,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u",
+                            dump.timestamp,
+                            dump.bus,
+                            dump.message.id,
+                            dump.message.isExtended,
+                            dump.message.isRemote,
+                            dump.message.length,
+                            dump.message.data[0],
+                            dump.message.data[1],
+                            dump.message.data[2],
+                            dump.message.data[3],
+                            dump.message.data[4],
+                            dump.message.data[5]);
+                        break;
+                    case 7:
+                        snprintf(data, sizeof(data), "%lu,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u",
+                            dump.timestamp,
+                            dump.bus,
+                            dump.message.id,
+                            dump.message.isExtended,
+                            dump.message.isRemote,
+                            dump.message.length,
+                            dump.message.data[0],
+                            dump.message.data[1],
+                            dump.message.data[2],
+                            dump.message.data[3],
+                            dump.message.data[4],
+                            dump.message.data[5],
+                            dump.message.data[6]);
+                        break;
+                    default:
+                        snprintf(data, sizeof(data), "%lu,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u",
+                            dump.timestamp,
+                            dump.bus,
+                            dump.message.id,
+                            dump.message.isExtended,
+                            dump.message.isRemote,
+                            dump.message.length,
+                            dump.message.data[0],
+                            dump.message.data[1],
+                            dump.message.data[2],
+                            dump.message.data[3],
+                            dump.message.data[4],
+                            dump.message.data[5],
+                            dump.message.data[6],
+                            dump.message.data[7]);
+                        break;
+                    }
+                    #endif
 
                     #ifdef ENABLE_CAN_DUMP
                     LOGI(nameof(CAN::Logger), "%s", data);
