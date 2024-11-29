@@ -6,6 +6,8 @@
 #include <Logging.hpp>
 #include <string>
 
+#define _LIVE_LOG
+
 namespace ReadieFur::OpenTCU::CAN
 {
     class Logger : public Service::AService
@@ -14,6 +16,125 @@ namespace ReadieFur::OpenTCU::CAN
         static const TickType_t LOG_INTERVAL = pdMS_TO_TICKS(100);
         BusMaster* _busMaster = nullptr;
 
+        inline void Log(BusMaster::SCanDump& dump)
+        {
+            #ifdef ENABLE_CAN_DUMP
+            //Doing this the long way because previous dynamic methods were causing issues.
+            switch (dump.message.length)
+            {
+                //Shouldn't be 0, if it is, dump all data just in case.
+                case 1:
+                    LOGI(nameof(CAN::Logger), "%lu,%u,%u,%u,%u,%u,%u",
+                        dump.timestamp,
+                        dump.bus,
+                        dump.message.id,
+                        dump.message.isExtended,
+                        dump.message.isRemote,
+                        dump.message.length,
+                        dump.message.data[0]);
+                    break;
+                case 2:
+                    LOGI(nameof(CAN::Logger), "%lu,%u,%u,%u,%u,%u,%u,%u",
+                        dump.timestamp,
+                        dump.bus,
+                        dump.message.id,
+                        dump.message.isExtended,
+                        dump.message.isRemote,
+                        dump.message.length,
+                        dump.message.data[0],
+                        dump.message.data[1]);
+                    break;
+                case 3:
+                    LOGI(nameof(CAN::Logger), "%lu,%u,%u,%u,%u,%u,%u,%u,%u",
+                        dump.timestamp,
+                        dump.bus,
+                        dump.message.id,
+                        dump.message.isExtended,
+                        dump.message.isRemote,
+                        dump.message.length,
+                        dump.message.data[0],
+                        dump.message.data[1],
+                        dump.message.data[2]);
+                    break;
+                case 4:
+                    LOGI(nameof(CAN::Logger), "%lu,%u,%u,%u,%u,%u,%u,%u,%u,%u",
+                        dump.timestamp,
+                        dump.bus,
+                        dump.message.id,
+                        dump.message.isExtended,
+                        dump.message.isRemote,
+                        dump.message.length,
+                        dump.message.data[0],
+                        dump.message.data[1],
+                        dump.message.data[2],
+                        dump.message.data[3]);
+                    break;
+                case 5:
+                    LOGI(nameof(CAN::Logger), "%lu,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u",
+                        dump.timestamp,
+                        dump.bus,
+                        dump.message.id,
+                        dump.message.isExtended,
+                        dump.message.isRemote,
+                        dump.message.length,
+                        dump.message.data[0],
+                        dump.message.data[1],
+                        dump.message.data[2],
+                        dump.message.data[3],
+                        dump.message.data[4]);
+                    break;
+                case 6:
+                    LOGI(nameof(CAN::Logger), "%lu,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u",
+                        dump.timestamp,
+                        dump.bus,
+                        dump.message.id,
+                        dump.message.isExtended,
+                        dump.message.isRemote,
+                        dump.message.length,
+                        dump.message.data[0],
+                        dump.message.data[1],
+                        dump.message.data[2],
+                        dump.message.data[3],
+                        dump.message.data[4],
+                        dump.message.data[5]);
+                    break;
+                case 7:
+                    LOGI(nameof(CAN::Logger), "%lu,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u",
+                        dump.timestamp,
+                        dump.bus,
+                        dump.message.id,
+                        dump.message.isExtended,
+                        dump.message.isRemote,
+                        dump.message.length,
+                        dump.message.data[0],
+                        dump.message.data[1],
+                        dump.message.data[2],
+                        dump.message.data[3],
+                        dump.message.data[4],
+                        dump.message.data[5],
+                        dump.message.data[6]);
+                    break;
+                default:
+                    LOGI(nameof(CAN::Logger), "%lu,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u",
+                        dump.timestamp,
+                        dump.bus,
+                        dump.message.id,
+                        dump.message.isExtended,
+                        dump.message.isRemote,
+                        dump.message.length,
+                        dump.message.data[0],
+                        dump.message.data[1],
+                        dump.message.data[2],
+                        dump.message.data[3],
+                        dump.message.data[4],
+                        dump.message.data[5],
+                        dump.message.data[6],
+                        dump.message.data[7]);
+                    break;
+            }
+            #endif
+        }
+
     protected:
         void RunServiceImpl() override
         {
@@ -21,6 +142,7 @@ namespace ReadieFur::OpenTCU::CAN
 
             while (!ServiceCancellationToken.IsCancellationRequested())
             {
+                #ifndef _LIVE_LOG
                 //Process messages in batches.
                 UBaseType_t capturedQueueLength = uxQueueMessagesWaiting(_busMaster->CanDumpQueue);
                 while (capturedQueueLength > 0 && uxQueueMessagesWaiting(_busMaster->CanDumpQueue) > 0)
@@ -28,128 +150,18 @@ namespace ReadieFur::OpenTCU::CAN
                     BusMaster::SCanDump dump;
                     if (xQueueReceive(_busMaster->CanDumpQueue, &dump, 0) != pdTRUE)
                         break;
-
-                    #ifdef ENABLE_CAN_DUMP
-                    //Doing this the long way because previous dynamic methods were causing issues.
-                    switch (dump.message.length)
-                    {
-                        //Shouldn't be 0, if it is, dump all data just in case.
-                        case 1:
-                            LOGI(nameof(CAN::Logger), "%lu,%u,%u,%u,%u,%u,%u",
-                                dump.timestamp,
-                                dump.bus,
-                                dump.message.id,
-                                dump.message.isExtended,
-                                dump.message.isRemote,
-                                dump.message.length,
-                                dump.message.data[0]);
-                            break;
-                        case 2:
-                            LOGI(nameof(CAN::Logger), "%lu,%u,%u,%u,%u,%u,%u,%u",
-                                dump.timestamp,
-                                dump.bus,
-                                dump.message.id,
-                                dump.message.isExtended,
-                                dump.message.isRemote,
-                                dump.message.length,
-                                dump.message.data[0],
-                                dump.message.data[1]);
-                            break;
-                        case 3:
-                            LOGI(nameof(CAN::Logger), "%lu,%u,%u,%u,%u,%u,%u,%u,%u",
-                                dump.timestamp,
-                                dump.bus,
-                                dump.message.id,
-                                dump.message.isExtended,
-                                dump.message.isRemote,
-                                dump.message.length,
-                                dump.message.data[0],
-                                dump.message.data[1],
-                                dump.message.data[2]);
-                            break;
-                        case 4:
-                            LOGI(nameof(CAN::Logger), "%lu,%u,%u,%u,%u,%u,%u,%u,%u,%u",
-                                dump.timestamp,
-                                dump.bus,
-                                dump.message.id,
-                                dump.message.isExtended,
-                                dump.message.isRemote,
-                                dump.message.length,
-                                dump.message.data[0],
-                                dump.message.data[1],
-                                dump.message.data[2],
-                                dump.message.data[3]);
-                            break;
-                        case 5:
-                            LOGI(nameof(CAN::Logger), "%lu,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u",
-                                dump.timestamp,
-                                dump.bus,
-                                dump.message.id,
-                                dump.message.isExtended,
-                                dump.message.isRemote,
-                                dump.message.length,
-                                dump.message.data[0],
-                                dump.message.data[1],
-                                dump.message.data[2],
-                                dump.message.data[3],
-                                dump.message.data[4]);
-                            break;
-                        case 6:
-                            LOGI(nameof(CAN::Logger), "%lu,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u",
-                                dump.timestamp,
-                                dump.bus,
-                                dump.message.id,
-                                dump.message.isExtended,
-                                dump.message.isRemote,
-                                dump.message.length,
-                                dump.message.data[0],
-                                dump.message.data[1],
-                                dump.message.data[2],
-                                dump.message.data[3],
-                                dump.message.data[4],
-                                dump.message.data[5]);
-                            break;
-                        case 7:
-                            LOGI(nameof(CAN::Logger), "%lu,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u",
-                                dump.timestamp,
-                                dump.bus,
-                                dump.message.id,
-                                dump.message.isExtended,
-                                dump.message.isRemote,
-                                dump.message.length,
-                                dump.message.data[0],
-                                dump.message.data[1],
-                                dump.message.data[2],
-                                dump.message.data[3],
-                                dump.message.data[4],
-                                dump.message.data[5],
-                                dump.message.data[6]);
-                            break;
-                        default:
-                            LOGI(nameof(CAN::Logger), "%lu,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u",
-                                dump.timestamp,
-                                dump.bus,
-                                dump.message.id,
-                                dump.message.isExtended,
-                                dump.message.isRemote,
-                                dump.message.length,
-                                dump.message.data[0],
-                                dump.message.data[1],
-                                dump.message.data[2],
-                                dump.message.data[3],
-                                dump.message.data[4],
-                                dump.message.data[5],
-                                dump.message.data[6],
-                                dump.message.data[7]);
-                            break;
-                    }
-                    #endif
-
+                    Log(dump);
                     capturedQueueLength--;
                     portYIELD();
                 }
 
                 vTaskDelay(LOG_INTERVAL);
+                #else
+                //Process messages as they come in.
+                BusMaster::SCanDump dump;
+                if (xQueueReceive(_busMaster->CanDumpQueue, &dump, portMAX_DELAY) == pdTRUE)
+                    Log(dump);
+                #endif
             }
 
             _busMaster = nullptr;
