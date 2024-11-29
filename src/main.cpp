@@ -153,6 +153,7 @@ void setup()
     CHECK_SERVICE_RESULT(ReadieFur::Service::ServiceManager::InstallAndStartService<CAN::BusMaster>());
     #else
     CHECK_SERVICE_RESULT(ReadieFur::Service::ServiceManager::InstallAndStartService<CAN::Test>());
+    return;
     #endif
 
     #ifdef DEBUG
