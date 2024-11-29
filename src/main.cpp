@@ -1,6 +1,12 @@
 #ifdef DEBUG
 // #define _CAN_TEST
+// #define ENABLE_CAN_DUMP_SERIAL
+#define ENABLE_CAN_DUMP_UDP
+#define LOG_UDP
+
+#if defined(ENABLE_CAN_DUMP_SERIAL) || defined(ENABLE_CAN_DUMP_UDP)
 #define ENABLE_CAN_DUMP
+#endif
 #endif
 
 #include <freertos/FreeRTOS.h> //Has to always be the first included FreeRTOS related header.
@@ -24,6 +30,12 @@
 #include <string>
 #include <esp_mac.h>
 #include <cstring>
+#ifdef LOG_UDP
+#include <Network/WiFi.hpp>
+#include <lwip/sockets.h>
+#include <lwip/netdb.h>
+#include <lwip/inet.h>
+#endif
 
 #define CHECK_SERVICE_RESULT(func) do {                                     \
         ReadieFur::Service::EServiceResult result = func;                   \
@@ -41,7 +53,15 @@
 
 using namespace ReadieFur::OpenTCU;
 
-void setup()
+std::string DeviceName = "OpenTCU" TCU_NAME; //Placeholder value.
+
+#ifdef LOG_UDP
+int UdpSocket;
+struct sockaddr_in UdpDestAddr;
+int UdpBroadcastEnable = 1;
+#endif
+
+void SetCPUFrequency()
 {
     //Set CPU frequency to the highest available as this real-time system needs to be as fast as possible.
     // esp_pm_config_t cpuConfig = {
@@ -51,7 +71,10 @@ void setup()
     // };
     // CHECK_ESP_RESULT(esp_pm_configure(&cpuConfig));
     //Setting the CPU frequency is not strictly required as when TWAI is enabled, the frequency is locked at ESP_PM_APB_FREQ_MAX as per the ESP-IDF documentation.
+}
 
+void SetLogLevel()
+{
     #ifdef DEBUG
     //Set base log level.
     esp_log_level_set("*", ESP_LOG_VERBOSE);
@@ -65,17 +88,31 @@ void setup()
     #else
     esp_log_level_set("*", ESP_LOG_INFO);
     #endif
+}
 
-    #ifdef _CAN_TEST
-    xTaskCreate([](void*)
+void ConfigureDeviceName()
+{
+    //Get the device name based on the TCU ID.
+    std::string deviceId = TCU_NAME;
+    while (deviceId.length() > 0 && !isdigit(deviceId.front()))
+        deviceId.erase(0, 1);
+    if (deviceId.empty())
     {
-        while (true)
-        {
-            LOGI("AliveTask", "Alive");
-            vTaskDelay(pdMS_TO_TICKS(5000));
-        }
-    }, "AliveTask", IDLE_TASK_STACK_SIZE + 1024, nullptr, configMAX_PRIORITIES * 0.5, nullptr);
+        //Use the mac address as the device name.
+        uint8_t mac[6];
+        esp_read_mac(mac, ESP_MAC_BASE);
+        deviceId = std::to_string(mac[0]) + std::to_string(mac[1]) + std::to_string(mac[2]) + std::to_string(mac[3]) + std::to_string(mac[4]) + std::to_string(mac[5]);
+    }
+    DeviceName = "OpenTCU" + deviceId;
+}
+
     #endif
+}
+
+void setup()
+{
+    // SetCPUFrequency();
+    SetLogLevel();
 
     #ifndef _CAN_TEST
     CHECK_SERVICE_RESULT(ReadieFur::Service::ServiceManager::InstallAndStartService<CAN::BusMaster>());
@@ -87,29 +124,12 @@ void setup()
     CHECK_SERVICE_RESULT(ReadieFur::Service::ServiceManager::InstallAndStartService<ReadieFur::Diagnostic::DiagnosticsService>());
     #endif
 
-    #ifdef ENABLE_CAN_DUMP
-    CHECK_SERVICE_RESULT(ReadieFur::Service::ServiceManager::InstallAndStartService<CAN::Logger>());
-    #endif
-
-    //Get the device name based on the TCU ID.
-    vTaskDelay(pdMS_TO_TICKS(2000));
-    std::string deviceId = TCU_NAME;
-    while (deviceId.length() > 0 && !isdigit(deviceId.front()))
-        deviceId.erase(0, 1);
-    if (deviceId.empty())
-    {
-        //Use the mac address as the device name.
-        uint8_t mac[6];
-        esp_read_mac(mac, ESP_MAC_BASE);
-        deviceId = std::to_string(mac[0]) + std::to_string(mac[1]) + std::to_string(mac[2]) + std::to_string(mac[3]) + std::to_string(mac[4]) + std::to_string(mac[5]);
-    }
-    std::string deviceName = "OpenTCU" + deviceId;
-
-    //Initialize the WiFi interface.
+    //Configure WiFi.
     CHECK_ESP_RESULT(ReadieFur::Network::WiFi::Init());
     wifi_config_t apConfig = {
         .ap = {
             .password = "OpenTCU" TCU_PIN, //Temporary, still left open for now.
+            .ssid_len = (uint8_t)DeviceName.length(),
             .channel = 1,
             .authmode = WIFI_AUTH_OPEN,
             .ssid_hidden = 0,
@@ -117,12 +137,16 @@ void setup()
             .beacon_interval = 100,
         }
     };
-    std::strncpy(reinterpret_cast<char*>(apConfig.ap.ssid), deviceName.c_str(), sizeof(apConfig.ap.ssid));
-    apConfig.ap.ssid_len = deviceName.length();
+    std::strncpy(reinterpret_cast<char*>(apConfig.ap.ssid), DeviceName.c_str(), sizeof(apConfig.ap.ssid));
     CHECK_ESP_RESULT(ReadieFur::Network::WiFi::ConfigureInterface(WIFI_IF_AP, apConfig));
-    CHECK_ESP_RESULT(ReadieFur::Network::OTA::API::Init());
 
     CHECK_SERVICE_RESULT(ReadieFur::Service::ServiceManager::InstallAndStartService<Bluetooth::TCU>());
+
+    #ifdef ENABLE_CAN_DUMP
+    CHECK_SERVICE_RESULT(ReadieFur::Service::ServiceManager::InstallAndStartService<CAN::Logger>());
+    #endif
+
+    CHECK_ESP_RESULT(ReadieFur::Network::OTA::API::Init());
 }
 
 void loop()
