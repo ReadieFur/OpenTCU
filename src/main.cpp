@@ -1,6 +1,6 @@
 #ifdef DEBUG
 // #define _CAN_TEST
-#define LOG_UDP
+// #define LOG_UDP
 #define ENABLE_CAN_DUMP
 #endif
 
