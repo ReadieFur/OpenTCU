@@ -167,11 +167,15 @@ void setup()
             .ssid_len = (uint8_t)DeviceName.length(),
             .channel = 1,
             .authmode = WIFI_AUTH_OPEN,
-            .ssid_hidden = 0,
-            .max_connection = 4,
+            .max_connection = 2,
             .beacon_interval = 100,
         }
     };
+    #ifdef DEBUG
+    apConfig.ap.ssid_hidden = 0;
+    #else
+    apConfig.ap.ssid_hidden = 1;
+    #endif
     std::strncpy(reinterpret_cast<char*>(apConfig.ap.ssid), DeviceName.c_str(), sizeof(apConfig.ap.ssid));
     CHECK_ESP_RESULT(ReadieFur::Network::WiFi::ConfigureInterface(WIFI_IF_AP, apConfig));
 
