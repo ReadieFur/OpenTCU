@@ -159,7 +159,7 @@ void setup()
     CHECK_SERVICE_RESULT(ReadieFur::Service::ServiceManager::InstallAndStartService<ReadieFur::Diagnostic::DiagnosticsService>());
     #endif
 
-    //Configure WiFi.
+    ConfigureDeviceName();
     CHECK_ESP_RESULT(ReadieFur::Network::WiFi::Init());
     wifi_config_t apConfig = {
         .ap = {
