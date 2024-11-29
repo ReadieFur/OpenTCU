@@ -1,12 +1,7 @@
 #ifdef DEBUG
 // #define _CAN_TEST
-// #define ENABLE_CAN_DUMP_SERIAL
-#define ENABLE_CAN_DUMP_UDP
 #define LOG_UDP
-
-#if defined(ENABLE_CAN_DUMP_SERIAL) || defined(ENABLE_CAN_DUMP_UDP)
 #define ENABLE_CAN_DUMP
-#endif
 #endif
 
 #include <freertos/FreeRTOS.h> //Has to always be the first included FreeRTOS related header.
