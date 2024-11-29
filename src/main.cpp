@@ -106,6 +106,42 @@ void ConfigureDeviceName()
     DeviceName = "OpenTCU" + deviceId;
 }
 
+void ConfigureAdditionalLoggers()
+{
+    #ifdef LOG_UDP
+    if (!ReadieFur::Network::WiFi::Initalized())
+    {
+        LOGE(nameof(CAN::Logger), "WiFi is not initialized.");
+        return;
+    }
+
+    wifi_mode_t networkMode = ReadieFur::Network::WiFi::GetMode();
+    if (networkMode != WIFI_MODE_AP && networkMode != WIFI_MODE_APSTA)
+    {
+        LOGE(nameof(CAN::Logger), "WiFi is not in AP mode.");
+        return;
+    }
+
+    UdpDestAddr.sin_addr.s_addr = inet_addr("192.168.4.255");
+    UdpDestAddr.sin_family = AF_INET;
+    UdpDestAddr.sin_port = htons(49152);
+
+    UdpSocket = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+    if (UdpSocket < 0)
+    {
+        LOGE(nameof(CAN::Logger), "Failed to create UDP socket.");
+        return;
+    }
+
+    setsockopt(UdpSocket, SOL_SOCKET, SO_BROADCAST, &UdpBroadcastEnable, sizeof(UdpBroadcastEnable));
+
+    ReadieFur::Logging::AdditionalLoggers.push_back([](const char* message, size_t length)
+    {
+        int udpErr = sendto(UdpSocket, message, length, 0, (struct sockaddr*)&UdpDestAddr, sizeof(UdpDestAddr));
+        // if (udpErr < 0)
+        //     LOGE(nameof(CAN::Logger), "Failed to send UDP packet: %i", udpErr);
+        return udpErr;
+    });
     #endif
 }
 
@@ -139,6 +175,10 @@ void setup()
     };
     std::strncpy(reinterpret_cast<char*>(apConfig.ap.ssid), DeviceName.c_str(), sizeof(apConfig.ap.ssid));
     CHECK_ESP_RESULT(ReadieFur::Network::WiFi::ConfigureInterface(WIFI_IF_AP, apConfig));
+
+    #ifdef DEBUG
+    ConfigureAdditionalLoggers();
+    #endif
 
     CHECK_SERVICE_RESULT(ReadieFur::Service::ServiceManager::InstallAndStartService<Bluetooth::TCU>());
 
