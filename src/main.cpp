@@ -166,16 +166,17 @@ void setup()
             .password = "OpenTCU" TCU_PIN, //Temporary, still left open for now.
             .ssid_len = (uint8_t)DeviceName.length(),
             .channel = 1,
+            #ifdef DEBUG
             .authmode = WIFI_AUTH_OPEN,
+            .ssid_hidden = 0,
+            #else
+            .authmode = WIFI_AUTH_WPA2_PSK,
+            .ssid_hidden = 1,
+            #endif
             .max_connection = 2,
             .beacon_interval = 100,
         }
     };
-    #ifdef DEBUG
-    apConfig.ap.ssid_hidden = 0;
-    #else
-    apConfig.ap.ssid_hidden = 1;
-    #endif
     std::strncpy(reinterpret_cast<char*>(apConfig.ap.ssid), DeviceName.c_str(), sizeof(apConfig.ap.ssid));
     CHECK_ESP_RESULT(ReadieFur::Network::WiFi::ConfigureInterface(WIFI_IF_AP, apConfig));
 
