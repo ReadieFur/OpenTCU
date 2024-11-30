@@ -1,0 +1,2 @@
+GPIO5-4 -> TWAI2 -> CAN2 -> Motor
+GPIO7-6 -> TWAI1 -> CAN1 -> TCU

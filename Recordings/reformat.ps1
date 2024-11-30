@@ -20,7 +20,7 @@ Get-ChildItem -Path $directory -Filter "*.txt" | ForEach-Object {
             $data = $data -replace "^\d+", $timestamp
 
             # Process the data: convert numeric values to hexadecimal, and the second value to ASCII
-            $hexData = ($data -split ",") | ForEach-Object {
+            $processedData = ($data -split ",") | ForEach-Object {
                 # Index determines processing: timestamp, ASCII conversion, or hex
                 $index = [Array]::IndexOf($data -split ",", $_)
                 if ($index -eq 1 -and $_ -match "^\d+$") {
@@ -31,14 +31,14 @@ Get-ChildItem -Path $directory -Filter "*.txt" | ForEach-Object {
                         $_ # Leave as-is if not valid ASCII
                     }
                 } elseif ($_ -match "^\d+$") {
-                    "0x" + [Convert]::ToString([int]$_, 16) # Convert numeric to hex
+                    [Convert]::ToString([int]$_, 16) # Convert numeric to hex without the prefix
                 } else {
                     $_ # Leave non-numeric values unchanged
                 }
             }
 
             # Join the processed data and write to the CSV file
-            ($hexData -join ",") | Out-File -Append -FilePath $outputCsv
+            ($processedData -join ",") | Out-File -Append -FilePath $outputCsv
         }
     }
 
