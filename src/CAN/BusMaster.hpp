@@ -83,7 +83,8 @@ namespace ReadieFur::OpenTCU::CAN
                 };
 
                 //Set wait time to 0 as this should not delay the task.
-                #if false
+                #if defined(_LIVE_LOG)
+                #elif false
                 while (xQueueSend(BusMaster::CanDumpQueue, &dump, 0) == errQUEUE_FULL)
                 {
                     //If the queue is full, remove the oldest item.
