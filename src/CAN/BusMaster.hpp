@@ -28,7 +28,7 @@ namespace ReadieFur::OpenTCU::CAN
         static const uint CONFIG_TASK_PRIORITY = configMAX_PRIORITIES * 0.3;
         static const TickType_t CONFIG_TASK_INTERVAL = pdMS_TO_TICKS(1000);
         #ifdef ENABLE_CAN_DUMP
-        static const uint CAN_DUMP_QUEUE_SIZE = 200;
+        static const uint CAN_DUMP_QUEUE_SIZE = 500;
         #endif
 
         struct SRelayTaskParameters
