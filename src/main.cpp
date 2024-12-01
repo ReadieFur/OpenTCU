@@ -73,13 +73,13 @@ void SetLogLevel()
 {
     #ifdef DEBUG
     //Set base log level.
-    esp_log_level_set("*", ESP_LOG_VERBOSE);
+    esp_log_level_set("*", ESP_LOG_DEBUG);
     //Set custom log levels.
     esp_log_level_set(nameof(CAN::BusMaster), ESP_LOG_WARN);
     esp_log_level_set(nameof(CAN::TwaiCan), ESP_LOG_ERROR);
     // esp_log_level_set(nameof(CAN::McpCan), ESP_LOG_ERROR);
     esp_log_level_set(nameof(CAN::Logger), ESP_LOG_INFO);
-    esp_log_level_set(nameof(OTA::API), ESP_LOG_VERBOSE);
+    esp_log_level_set(nameof(OTA::API), ESP_LOG_DEBUG);
     // esp_log_level_set(nameof(Bluetooth::TCU), ESP_LOG_DEBUG);
     #else
     esp_log_level_set("*", ESP_LOG_INFO);
