@@ -25,7 +25,7 @@ namespace ReadieFur::OpenTCU::CAN
 
             #ifdef ENABLE_CAN_DUMP_SERIAL
             // LOGI(nameof(CAN::Logger), "%s", buffer);
-            fputs(buffer, stdout);
+            puts(buffer); //Adds a newline (desired).
             #endif
 
             #ifdef ENABLE_CAN_DUMP_UDP

@@ -1,3 +1,6 @@
+# Define the mask as a global variable
+$mask = @(0, 0, 1, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1)
+
 # Use the current working directory
 $directory = Get-Location
 
@@ -12,32 +15,30 @@ Get-ChildItem -Path $directory -Filter "*.txt" | ForEach-Object {
     # Read the content of the file and process each line
     Get-Content -Path $filePath | ForEach-Object {
         # Match lines containing the required pattern
-        if ($_ -match "(\d{2}:\d{2}:\d{2}\.\d{3})\s+\e\[0;32mI.*CAN::Logger:\s+(.+?)\e\[0m") {
-            $timestamp = $matches[1]
-            $data = $matches[2]
+        if ($_ -match "^([\d:]+\.\d+)\sCAN::Logger:(.+)") {
+            $timestamp = $matches[1]    # Extract logged timestamp
+            $rawData = $matches[2]     # Extract raw data after CAN::Logger:
+            $data = $rawData -split "," # Split data into an array
 
-            # Replace the first value with the timestamp
-            $data = $data -replace "^\d+", $timestamp
+            # Replace data1 (index 0) with the logged timestamp (optional)
+            # Uncomment the line below to enable timestamp replacement
+            # $data[0] = $timestamp
 
-            # Process the data: convert numeric values to hexadecimal, and the second value to ASCII
-            $processedData = ($data -split ",") | ForEach-Object {
-                # Index determines processing: timestamp, ASCII conversion, or hex
-                $index = [Array]::IndexOf($data -split ",", $_)
-                if ($index -eq 1 -and $_ -match "^\d+$") {
-                    # Convert second value to ASCII if numeric and within valid range
-                    if ([int]$_ -ge 32 -and [int]$_ -le 126) {
-                        [char][int]$_
-                    } else {
-                        $_ # Leave as-is if not valid ASCII
-                    }
-                } elseif ($_ -match "^\d+$") {
-                    [Convert]::ToString([int]$_, 16) # Convert numeric to hex without the prefix
+            # Convert the second value (index 1) to ASCII
+            if ($data[1] -as [int]) {
+                $data[1] = [char]([int]$data[1] - 1) # Convert numeric value to its ASCII character
+            }
+
+            # Apply the mask and convert to hex where the mask value is 1
+            $processedData = for ($i = 0; $i -lt $data.Length; $i++) {
+                if ($mask[$i] -eq 1) {
+                    [Convert]::ToString([int]$data[$i], 16).ToUpper() # Convert to uppercase hex
                 } else {
-                    $_ # Leave non-numeric values unchanged
+                    $data[$i] # Keep the original value
                 }
             }
 
-            # Join the processed data and write to the CSV file
+            # Join the processed data and write to the output file
             ($processedData -join ",") | Out-File -Append -FilePath $outputCsv
         }
     }
