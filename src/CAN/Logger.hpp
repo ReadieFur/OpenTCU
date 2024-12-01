@@ -6,8 +6,6 @@
 #include <Logging.hpp>
 #include <string>
 
-#define _LIVE_LOG
-
 namespace ReadieFur::OpenTCU::CAN
 {
     class Logger : public Service::AService
@@ -16,9 +14,9 @@ namespace ReadieFur::OpenTCU::CAN
         static const TickType_t LOG_INTERVAL = pdMS_TO_TICKS(100);
         BusMaster* _busMaster = nullptr;
 
+        #ifdef ENABLE_CAN_DUMP
         inline void Log(BusMaster::SCanDump& dump)
         {
-            #ifdef ENABLE_CAN_DUMP
             //Doing this the long way because previous dynamic methods were causing issues.
             switch (dump.message.length)
             {
@@ -132,8 +130,8 @@ namespace ReadieFur::OpenTCU::CAN
                         dump.message.data[7]);
                     break;
             }
-            #endif
         }
+        #endif
 
     protected:
         void RunServiceImpl() override
@@ -142,7 +140,13 @@ namespace ReadieFur::OpenTCU::CAN
 
             while (!ServiceCancellationToken.IsCancellationRequested())
             {
-                #ifndef _LIVE_LOG
+                #ifdef ENABLE_CAN_DUMP
+                #ifdef _LIVE_LOG
+                //Process messages as they come in.
+                BusMaster::SCanDump dump;
+                if (xQueueReceive(_busMaster->CanDumpQueue, &dump, portMAX_DELAY) == pdTRUE)
+                    Log(dump);
+                #else
                 //Process messages in batches.
                 UBaseType_t capturedQueueLength = uxQueueMessagesWaiting(_busMaster->CanDumpQueue);
                 while (capturedQueueLength > 0 && uxQueueMessagesWaiting(_busMaster->CanDumpQueue) > 0)
@@ -154,13 +158,8 @@ namespace ReadieFur::OpenTCU::CAN
                     capturedQueueLength--;
                     portYIELD();
                 }
-
                 vTaskDelay(LOG_INTERVAL);
-                #else
-                //Process messages as they come in.
-                BusMaster::SCanDump dump;
-                if (xQueueReceive(_busMaster->CanDumpQueue, &dump, portMAX_DELAY) == pdTRUE)
-                    Log(dump);
+                #endif
                 #endif
             }
 
