@@ -1,7 +1,8 @@
 #ifdef DEBUG
 // #define _CAN_TEST
-#define LOG_UDP
+// #define LOG_UDP
 #define ENABLE_CAN_DUMP
+// #define _LIVE_LOG
 #endif
 
 #include <freertos/FreeRTOS.h> //Has to always be the first included FreeRTOS related header.
@@ -142,6 +143,12 @@ void ConfigureAdditionalLoggers()
 
 void setup()
 {
+    #ifdef DEBUG
+    //https://stackoverflow.com/questions/58037867/how-can-i-change-the-stdout-baud-rate-in-esp-idf
+    //Enable higher baud rate for faster serial debugging.
+    uart_set_baudrate(UART_NUM_0, 230400);
+    #endif
+
     #ifdef _ENABLE_STDOUT_HOOK
     ReadieFur::Logging::OverrideStdout();
     #endif

@@ -21,14 +21,14 @@ namespace ReadieFur::OpenTCU::CAN
     class BusMaster : public Service::AService
     {
     protected:
-        static const TickType_t CAN_TIMEOUT_TICKS = pdMS_TO_TICKS(50);
+        static const TickType_t CAN_TIMEOUT_TICKS = pdMS_TO_TICKS(100);
         static const uint RELAY_TASK_STACK_SIZE = CONFIG_FREERTOS_IDLE_TASK_STACKSIZE * 2.5;
         static const uint RELAY_TASK_PRIORITY = configMAX_PRIORITIES * 0.6;
         static const uint CONFIG_TASK_STACK_SIZE = CONFIG_FREERTOS_IDLE_TASK_STACKSIZE * 2.5;
         static const uint CONFIG_TASK_PRIORITY = configMAX_PRIORITIES * 0.3;
         static const TickType_t CONFIG_TASK_INTERVAL = pdMS_TO_TICKS(1000);
         #ifdef ENABLE_CAN_DUMP
-        static const uint CAN_DUMP_QUEUE_SIZE = 100;
+        static const uint CAN_DUMP_QUEUE_SIZE = 200;
         #endif
 
         struct SRelayTaskParameters
@@ -83,12 +83,17 @@ namespace ReadieFur::OpenTCU::CAN
                 };
 
                 //Set wait time to 0 as this should not delay the task.
+                #if false
                 while (xQueueSend(BusMaster::CanDumpQueue, &dump, 0) == errQUEUE_FULL)
                 {
                     //If the queue is full, remove the oldest item.
                     SCanDump oldDump;
                     xQueueReceive(BusMaster::CanDumpQueue, &oldDump, 0);
                 }
+                #else
+                if (xQueueSend(BusMaster::CanDumpQueue, &dump, 0) == errQUEUE_FULL)
+                    LOGW(nameof(CAN::BusMaster), "CAN log queue is full.");
+                #endif
                 #endif
 
                 //Analyze the message and modify it if needed.
