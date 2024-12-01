@@ -5,14 +5,34 @@
 #include <Helpers.h>
 #include <Logging.hpp>
 #include <string>
+#include <functional>
 
 namespace ReadieFur::OpenTCU::CAN
 {
     class Logger : public Service::AService
     {
     private:
-        static const TickType_t LOG_INTERVAL = pdMS_TO_TICKS(100);
+        static const TickType_t LOG_INTERVAL = pdMS_TO_TICKS(500);
         BusMaster* _busMaster = nullptr;
+
+        inline void SendLog(const char* format, ...)
+        {
+            va_list args;
+            va_start(args, format);
+            char buffer[256];
+            vsnprintf(buffer, sizeof(buffer), format, args);
+            va_end(args);
+
+            #ifdef ENABLE_CAN_DUMP_SERIAL
+            // LOGI(nameof(CAN::Logger), "%s", buffer);
+            fputs(buffer, stdout);
+            #endif
+
+            #ifdef ENABLE_CAN_DUMP_UDP
+            if (UdpLogger != nullptr)
+                UdpLogger(buffer, strlen(buffer));
+            #endif
+        }
 
         #ifdef ENABLE_CAN_DUMP
         inline void Log(BusMaster::SCanDump& dump)
@@ -22,7 +42,7 @@ namespace ReadieFur::OpenTCU::CAN
             {
                 //Shouldn't be 0, if it is, dump all data just in case.
                 case 1:
-                    LOGI(nameof(CAN::Logger), "%lu,%u,%u,%u,%u,%u,%u",
+                    SendLog(nameof(CAN::Logger)":%lu,%u,%u,%u,%u,%u,%u",
                         dump.timestamp,
                         dump.bus,
                         dump.message.id,
@@ -32,7 +52,7 @@ namespace ReadieFur::OpenTCU::CAN
                         dump.message.data[0]);
                     break;
                 case 2:
-                    LOGI(nameof(CAN::Logger), "%lu,%u,%u,%u,%u,%u,%u,%u",
+                    SendLog(nameof(CAN::Logger)":%lu,%u,%u,%u,%u,%u,%u,%u",
                         dump.timestamp,
                         dump.bus,
                         dump.message.id,
@@ -43,7 +63,7 @@ namespace ReadieFur::OpenTCU::CAN
                         dump.message.data[1]);
                     break;
                 case 3:
-                    LOGI(nameof(CAN::Logger), "%lu,%u,%u,%u,%u,%u,%u,%u,%u",
+                    SendLog(nameof(CAN::Logger)":%lu,%u,%u,%u,%u,%u,%u,%u,%u",
                         dump.timestamp,
                         dump.bus,
                         dump.message.id,
@@ -55,7 +75,7 @@ namespace ReadieFur::OpenTCU::CAN
                         dump.message.data[2]);
                     break;
                 case 4:
-                    LOGI(nameof(CAN::Logger), "%lu,%u,%u,%u,%u,%u,%u,%u,%u,%u",
+                    SendLog(nameof(CAN::Logger)":%lu,%u,%u,%u,%u,%u,%u,%u,%u,%u",
                         dump.timestamp,
                         dump.bus,
                         dump.message.id,
@@ -68,7 +88,7 @@ namespace ReadieFur::OpenTCU::CAN
                         dump.message.data[3]);
                     break;
                 case 5:
-                    LOGI(nameof(CAN::Logger), "%lu,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u",
+                    SendLog(nameof(CAN::Logger)":%lu,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u",
                         dump.timestamp,
                         dump.bus,
                         dump.message.id,
@@ -82,7 +102,7 @@ namespace ReadieFur::OpenTCU::CAN
                         dump.message.data[4]);
                     break;
                 case 6:
-                    LOGI(nameof(CAN::Logger), "%lu,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u",
+                    SendLog(nameof(CAN::Logger)":%lu,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u",
                         dump.timestamp,
                         dump.bus,
                         dump.message.id,
@@ -97,7 +117,7 @@ namespace ReadieFur::OpenTCU::CAN
                         dump.message.data[5]);
                     break;
                 case 7:
-                    LOGI(nameof(CAN::Logger), "%lu,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u",
+                    SendLog(nameof(CAN::Logger)":%lu,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u",
                         dump.timestamp,
                         dump.bus,
                         dump.message.id,
@@ -113,7 +133,7 @@ namespace ReadieFur::OpenTCU::CAN
                         dump.message.data[6]);
                     break;
                 default:
-                    LOGI(nameof(CAN::Logger), "%lu,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u",
+                    SendLog(nameof(CAN::Logger)":%lu,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u",
                         dump.timestamp,
                         dump.bus,
                         dump.message.id,
@@ -167,6 +187,8 @@ namespace ReadieFur::OpenTCU::CAN
         }
 
     public:
+        std::function<int(const char*, size_t)> UdpLogger = nullptr;
+
         Logger()
         {
             ServiceEntrypointStackDepth += 1024;

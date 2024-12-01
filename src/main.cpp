@@ -1,8 +1,15 @@
 #ifdef DEBUG
 // #define _CAN_TEST
 #define LOG_UDP
-#define ENABLE_CAN_DUMP
+// #define ENABLE_CAN_DUMP_SERIAL
+#ifdef LOG_UDP
+#define ENABLE_CAN_DUMP_UDP
+#endif
 // #define _LIVE_LOG
+
+#if defined(ENABLE_CAN_DUMP_SERIAL) || defined(ENABLE_CAN_DUMP_UDP)
+#define ENABLE_CAN_DUMP
+#endif
 #endif
 
 #include <freertos/FreeRTOS.h> //Has to always be the first included FreeRTOS related header.
@@ -102,6 +109,16 @@ void ConfigureDeviceName()
     DeviceName = "OpenTCU" + deviceId;
 }
 
+#ifdef LOG_UDP
+int LogUDP(const char* message, size_t length)
+{
+    int udpErr = sendto(UdpSocket, message, length, 0, (struct sockaddr*)&UdpDestAddr, sizeof(UdpDestAddr));
+    // if (udpErr < 0)
+    //     LOGE(pcTaskGetName(NULL), "Failed to send UDP packet: %i", udpErr);
+    return udpErr;
+}
+#endif
+
 void ConfigureAdditionalLoggers()
 {
     #ifdef LOG_UDP
@@ -131,13 +148,7 @@ void ConfigureAdditionalLoggers()
 
     setsockopt(UdpSocket, SOL_SOCKET, SO_BROADCAST, &UdpBroadcastEnable, sizeof(UdpBroadcastEnable));
 
-    ReadieFur::Logging::AdditionalLoggers.push_back([](const char* message, size_t length)
-    {
-        int udpErr = sendto(UdpSocket, message, length, 0, (struct sockaddr*)&UdpDestAddr, sizeof(UdpDestAddr));
-        // if (udpErr < 0)
-        //     LOGE(nameof(CAN::Logger), "Failed to send UDP packet: %i", udpErr);
-        return udpErr;
-    });
+    ReadieFur::Logging::AdditionalLoggers.push_back(LogUDP);
     #endif
 }
 
@@ -190,6 +201,9 @@ void setup()
 
     #ifdef ENABLE_CAN_DUMP
     CHECK_SERVICE_RESULT(ReadieFur::Service::ServiceManager::InstallAndStartService<CAN::Logger>());
+    #ifdef LOG_UDP
+    ReadieFur::Service::ServiceManager::GetService<CAN::Logger>()->UdpLogger = LogUDP;
+    #endif
     #endif
 
     CHECK_ESP_RESULT(ReadieFur::Network::OTA::API::Init());
