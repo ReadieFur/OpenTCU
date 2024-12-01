@@ -161,7 +161,7 @@ namespace ReadieFur::OpenTCU::CAN
             while (!ServiceCancellationToken.IsCancellationRequested())
             {
                 #ifdef ENABLE_CAN_DUMP
-                #ifdef _LIVE_LOG
+                #if defined(_LIVE_LOG) && false
                 //Process messages as they come in.
                 BusMaster::SCanDump dump;
                 if (xQueueReceive(_busMaster->CanDumpQueue, &dump, portMAX_DELAY) == pdTRUE)

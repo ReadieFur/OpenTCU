@@ -1,9 +1,9 @@
 #ifdef DEBUG
 // #define _CAN_TEST
-#define LOG_UDP
-// #define ENABLE_CAN_DUMP_SERIAL
+// #define LOG_UDP
+#define ENABLE_CAN_DUMP_SERIAL
 #ifdef LOG_UDP
-#define ENABLE_CAN_DUMP_UDP
+// #define ENABLE_CAN_DUMP_UDP
 #endif
 // #define _LIVE_LOG
 
