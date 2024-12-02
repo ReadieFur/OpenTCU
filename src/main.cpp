@@ -29,6 +29,8 @@
 #endif
 #include <Network/OTA/API.hpp>
 #include <esp_pm.h>
+#include "Bluetooth/BLE.hpp"
+#include "Bluetooth/API.hpp"
 #include "Bluetooth/TCU.hpp"
 #include <string>
 #include <esp_mac.h>
@@ -55,8 +57,6 @@
     } while (0)
 
 using namespace ReadieFur::OpenTCU;
-
-std::string DeviceName = "OpenTCU" TCU_NAME; //Placeholder value.
 
 #ifdef LOG_UDP
 int UdpSocket;
@@ -197,6 +197,8 @@ void setup()
     ConfigureAdditionalLoggers();
     #endif
 
+    CHECK_SERVICE_RESULT(ReadieFur::Service::ServiceManager::InstallAndStartService<Bluetooth::BLE>());
+    CHECK_SERVICE_RESULT(ReadieFur::Service::ServiceManager::InstallAndStartService<Bluetooth::API>());
     CHECK_SERVICE_RESULT(ReadieFur::Service::ServiceManager::InstallAndStartService<Bluetooth::TCU>());
 
     #ifdef ENABLE_CAN_DUMP
