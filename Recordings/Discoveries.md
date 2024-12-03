@@ -1,4 +1,5 @@
 - 201 D5 Possibly to do with the motor state
+- 201 D4D3 possibly to do with rider power
 
 HEX2DEC(CONCAT(D2, D1))/100 = Speed in km/h
 I figured out the speed value of the controller, but its caused me problem‍
