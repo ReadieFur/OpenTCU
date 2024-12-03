@@ -121,6 +121,30 @@ namespace ReadieFur::OpenTCU::CAN
         inline virtual void InterceptMessage(SCanMessage* message)
         {
             //TODO: Implement.
+            if (message->id == 0x201)
+            {
+                //TESTING: Modify reported speed value.
+                // float speedKph = 30.0;
+                // int speedValue = static_cast<int>(speedKph * 100); //Convert speed to integer.
+                // //Convert the integer value into two bytes (little-endian).
+                // message->data[0] = speedValue & 0xFF; // Low byte (D1)
+                // message->data[1] = (speedValue >> 8) & 0xFF; // High byte (D2)
+            }
+            else if (message->id == 0x300)
+            {
+                // message->data[0] = 0x03;
+                // message->data[1] = 0x5A;
+                // message->data[2] = 0x64;
+                // message->data[3] = 0x5A;
+                // message->data[4] = 0x50;
+                // message->data[5] = 0x00;
+                // message->data[6] = 0x50;
+                // message->data[7] = 0x56;
+            }
+            else if (message->id == 0x301)
+            {
+                // message->data[6] = 0x32;
+            }
         }
 
         void RunServiceImpl() override
