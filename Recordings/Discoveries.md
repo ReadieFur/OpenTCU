@@ -10,6 +10,9 @@ the motor knows the actual wheel speed, this is a problem becuase I know that in
 
 300 D2 when set to A5 puts it in walk mode
 
+404,0,0,5,02,30,50,00,01 - Enable battery charge limit
+404,0,0,5,02,30,00,00,00 - Disable battery charge limit
+
 Runtime IDs:
 - 200
 - 201
