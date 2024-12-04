@@ -136,6 +136,20 @@ namespace ReadieFur::OpenTCU::CAN
             _QUERY_OK();
         }
 
+        static esp_err_t OnDropPost(httpd_req_t* req)
+        {
+            _QUERY_BOILERPLATE();
+
+            self->_busMaster->Blacklist.clear();
+            for (auto& [key, value] : params)
+            {
+                uint32_t id = std::stoul(key, nullptr, 16);
+                self->_busMaster->Blacklist.push_back(id);
+            }
+
+            _QUERY_OK();
+        }
+
         static esp_err_t OnLogPost(httpd_req_t* req)
         {
             _QUERY_BOILERPLATE();
@@ -188,6 +202,18 @@ namespace ReadieFur::OpenTCU::CAN
                 .user_ctx = this
             };
             if ((err = httpd_register_uri_handler(_server, &uriDataDelete)) != ESP_OK)
+            {
+                LOGE(nameof(CAN::API), "Failed to register URI handler.");
+                return;
+            }
+
+            httpd_uri_t uriDropPost = {
+                .uri = "/can/drop",
+                .method = HTTP_POST,
+                .handler = OnDropPost,
+                .user_ctx = this
+            };
+            if ((err = httpd_register_uri_handler(_server, &uriDropPost)) != ESP_OK)
             {
                 LOGE(nameof(CAN::API), "Failed to register URI handler.");
                 return;

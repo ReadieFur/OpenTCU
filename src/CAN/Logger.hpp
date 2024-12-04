@@ -18,6 +18,7 @@ namespace ReadieFur::OpenTCU::CAN
     private:
         static const TickType_t LOG_INTERVAL = pdMS_TO_TICKS(500);
         BusMaster* _busMaster = nullptr;
+        std::vector<uint32_t> _recognisedIds;
 
         inline void SendLog(const char* format, ...)
         {
@@ -41,7 +42,16 @@ namespace ReadieFur::OpenTCU::CAN
         #ifdef ENABLE_CAN_DUMP
         inline void Log(BusMaster::SCanDump& dump)
         {
-            //For now only log 0x300 messages.
+            if (std::find(_recognisedIds.begin(), _recognisedIds.end(), dump.message.id) == _recognisedIds.end())
+            {
+                LOGI(nameof(CAN::Logger), "New ID detected: %x", dump.message.id);
+                _recognisedIds.push_back(dump.message.id);
+
+                // //Add new IDs to the whitelist so they aren't missed.
+                // if (Whitelist.size() > 0)
+                //     Whitelist.push_back(dump.message.id);
+            }
+
             if (Whitelist.size() > 0 && std::find(Whitelist.begin(), Whitelist.end(), dump.message.id) == Whitelist.end())
                 return;
 

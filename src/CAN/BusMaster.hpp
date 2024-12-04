@@ -16,6 +16,7 @@
 #include "TwaiCan.hpp"
 #include "Logging.hpp"
 #include <map>
+#include <vector>
 
 // #define CAN_DUMP_BEFORE_INTERCEPT
 #define CAN_DUMP_AFTER_INTERCEPT
@@ -33,6 +34,7 @@ namespace ReadieFur::OpenTCU::CAN
         };
         
         std::map<uint32_t, SMessageOverrides> MessageOverrides;
+        std::vector<uint32_t> Blacklist;
 
     protected:
         static const TickType_t CAN_TIMEOUT_TICKS = pdMS_TO_TICKS(100);
@@ -75,7 +77,7 @@ namespace ReadieFur::OpenTCU::CAN
             char bus = pcTaskGetName(xTaskGetHandle(pcTaskGetName(NULL)))[3]; //Only really used for logging & debugging.
 
             //Check if the task has been signalled for deletion.
-            while (!params->self->ServiceCancellationToken.IsCancellationRequested())
+            while (!ServiceCancellationToken.IsCancellationRequested())
             {
                 //Attempt to read a message from the bus.
                 SCanMessage message;
@@ -131,14 +133,15 @@ namespace ReadieFur::OpenTCU::CAN
                 //0x665 TCU doesn't seem to care.
                 //0x666 TCU doesn't seem to care.
                 //With all but 0x300 dropped, the TCU will complain about system errors, but the bike still runs.
-                if (false)
+                if (Blacklist.size() > 0 && std::find(Blacklist.begin(), Blacklist.end(), message.id) != Blacklist.end())
                 {
                     taskYIELD();
                     continue;
                 }
                 #endif
+
                 //Analyze the message and modify it if needed.
-                params->self->InterceptMessage(&message);
+                InterceptMessage(&message);
 
                 #if defined(ENABLE_CAN_DUMP) && defined(CAN_DUMP_AFTER_INTERCEPT)
                 //Copy the original message for logging.
