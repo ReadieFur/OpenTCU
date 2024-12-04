@@ -140,11 +140,8 @@ namespace ReadieFur::OpenTCU::CAN
         {
             _QUERY_BOILERPLATE();
 
-            if (params.empty())
-            {
-                self->_logger->Whitelist.clear();
-                _QUERY_OK();
-            }
+            //Always provide all IDs to whitelist.
+            self->_logger->Whitelist.clear();
 
             //Assume all parameters are valid ids (this is for testing only afterall).
             for (auto& [key, value] : params)
@@ -153,17 +150,6 @@ namespace ReadieFur::OpenTCU::CAN
                 self->_logger->Whitelist.push_back(id);
             }
 
-            _QUERY_OK();
-        }
-
-        static esp_err_t OnLogDelete(httpd_req_t* req)
-        {
-            _QUERY_BOILERPLATE();
-            for (auto& [key, value] : params)
-            {
-                uint32_t id = std::stoul(key, nullptr, 16);
-                self->_logger->Whitelist.erase(std::remove(self->_logger->Whitelist.begin(), self->_logger->Whitelist.end(), id), self->_logger->Whitelist.end());
-            }
             _QUERY_OK();
         }
 
@@ -214,17 +200,6 @@ namespace ReadieFur::OpenTCU::CAN
                 .user_ctx = this
             };
             if ((err = httpd_register_uri_handler(_server, &uriLogPost)) != ESP_OK)
-            {
-                LOGE(nameof(CAN::API), "Failed to register URI handler.");
-                return;
-            }
-            httpd_uri_t uriLogDelete = {
-                .uri = "/can/log",
-                .method = HTTP_DELETE,
-                .handler = OnLogDelete,
-                .user_ctx = this
-            };
-            if ((err = httpd_register_uri_handler(_server, &uriLogDelete)) != ESP_OK)
             {
                 LOGE(nameof(CAN::API), "Failed to register URI handler.");
                 return;
