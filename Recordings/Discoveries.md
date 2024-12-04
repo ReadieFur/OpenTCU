@@ -9,3 +9,38 @@ the motor knows the actual wheel speed, this is a problem becuase I know that in
 203 D1 & D2 combined contain data for both the motor power and cadence
 
 300 D2 when set to A5 puts it in walk mode
+
+Runtime IDs:
+- 200
+- 201
+- 202
+- 203
+- 204
+- 205
+- 206
+- 300
+- 301
+- 400
+- 401
+- 402
+- 403
+- 404
+- 405
+- 665
+- 666
+
+Startup IDs:
+- 4a4
+- 311
+- 450
+- 100
+
+Shutdown IDs:
+- 669
+
+New IDs:
+- 101
+- 40a
+- 40b
+- 40c
+- 40d
