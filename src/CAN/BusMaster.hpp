@@ -207,7 +207,7 @@ namespace ReadieFur::OpenTCU::CAN
             //     // message->data[6] = 0; //No change. //Throttle response.
             //     // message->data[7] = 0; //No change.
 
-            //     message->data[0] = 0x03; //Mode?
+            //     message->data[0] = 0x03; //Mode, 0 = off, 1 = low power, 2 = medium, 3 = high.
             //     message->data[1] = 0x5A; //A5 sets walk mode.
             //     message->data[2] = 0x0; //?
             //     message->data[3] = 0x5A; //?
