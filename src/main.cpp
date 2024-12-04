@@ -18,6 +18,7 @@
 #include "Config/Device.h"
 #include "CAN/BusMaster.hpp"
 #include "CAN/Logger.hpp"
+#include "CAN/API.hpp"
 #include <esp_sleep.h>
 #include <freertos/task.h>
 #include "Logging.hpp"
@@ -82,7 +83,7 @@ void SetLogLevel()
     //Set base log level.
     esp_log_level_set("*", ESP_LOG_DEBUG);
     //Set custom log levels.
-    esp_log_level_set(nameof(CAN::BusMaster), ESP_LOG_WARN);
+    esp_log_level_set(nameof(CAN::BusMaster), ESP_LOG_ERROR);
     esp_log_level_set(nameof(CAN::TwaiCan), ESP_LOG_ERROR);
     // esp_log_level_set(nameof(CAN::McpCan), ESP_LOG_ERROR);
     esp_log_level_set(nameof(CAN::Logger), ESP_LOG_INFO);
@@ -197,6 +198,7 @@ void setup()
     ConfigureAdditionalLoggers();
     #endif
 
+    
     CHECK_SERVICE_RESULT(ReadieFur::Service::ServiceManager::InstallAndStartService<Bluetooth::BLE>());
     CHECK_SERVICE_RESULT(ReadieFur::Service::ServiceManager::InstallAndStartService<Bluetooth::API>());
     CHECK_SERVICE_RESULT(ReadieFur::Service::ServiceManager::InstallAndStartService<Bluetooth::TCU>());
@@ -208,7 +210,12 @@ void setup()
     #endif
     #endif
 
-    CHECK_ESP_RESULT(ReadieFur::Network::OTA::API::Init());
+    httpd_config_t otaHttpdConfig = HTTPD_DEFAULT_CONFIG();
+    otaHttpdConfig.server_port = 81;
+    otaHttpdConfig.ctrl_port += 1;
+    CHECK_ESP_RESULT(ReadieFur::Network::OTA::API::Init(&otaHttpdConfig));
+
+    CHECK_SERVICE_RESULT(ReadieFur::Service::ServiceManager::InstallAndStartService<CAN::API>());
 }
 
 void loop()

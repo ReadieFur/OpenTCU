@@ -15,11 +15,25 @@
 #endif
 #include "TwaiCan.hpp"
 #include "Logging.hpp"
+#include <map>
+
+// #define CAN_DUMP_BEFORE_INTERCEPT
+#define CAN_DUMP_AFTER_INTERCEPT
 
 namespace ReadieFur::OpenTCU::CAN
 {
     class BusMaster : public Service::AService
     {
+    public:
+        struct SMessageOverrides
+        {
+            // uint32_t id;
+            bool dataMask[8] = { false };
+            uint8_t data[8] = { 0 };
+        };
+        
+        std::map<uint32_t, SMessageOverrides> MessageOverrides;
+
     protected:
         static const TickType_t CAN_TIMEOUT_TICKS = pdMS_TO_TICKS(100);
         static const uint RELAY_TASK_STACK_SIZE = CONFIG_FREERTOS_IDLE_TASK_STACKSIZE * 2.5;
@@ -73,7 +87,7 @@ namespace ReadieFur::OpenTCU::CAN
                     continue;
                 }
 
-                #ifdef ENABLE_CAN_DUMP
+                #if defined(ENABLE_CAN_DUMP) && defined(CAN_DUMP_BEFORE_INTERCEPT)
                 //Copy the original message for logging.
                 SCanDump dump =
                 {
@@ -97,8 +111,58 @@ namespace ReadieFur::OpenTCU::CAN
                 #endif
                 #endif
 
+                //Test dropping messages:
+                #if defined(DEBUG) && true
+                //Dropping results:
+                //0x200 TCU doesn't seem to care.
+                //0x201 TCU doesn't seem to care, no speed reported.
+                //0x202 TCU doesn't seem to care.
+                //0x203 TCU doesn't seem to care.
+                //0x204 TCU doesn't seem to care.
+                //0x206 TCU doesn't seem to care.
+                //0x300 system shuts down, briefly saw that battery reads 0.
+                //0x301 system doesn't seem to care.
+                //0x400 TCU doesn't seem to care.
+                //0x401 TCU (doesn't seem to care) still reads battery level.
+                //0x402 TCU doesn't read battery level, otherwise doesn't seem to care.
+                //0x403 TCU doesn't seem to care.
+                //0x404 TCU doesn't seem to care.
+                //0x405 TCU doesn't seem to care.
+                //0x665 TCU doesn't seem to care.
+                //0x666 TCU doesn't seem to care.
+                //With all but 0x300 dropped, the TCU will complain about system errors, but the bike still runs.
+                if (false)
+                {
+                    taskYIELD();
+                    continue;
+                }
+                #endif
                 //Analyze the message and modify it if needed.
                 params->self->InterceptMessage(&message);
+
+                #if defined(ENABLE_CAN_DUMP) && defined(CAN_DUMP_AFTER_INTERCEPT)
+                //Copy the original message for logging.
+                SCanDump dump =
+                {
+                    .timestamp = esp_log_timestamp(),
+                    .bus = bus,
+                    .message = message //Creates a copy of the struct.
+                };
+
+                //Set wait time to 0 as this should not delay the task.
+                #if defined(_LIVE_LOG)
+                #elif false
+                while (xQueueSend(BusMaster::CanDumpQueue, &dump, 0) == errQUEUE_FULL)
+                {
+                    //If the queue is full, remove the oldest item.
+                    SCanDump oldDump;
+                    xQueueReceive(BusMaster::CanDumpQueue, &oldDump, 0);
+                }
+                #else
+                if (xQueueSend(BusMaster::CanDumpQueue, &dump, 0) == errQUEUE_FULL)
+                    LOGW(nameof(CAN::BusMaster), "CAN log queue is full.");
+                #endif
+                #endif
 
                 //Relay the message to the other CAN bus.
                 res = ESP_OK;
@@ -121,30 +185,48 @@ namespace ReadieFur::OpenTCU::CAN
         inline virtual void InterceptMessage(SCanMessage* message)
         {
             //TODO: Implement.
-            if (message->id == 0x201)
-            {
-                //TESTING: Modify reported speed value.
-                // float speedKph = 30.0;
-                // int speedValue = static_cast<int>(speedKph * 100); //Convert speed to integer.
-                // //Convert the integer value into two bytes (little-endian).
-                // message->data[0] = speedValue & 0xFF; // Low byte (D1)
-                // message->data[1] = (speedValue >> 8) & 0xFF; // High byte (D2)
-            }
-            else if (message->id == 0x300)
-            {
-                // message->data[0] = 0x03;
-                // message->data[1] = 0x5A;
-                // message->data[2] = 0x64;
-                // message->data[3] = 0x5A;
-                // message->data[4] = 0x50;
-                // message->data[5] = 0x00;
-                // message->data[6] = 0x50;
-                // message->data[7] = 0x56;
-            }
-            else if (message->id == 0x301)
-            {
-                // message->data[6] = 0x32;
-            }
+            #if defined(DEBUG) && true
+            // if (message->id == 0x201)
+            // {
+            //     //TESTING: Modify reported speed value.
+            //     // float speedKph = 30.0;
+            //     // int speedValue = static_cast<int>(speedKph * 100); //Convert speed to integer.
+            //     // //Convert the integer value into two bytes (little-endian).
+            //     // message->data[0] = speedValue & 0xFF; // Low byte (D1)
+            //     // message->data[1] = (speedValue >> 8) & 0xFF; // High byte (D2)
+            // }
+            // else if (message->id == 0x300)
+            // {
+            //     //Attempt dropping parts of 0x300.
+            //     // message->data[0] = 0; //No motor power.
+            //     // message->data[1] = 0; //No change.
+            //     // message->data[2] = 0; //No change.
+            //     // message->data[3] = 0; //No battery warning (system still runs).
+            //     // message->data[4] = 0; //No motor power. //Max power
+            //     // message->data[5] = 0; //No change.
+            //     // message->data[6] = 0; //No change. //Throttle response.
+            //     // message->data[7] = 0; //No change.
+
+            //     message->data[0] = 0x03; //Mode?
+            //     message->data[1] = 0x5A; //A5 sets walk mode.
+            //     message->data[2] = 0x0; //?
+            //     message->data[3] = 0x5A; //?
+            //     message->data[4] = 0x64; //Ease.
+            //     message->data[5] = 0x0; //N/A.
+            //     message->data[6] = 0x64; //Power.
+            //     // message->data[7] = 0x0; //Clock?
+
+            //     //When the bike is locked D1,D3,D5,D6,D7 are all set to 0.
+            // }
+
+            if (!MessageOverrides.contains(message->id))
+                return;
+
+            SMessageOverrides& overrides = MessageOverrides[message->id];
+            for (int i = 0; i < 8; i++)
+                if (overrides.dataMask[i])
+                    message->data[i] = overrides.data[i];
+            #endif
         }
 
         void RunServiceImpl() override
