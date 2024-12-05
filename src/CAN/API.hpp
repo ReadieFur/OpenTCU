@@ -30,13 +30,6 @@
     httpd_resp_send(req, "OK", HTTPD_RESP_USE_STRLEN); \
     return ESP_OK;
 
-#define _SET_DATA(index) \
-    if (params.contains("d" #index)) \
-    { \
-        overrides.dataMask[index - 1] = true; \
-        overrides.data[index - 1] = std::stoul(params["d" #index], nullptr, 16); \
-    }
-
 namespace ReadieFur::OpenTCU::CAN
 {
     class API : public Service::AService
@@ -93,6 +86,15 @@ namespace ReadieFur::OpenTCU::CAN
             return ESP_OK;
         }
 
+        static void SetData(int index, std::map<std::string, std::string>& params, BusMaster::SMessageOverrides& overrides)
+        {
+            if (params.contains("d" + std::to_string(index)))
+            {
+                overrides.dataMask[index - 1] = true;
+                overrides.data[index - 1] = std::stoul(params["d" + std::to_string(index)], nullptr, 16);
+            }
+        }
+
         static esp_err_t OnDataPost(httpd_req_t* req)
         {
             _QUERY_BOILERPLATE();
@@ -106,21 +108,31 @@ namespace ReadieFur::OpenTCU::CAN
             uint32_t id = std::stoul(params["id"], nullptr, 16);
 
             BusMaster::SMessageOverrides overrides;
-            _SET_DATA(1);
-            _SET_DATA(2);
-            _SET_DATA(3);
-            _SET_DATA(4);
-            _SET_DATA(5);
-            _SET_DATA(6);
-            _SET_DATA(7);
-            _SET_DATA(8);
+            SetData(1, params, overrides);
+            SetData(2, params, overrides);
+            SetData(3, params, overrides);
+            SetData(4, params, overrides);
+            SetData(5, params, overrides);
+            SetData(6, params, overrides);
+            SetData(7, params, overrides);
+            SetData(8, params, overrides);
 
             self->_busMaster->MessageOverrides[id] = overrides;
 
             _QUERY_OK();
         }
 
-        static esp_err_t OnDataDelete(httpd_req_t* req)
+        static void SetReplacement(int index, std::map<std::string, std::string>& params, BusMaster::SMessageReplacements& replacements)
+        {
+            if (params.contains("o" + std::to_string(index)) && params.contains("r" + std::to_string(index)))
+            {
+                replacements.dataMask[index - 1] = true;
+                replacements.original[index - 1] = std::stoul(params["o" + std::to_string(index)], nullptr, 16);
+                replacements.replacement[index - 1] = std::stoul(params["r" + std::to_string(index)], nullptr, 16);
+            }
+        }
+
+        static esp_err_t OnReplacePost(httpd_req_t* req)
         {
             _QUERY_BOILERPLATE();
 
@@ -131,7 +143,42 @@ namespace ReadieFur::OpenTCU::CAN
                 return ESP_FAIL;
             }
             uint32_t id = std::stoul(params["id"], nullptr, 16);
-            self->_busMaster->MessageOverrides.erase(id);
+            
+            BusMaster::SMessageReplacements replacements;
+            replacements.id = id;
+            SetReplacement(1, params, replacements);
+            SetReplacement(2, params, replacements);
+            SetReplacement(3, params, replacements);
+            SetReplacement(4, params, replacements);
+            SetReplacement(5, params, replacements);
+            SetReplacement(6, params, replacements);
+            SetReplacement(7, params, replacements);
+            SetReplacement(8, params, replacements);
+
+            //Check if a replacement already exists with a matching ID, mask and original data.
+            for (auto& replacement : self->_busMaster->MessageReplacements)
+            {
+                if (replacement.id == replacements.id)
+                {
+                    bool match = true;
+                    for (int i = 0; i < 8; i++)
+                    {
+                        if (replacement.dataMask[i] != replacements.dataMask[i]
+                            || replacement.original[i] != replacements.original[i])
+                        {
+                            match = false;
+                            break;
+                        }
+                    }
+                    if (match)
+                    {
+                        replacement = replacements;
+                        _QUERY_OK();
+                    }
+                }
+            }
+
+            self->_busMaster->MessageReplacements.push_back(replacements);
 
             _QUERY_OK();
         }
@@ -167,6 +214,14 @@ namespace ReadieFur::OpenTCU::CAN
             _QUERY_OK();
         }
 
+        static esp_err_t OnRebootPost(httpd_req_t* req)
+        {
+            httpd_resp_send(req, "OK", HTTPD_RESP_USE_STRLEN);
+            vTaskDelay(pdMS_TO_TICKS(100));
+            esp_restart();
+            return ESP_OK;
+        }
+
     protected:
         void RunServiceImpl() override
         {
@@ -195,17 +250,6 @@ namespace ReadieFur::OpenTCU::CAN
                 LOGE(nameof(CAN::API), "Failed to register URI handler.");
                 return;
             }
-            httpd_uri_t uriDataDelete = {
-                .uri = "/can/data",
-                .method = HTTP_DELETE,
-                .handler = OnDataDelete,
-                .user_ctx = this
-            };
-            if ((err = httpd_register_uri_handler(_server, &uriDataDelete)) != ESP_OK)
-            {
-                LOGE(nameof(CAN::API), "Failed to register URI handler.");
-                return;
-            }
 
             httpd_uri_t uriDropPost = {
                 .uri = "/can/drop",
@@ -219,6 +263,18 @@ namespace ReadieFur::OpenTCU::CAN
                 return;
             }
 
+            httpd_uri_t uriReplacePost = {
+                .uri = "/can/replace",
+                .method = HTTP_POST,
+                .handler = OnReplacePost,
+                .user_ctx = this
+            };
+            if ((err = httpd_register_uri_handler(_server, &uriReplacePost)) != ESP_OK)
+            {
+                LOGE(nameof(CAN::API), "Failed to register URI handler.");
+                return;
+            }
+
             httpd_uri_t uriLogPost = {
                 .uri = "/can/log",
                 .method = HTTP_POST,
@@ -226,6 +282,18 @@ namespace ReadieFur::OpenTCU::CAN
                 .user_ctx = this
             };
             if ((err = httpd_register_uri_handler(_server, &uriLogPost)) != ESP_OK)
+            {
+                LOGE(nameof(CAN::API), "Failed to register URI handler.");
+                return;
+            }
+
+            httpd_uri_t uriRebootPost = {
+                .uri = "/can/reboot",
+                .method = HTTP_POST,
+                .handler = OnRebootPost,
+                .user_ctx = this
+            };
+            if ((err = httpd_register_uri_handler(_server, &uriRebootPost)) != ESP_OK)
             {
                 LOGE(nameof(CAN::API), "Failed to register URI handler.");
                 return;
