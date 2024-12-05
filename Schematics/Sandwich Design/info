@@ -1,0 +1,228 @@
+{
+  "uuid": "fcc8f966e778d272b3a5a2fdab1c7f29",
+  "path": "Offline/OpenTCUSandwich",
+  "name": "OpenTCUSandwich",
+  "content": "",
+  "created_at": "2024-07-18 19:44:41",
+  "updated_at": "2024-07-19 13:17:02",
+  "stick": "",
+  "documents": [
+    {
+      "uuid": "d6d5bdbeb14681087cac0835b555f337",
+      "title": "Schematic_OpenTCUSandwich",
+      "description": "",
+      "docType": "1",
+      "master": "",
+      "thumb": "/images/thumb-default.png",
+      "components": {
+        "163528439af849ae826434d5385a3fd8": 1,
+        "191eb850bad343198441701a98c87b7e": 1,
+        "bf46bcb87188446687daee4c14b87b2b": 1,
+        "74cc340db7ba4ef4babcd76d56f62eb0": 1,
+        "b30d1b398b534a6cb3779aaefbfef3af": 2,
+        "2f1c829a8db64e73b7d55ce52e9a44b6": 1
+      },
+      "BOM": [
+        [
+          "Value",
+          "Quantity",
+          "Package",
+          "Components",
+          "CustomPara"
+        ],
+        [
+          "Wemos ESP32 S3 Mini",
+          1,
+          "WEMOS-ESP32-S3-MINI",
+          "U1",
+          {
+            "Manufacturer Part": "",
+            "Manufacturer": "Wemos",
+            "Supplier": "",
+            "Supplier Part": ""
+          }
+        ],
+        [
+          "MCP2515CANSPI",
+          1,
+          "MCP2515CANSPI",
+          "U2",
+          {
+            "Manufacturer Part": "",
+            "Manufacturer": "",
+            "Supplier": "",
+            "Supplier Part": ""
+          }
+        ],
+        [
+          "CJMCU-1051",
+          1,
+          "CJMCU-1051",
+          "U3",
+          {
+            "Manufacturer Part": "",
+            "Manufacturer": "",
+            "Supplier": "",
+            "Supplier Part": ""
+          }
+        ],
+        [
+          "PM254-1-02-Z-8.5",
+          1,
+          "HDR-TH_2P-P2.54-V-F",
+          "U4",
+          {
+            "Manufacturer Part": "PM254-1-02-Z-8.5",
+            "Manufacturer": "HCTL(华灿天禄)",
+            "Supplier": "LCSC",
+            "Supplier Part": "C2897365"
+          }
+        ],
+        [
+          "PM254-1-08-Z-8.5",
+          2,
+          "HDR-TH_8P-P2.54-V-F",
+          "U5,U6",
+          {
+            "Manufacturer Part": "PM254-1-08-Z-8.5",
+            "Manufacturer": "HCTL(华灿天禄)",
+            "Supplier": "LCSC",
+            "Supplier Part": "C2897371"
+          }
+        ],
+        [
+          "MP1584-Buck-Converter_IGR2",
+          1,
+          "MP1584EN-BUCK-CONVERTER",
+          "U7",
+          {
+            "Manufacturer Part": "MP1584EN",
+            "Manufacturer": "",
+            "Supplier": "",
+            "Supplier Part": ""
+          }
+        ]
+      ],
+      "updateTime": 1721389564,
+      "createTime": 1721386549,
+      "histories": [],
+      "created_at": "2024-07-19 11:55:49",
+      "updated_at": "2024-07-19 12:46:04"
+    },
+    {
+      "uuid": "8392d86b2e74ca5976d2e48f514d802b",
+      "puuid": "fcc8f966e778d272b3a5a2fdab1c7f29",
+      "title": "PCB_OpenTCUSandwich",
+      "filename": "PCB_OpenTCUSandwich.json",
+      "description": "",
+      "docType": "3",
+      "master": "",
+      "thumb": "/images/thumb-default.png",
+      "components": {
+        "f5032515bed94d74be660f2b1271a20f": 1,
+        "73b13f40a1a24714ba033b6443e6b3a7": 1,
+        "b716fa3700784db29b7ad404bc6e6844": 2,
+        "ef9d4e7870aa4ad9986a2aa8d151946e": 1,
+        "303ee82b1937456eb610880e78bb566a": 1,
+        "45052b110150450f8d59dd880cb7e613": 1
+      },
+      "BOM": [
+        [
+          "Value",
+          "Quantity",
+          "Package",
+          "Components",
+          "CustomPara"
+        ],
+        [
+          "Wemos ESP32 S3 Mini",
+          1,
+          "WEMOS-ESP32-S3-MINI",
+          "U1",
+          {
+            "Manufacturer Part": "",
+            "Manufacturer": "Wemos",
+            "Supplier": "",
+            "Supplier Part": ""
+          }
+        ],
+        [
+          "MCP2515CANSPI",
+          1,
+          "MCP2515CANSPI",
+          "U2",
+          {
+            "Manufacturer Part": "",
+            "Manufacturer": "",
+            "Supplier": "",
+            "Supplier Part": ""
+          }
+        ],
+        [
+          "CJMCU-1051",
+          1,
+          "CJMCU-1051",
+          "U3",
+          {
+            "Manufacturer Part": "",
+            "Manufacturer": "",
+            "Supplier": "",
+            "Supplier Part": ""
+          }
+        ],
+        [
+          "PM254-1-02-Z-8.5",
+          1,
+          "HDR-TH_2P-P2.54-V-F",
+          "U4",
+          {
+            "Manufacturer Part": "PM254-1-02-Z-8.5",
+            "Manufacturer": "HCTL(华灿天禄)",
+            "Supplier": "LCSC",
+            "Supplier Part": "C2897365"
+          }
+        ],
+        [
+          "PM254-1-08-Z-8.5",
+          2,
+          "HDR-TH_8P-P2.54-V-F",
+          "U5,U6",
+          {
+            "Manufacturer Part": "PM254-1-08-Z-8.5",
+            "Manufacturer": "HCTL(华灿天禄)",
+            "Supplier": "LCSC",
+            "Supplier Part": "C2897371"
+          }
+        ],
+        [
+          "MP1584-Buck-Converter_IGR2",
+          1,
+          "MP1584EN-BUCK-CONVERTER",
+          "U7",
+          {
+            "Manufacturer Part": "MP1584EN",
+            "Manufacturer": "",
+            "Supplier": "",
+            "Supplier Part": ""
+          }
+        ]
+      ],
+      "updateTime": 1721391422,
+      "createTime": 1721389937,
+      "histories": [],
+      "created_at": "2024-07-19 12:52:17",
+      "updated_at": "2024-07-19 13:17:02"
+    }
+  ],
+  "sort": [
+    "62caa576a0ada2dd47f5eeec641c0a2c",
+    "a0c06335cb7c54ed0c4241ac2f419095",
+    "a25e13aaf6705ee1e1e1f749a43ce4f6",
+    "7d4fd3ad88ddd587208add8ad14fd812",
+    "e43758275fa86cb5bf4f28c56117dfe7"
+  ],
+  "title": "OpenTCUSandwich",
+  "foldername": "OpenTCUSandwich",
+  "schfilename": "OpenTCUSandwich.json",
+  "schfilemtime": 1721390819828
+}

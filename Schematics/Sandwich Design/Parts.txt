@@ -1,0 +1,17 @@
+Controller:
+With antenna: https://www.aliexpress.com/item/1005005449219195.html
+Smallest: https://www.aliexpress.com/item/1005007274442944.html
+Medium: https://www.aliexpress.com/item/1005007128360025.html
+
+Power converter:
+https://www.aliexpress.com/item/1005006100242276.html
+
+TWAI:
+https://www.aliexpress.com/item/4001364899450.html
+
+SPI:
+Large https://www.aliexpress.com/item/32817326727.html
+(Possibly requires TWAI):
+Rectangle VP230 https://www.aliexpress.com/item/1005006438437964.html
+Square MCP2551 https://www.aliexpress.com/item/1005006209071522.html
+https://www.aliexpress.com/item/1005006408102971.html
