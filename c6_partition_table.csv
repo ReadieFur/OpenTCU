@@ -1,0 +1,8 @@
+# ESP-IDF Partition Table, https://www.alterlinks.com/byte-converter/byte-converter.php, https://www.calculator.net/hex-calculator.html?number1=310000&c2op=%2B&number2=20000&calctype=op&x=Calculate, https://www.esp32.com/viewtopic.php?t=2998
+# Name,   Type, SubType,    Offset,     Size,     Flags
+nvs,      data, nvs,        0x9000,     16k
+otadata,  data, ota,        0xd000,     8k
+phy_init, data, phy,        0xf000,     4k
+ota_0,    app,  ota_0,      0x10000,    1792k
+ota_1,    app,  ota_1,      ,           1792k
+spiffs,   data, spiffs,     ,           448k
