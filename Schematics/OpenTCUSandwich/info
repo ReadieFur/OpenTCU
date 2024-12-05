@@ -1,0 +1,232 @@
+{
+  "uuid": "27b3fad6e4968f43fbd4267471a7b36a",
+  "path": "Offline/OpenTCUSandwich",
+  "name": "OpenTCUSandwich",
+  "content": "",
+  "created_at": "2024-11-29 02:37:08",
+  "updated_at": "2024-11-29 19:30:48",
+  "stick": "",
+  "documents": [
+    {
+      "uuid": "eb596571ab366ebf8ef4e258d3be259f",
+      "title": "Schematic_OpenTCUSandwich",
+      "description": "",
+      "docType": "1",
+      "master": "",
+      "thumb": "/images/thumb-default.png",
+      "components": {
+        "bf46bcb87188446687daee4c14b87b2b": 1,
+        "74cc340db7ba4ef4babcd76d56f62eb0": 2,
+        "120815f0d72441b18139db7d2586446c": 1,
+        "68adf14255074d1bbe9839f941c2b6b3": 2,
+        "6ae2689b154647548ccf0a9ac5659a6c": 1,
+        "9f2d9e1512224ec1b412bf5fad1cc336": 2
+      },
+      "BOM": [
+        [
+          "Value",
+          "Quantity",
+          "Package",
+          "Components",
+          "CustomPara"
+        ],
+        [
+          "1N4148-C163750",
+          2,
+          "DO-35_BD2.0-L4.2-P8.20-D0.5-RD",
+          "D1,D2",
+          {
+            "Manufacturer Part": "1N4148",
+            "Manufacturer": "FMS(美丽微)",
+            "Supplier": "LCSC",
+            "Supplier Part": "C163750"
+          }
+        ],
+        [
+          "PM254-2-05-W-8.5",
+          2,
+          "HDR-TH_10P-P2.54-H-F-R2-C5-W8.5",
+          "H1,H2",
+          {
+            "Manufacturer Part": "PM254-2-05-W-8.5",
+            "Manufacturer": "HCTL(华灿天禄)",
+            "Supplier": "LCSC",
+            "Supplier Part": "C2897425"
+          }
+        ],
+        [
+          "2kΩ",
+          1,
+          "RES-TH_BD2.4-L6.3-P10.30-D0.6",
+          "R1",
+          {
+            "Manufacturer Part": "RN1/4W2KFT/BA1",
+            "Manufacturer": "Tyohm(幸亚电阻)",
+            "Supplier": "LCSC",
+            "Supplier Part": "C410663"
+          }
+        ],
+        [
+          "CJMCU-1051",
+          2,
+          "CJMCU-1051",
+          "U3,U8",
+          {
+            "Manufacturer Part": "",
+            "Manufacturer": "",
+            "Supplier": "",
+            "Supplier Part": ""
+          }
+        ],
+        [
+          "MP1584-Buck-Converter_IGR2",
+          1,
+          "MP1584EN-BUCK-CONVERTER",
+          "U7",
+          {
+            "Manufacturer Part": "MP1584EN",
+            "Manufacturer": "",
+            "Supplier": "",
+            "Supplier Part": ""
+          }
+        ],
+        [
+          "ESP32C6_Supermini",
+          1,
+          "ESP32-C6-SUPERMINI",
+          "U9",
+          {
+            "Manufacturer Part": "",
+            "Manufacturer": "",
+            "Supplier": "",
+            "Supplier Part": ""
+          }
+        ]
+      ],
+      "updateTime": 1732906661,
+      "createTime": 1732847828,
+      "histories": [],
+      "created_at": "2024-11-29 02:37:08",
+      "updated_at": "2024-11-29 18:57:41"
+    },
+    {
+      "uuid": "0314a2b0bd71245af238bd7a41f3fff1",
+      "puuid": "27b3fad6e4968f43fbd4267471a7b36a",
+      "title": "PCB_OpenTCUSandwich_2",
+      "filename": "PCB_OpenTCUSandwich_2.json",
+      "description": "",
+      "docType": "3",
+      "master": "",
+      "thumb": "/images/thumb-default.png",
+      "components": {
+        "ddf64b5bac1d4500b816f1dd7a1618ca": 1,
+        "ef9d4e7870aa4ad9986a2aa8d151946e": 2,
+        "45052b110150450f8d59dd880cb7e613": 1,
+        "07299d705fac4912bde428511f95b7f4": 1
+      },
+      "BOM": [
+        [
+          "Value",
+          "Quantity",
+          "Package",
+          "Components",
+          "CustomPara"
+        ],
+        [
+          "1N4148-C163750",
+          2,
+          "DO-35_BD2.0-L4.2-P8.20-D0.5-RD",
+          "D1,D2",
+          {
+            "Manufacturer Part": "1N4148",
+            "Manufacturer": "FMS(美丽微)",
+            "Supplier": "LCSC",
+            "Supplier Part": "C163750"
+          }
+        ],
+        [
+          "PM254-2-05-W-8.5",
+          1,
+          "HDR-TH_10P-P2.54-H-F-R2-C5-W8.5",
+          "H1",
+          {
+            "Manufacturer Part": "PM254-2-05-W-8.5",
+            "Manufacturer": "HCTL(华灿天禄)",
+            "Supplier": "LCSC",
+            "Supplier Part": "C2897425"
+          }
+        ],
+        [
+          "PM254-2-05-W-8.5",
+          1,
+          "HDR-TH_10P-P2.54-H-F-R2-C5-W8.5",
+          "H2",
+          {
+            "Manufacturer Part": "PM254-2-05-W-8.5",
+            "Manufacturer": "HCTL(华灿天禄)",
+            "Supplier": "LCSC",
+            "Supplier Part": "C2897425"
+          }
+        ],
+        [
+          "2kΩ",
+          1,
+          "RES-TH_BD2.4-L6.3-P10.30-D0.6",
+          "R1",
+          {
+            "Manufacturer Part": "RN1/4W2KFT/BA1",
+            "Manufacturer": "Tyohm(幸亚电阻)",
+            "Supplier": "LCSC",
+            "Supplier Part": "C410663"
+          }
+        ],
+        [
+          "CJMCU-1051",
+          2,
+          "CJMCU-1051",
+          "U3,U8",
+          {
+            "Manufacturer Part": "",
+            "Manufacturer": "",
+            "Supplier": "",
+            "Supplier Part": ""
+          }
+        ],
+        [
+          "MP1584-Buck-Converter_IGR2",
+          1,
+          "MP1584EN-BUCK-CONVERTER",
+          "U7",
+          {
+            "Manufacturer Part": "MP1584EN",
+            "Manufacturer": "",
+            "Supplier": "",
+            "Supplier Part": ""
+          }
+        ],
+        [
+          "ESP32C6_Supermini",
+          1,
+          "ESP32-C6-SUPERMINI",
+          "U9",
+          {
+            "Manufacturer Part": "",
+            "Manufacturer": "",
+            "Supplier": "",
+            "Supplier Part": ""
+          }
+        ]
+      ],
+      "updateTime": 1732908648,
+      "createTime": 1732907353,
+      "histories": [],
+      "created_at": "2024-11-29 19:09:13",
+      "updated_at": "2024-11-29 19:30:48"
+    }
+  ],
+  "sort": [],
+  "title": "OpenTCUSandwich",
+  "foldername": "OpenTCUSandwich",
+  "schfilename": "OpenTCUSandwich.json",
+  "schfilemtime": 1732906662247
+}
