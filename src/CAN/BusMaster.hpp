@@ -32,8 +32,17 @@ namespace ReadieFur::OpenTCU::CAN
             bool dataMask[8] = { false };
             uint8_t data[8] = { 0 };
         };
-        
+
+        struct SMessageReplacements
+        {
+            uint32_t id;
+            bool dataMask[8] = { false };
+            uint8_t original[8] = { 0 };
+            uint8_t replacement[8] = { 0 };
+        };
+
         std::map<uint32_t, SMessageOverrides> MessageOverrides;
+        std::vector<SMessageReplacements> MessageReplacements;
         std::vector<uint32_t> Blacklist;
 
     protected:
@@ -222,13 +231,134 @@ namespace ReadieFur::OpenTCU::CAN
             //     //When the bike is locked D1,D3,D5,D6,D7 are all set to 0.
             // }
 
-            if (!MessageOverrides.contains(message->id))
-                return;
+            // if (message->id == 0x100)
+            // {
+            //     //Hardcoded testing.
 
-            SMessageOverrides& overrides = MessageOverrides[message->id];
-            for (int i = 0; i < 8; i++)
-                if (overrides.dataMask[i])
-                    message->data[i] = overrides.data[i];
+            //     static const uint8_t sets[][8] =
+            //     {
+            //         { 0x03, 0x22, 0x02, 0x03, 0x00, 0x00, 0x00, 0x00 },
+            //         { 0x30, 0x00, 0x00 },
+            //         { 0x03, 0x22, 0x02, 0x02, 0x00, 0x00, 0x00, 0x00 },
+            //         { 0x30, 0x00, 0x00 },
+            //         { 0x03, 0x22, 0x02, 0x04, 0x00, 0x00, 0x00, 0x00 },
+            //         { 0x30, 0x00, 0x00 },
+            //         { 0x03, 0x22, 0x02, 0x07, 0x00, 0x00, 0x00, 0x00 },
+            //         { 0x03, 0x22, 0x02, 0x06, 0x00, 0x00, 0x00, 0x00 },
+            //         { 0x03, 0x22, 0x02, 0x0D, 0x00, 0x00, 0x00, 0x00 },
+            //         { 0x03, 0x22, 0x02, 0x13, 0x00, 0x00, 0x00, 0x00 },
+            //         { 0x03, 0x22, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00 },
+            //         { 0x03, 0x22, 0x02, 0x0B, 0x00, 0x00, 0x00, 0x00 },
+            //         { 0x03, 0x22, 0x02, 0x17, 0x00, 0x00, 0x00, 0x00 }
+            //     };
+
+            //     int matchingIndex = -1;
+            //     for (int i = 0; i < sizeof(sets) / sizeof(sets[0]); i++)
+            //     {
+            //         bool match = true;
+
+            //         for (int j = 0; j < message->length; j++)
+            //         {
+            //             if (sets[i][j] != message->data[j])
+            //             {
+            //                 match = false;
+            //                 break;
+            //             }
+            //         }
+                        
+            //         if (match)
+            //         {
+            //             matchingIndex = i;
+            //             break;
+            //         }
+            //     }
+
+            //     uint8_t* newData = nullptr;
+            //     switch (matchingIndex)
+            //     {
+            //     case 0:
+            //         newData = new uint8_t[8]{ 0x03, 0x22, 0x02, 0x03, 0x00, 0x00, 0x00, 0x00 };
+            //         break;
+            //     case 1:
+            //         newData = new uint8_t[3]{ 0x30, 0x00, 0x00 };
+            //         break;
+            //     case 2:
+            //         newData = new uint8_t[8]{ 0x03, 0x22, 0x02, 0x02, 0x00, 0x00, 0x00, 0x00 };
+            //         break;
+            //     case 3:
+            //         newData = new uint8_t[3]{ 0x30, 0x00, 0x00 };
+            //         break;
+            //     case 4:
+            //         newData = new uint8_t[8]{ 0x03, 0x22, 0x02, 0x04, 0x00, 0x00, 0x00, 0x00 };
+            //         break;
+            //     case 5:
+            //         newData = new uint8_t[3]{ 0x30, 0x00, 0x00 };
+            //         break;
+            //     case 6:
+            //         newData = new uint8_t[8]{ 0x03, 0x22, 0x02, 0x07, 0x00, 0x00, 0x00, 0x00 };
+            //         break;
+            //     case 7:
+            //         newData = new uint8_t[8]{ 0x03, 0x22, 0x02, 0x06, 0x00, 0x00, 0x00, 0x00 };
+            //         break;
+            //     case 8:
+            //         newData = new uint8_t[8]{ 0x03, 0x22, 0x02, 0x0D, 0x00, 0x00, 0x00, 0x00 };
+            //         break;
+            //     case 9:
+            //         newData = new uint8_t[8]{ 0x03, 0x22, 0x02, 0x13, 0x00, 0x00, 0x00, 0x00 };
+            //         break;
+            //     case 10:
+            //         newData = new uint8_t[8]{ 0x03, 0x22, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00 };
+            //         break;
+            //     case 11:
+            //         newData = new uint8_t[8]{ 0x03, 0x22, 0x02, 0x0B, 0x00, 0x00, 0x00, 0x00 };
+            //         break;
+            //     case 12:
+            //         newData = new uint8_t[8]{ 0x03, 0x22, 0x02, 0x17, 0x00, 0x00, 0x00, 0x00 };
+            //         break;
+            //     default:
+            //         break;
+            //     }
+            //     if (newData != nullptr)
+            //     {
+            //         for (int i = 0; i < message->length; i++)
+            //             message->data[i] = newData[i];
+            //         delete[] newData;
+            //     }
+
+            //     return;
+            // }
+
+            //Check if a replacement message matches the current message.
+            for (auto& replacement : MessageReplacements)
+            {
+                if (replacement.id == message->id)
+                {
+                    bool match = true;
+                    for (int i = 0; i < 8; i++)
+                    {
+                        if (replacement.dataMask[i] && replacement.original[i] != message->data[i])
+                        {
+                            match = false;
+                            break;
+                        }
+                    }
+                    if (match)
+                    {
+                        for (int i = 0; i < message->length; i++)
+                            if (replacement.dataMask[i])
+                                message->data[i] = replacement.replacement[i];
+                        return;
+                    }
+                }
+            }
+
+            if (MessageOverrides.contains(message->id))
+            {
+                SMessageOverrides& overrides = MessageOverrides[message->id];
+                for (int i = 0; i < 8; i++)
+                    if (overrides.dataMask[i])
+                        message->data[i] = overrides.data[i];
+            }
             #endif
         }
 
