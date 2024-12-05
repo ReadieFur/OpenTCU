@@ -214,6 +214,61 @@ namespace ReadieFur::OpenTCU::CAN
             _QUERY_OK();
         }
 
+        static esp_err_t OnInjectPost(httpd_req_t* req)
+        {
+            _QUERY_BOILERPLATE();
+
+            SCanMessage message;
+
+            if (!params.contains("id"))
+            {
+                LOGE(nameof(CAN::API), "Missing 'id' parameter.");
+                httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "Missing 'id' parameter.");
+                return ESP_FAIL;
+            }
+            message.id = std::stoul(params["id"], nullptr, 16);
+
+            if (!params.contains("bus"))
+            {
+                LOGE(nameof(CAN::API), "Missing 'bus' parameter.");
+                httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "Missing 'bus' parameter.");
+                return ESP_FAIL;
+            }
+            uint32_t bus = std::stoul(params["bus"]);
+
+            if (!params.contains("length"))
+            {
+                LOGE(nameof(CAN::API), "Missing 'length' parameter.");
+                httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "Missing 'length' parameter.");
+                return ESP_FAIL;
+            }
+            message.length = std::stoul(params["length"]);
+
+            for (int i = 0; i < message.length; i++)
+            {
+                if (!params.contains("d" + std::to_string(i + 1)))
+                {
+                    LOGE(nameof(CAN::API), "Missing 'd%i' parameter.", i + 1);
+                    httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "Missing a 'd' parameter.");
+                    return ESP_FAIL;
+                }
+                message.data[i] = std::stoul(params["d" + std::to_string(i + 1)], nullptr, 16);
+            }
+
+            if (bus == 1)
+                self->_busMaster->InjectQueue0.push(message);
+            else if (bus == 2)
+                self->_busMaster->InjectQueue1.push(message);
+            else
+            {
+                LOGE(nameof(CAN::API), "Invalid 'bus' parameter.");
+                httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "Invalid 'bus' parameter.");
+                return ESP_FAIL;
+            }
+
+            _QUERY_OK();
+        }
+
         static esp_err_t OnRebootPost(httpd_req_t* req)
         {
             httpd_resp_send(req, "OK", HTTPD_RESP_USE_STRLEN);
@@ -282,6 +337,18 @@ namespace ReadieFur::OpenTCU::CAN
                 .user_ctx = this
             };
             if ((err = httpd_register_uri_handler(_server, &uriLogPost)) != ESP_OK)
+            {
+                LOGE(nameof(CAN::API), "Failed to register URI handler.");
+                return;
+            }
+
+            httpd_uri_t uriInjectPost = {
+                .uri = "/can/inject",
+                .method = HTTP_POST,
+                .handler = OnInjectPost,
+                .user_ctx = this
+            };
+            if ((err = httpd_register_uri_handler(_server, &uriInjectPost)) != ESP_OK)
             {
                 LOGE(nameof(CAN::API), "Failed to register URI handler.");
                 return;

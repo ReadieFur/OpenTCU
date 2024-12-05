@@ -17,6 +17,7 @@
 #include "Logging.hpp"
 #include <map>
 #include <vector>
+#include <queue>
 
 // #define CAN_DUMP_BEFORE_INTERCEPT
 #define CAN_DUMP_AFTER_INTERCEPT
@@ -44,6 +45,8 @@ namespace ReadieFur::OpenTCU::CAN
         std::map<uint32_t, SMessageOverrides> MessageOverrides;
         std::vector<SMessageReplacements> MessageReplacements;
         std::vector<uint32_t> Blacklist;
+        std::queue<SCanMessage> InjectQueue0;
+        std::queue<SCanMessage> InjectQueue1;
 
     protected:
         static const TickType_t CAN_TIMEOUT_TICKS = pdMS_TO_TICKS(100);
@@ -85,9 +88,48 @@ namespace ReadieFur::OpenTCU::CAN
 
             char bus = pcTaskGetName(xTaskGetHandle(pcTaskGetName(NULL)))[3]; //Only really used for logging & debugging.
 
+            std::queue<SCanMessage>* injectQueue = nullptr;
+            if (bus == '1')
+                injectQueue = &params->self->InjectQueue0;
+            else if (bus == '2')
+                injectQueue = &params->self->InjectQueue1;
+
             //Check if the task has been signalled for deletion.
             while (!ServiceCancellationToken.IsCancellationRequested())
             {
+                //Inject messages into the bus.
+                while (!injectQueue->empty())
+                {
+                    SCanMessage message = injectQueue->front();
+                    injectQueue->pop();
+                    esp_err_t res = ESP_OK;
+                    if ((res = params->can2->Send(message, CAN_TIMEOUT_TICKS)) != ESP_OK)
+                    {
+                        LOGE(nameof(CAN::BusMaster), "CAN%c failed to inject message: %i", bus, res);
+                        continue;
+                    }
+                    
+                    SCanDump dump =
+                    {
+                        .timestamp = esp_log_timestamp(),
+                        .bus = bus,
+                        .message = message //Creates a copy of the struct.
+                    };
+
+                    #if defined(_LIVE_LOG)
+                    #elif false
+                    while (xQueueSend(BusMaster::CanDumpQueue, &dump, 0) == errQUEUE_FULL)
+                    {
+                        //If the queue is full, remove the oldest item.
+                        SCanDump oldDump;
+                        xQueueReceive(BusMaster::CanDumpQueue, &oldDump, 0);
+                    }
+                    #else
+                    if (xQueueSend(BusMaster::CanDumpQueue, &dump, 0) == errQUEUE_FULL)
+                        LOGW(nameof(CAN::BusMaster), "CAN log queue is full.");
+                    #endif
+                }
+
                 //Attempt to read a message from the bus.
                 SCanMessage message;
                 esp_err_t res = ESP_OK;
