@@ -30,9 +30,9 @@
 #endif
 #include <Network/OTA/API.hpp>
 #include <esp_pm.h>
-#include "Bluetooth/BLE.hpp"
-#include "Bluetooth/API.hpp"
-#include "Bluetooth/TCU.hpp"
+// #include "Bluetooth/BLE.hpp"
+// #include "Bluetooth/API.hpp"
+// #include "Bluetooth/TCU.hpp"
 #include <string>
 #include <esp_mac.h>
 #include <cstring>
@@ -170,7 +170,7 @@ void setup()
     #endif
 
     #ifdef DEBUG
-    CHECK_SERVICE_RESULT(ReadieFur::Service::ServiceManager::InstallAndStartService<ReadieFur::Diagnostic::DiagnosticsService>());
+    // CHECK_SERVICE_RESULT(ReadieFur::Service::ServiceManager::InstallAndStartService<ReadieFur::Diagnostic::DiagnosticsService>());
     #endif
 
     ConfigureDeviceName();
@@ -198,10 +198,9 @@ void setup()
     ConfigureAdditionalLoggers();
     #endif
 
-    
-    CHECK_SERVICE_RESULT(ReadieFur::Service::ServiceManager::InstallAndStartService<Bluetooth::BLE>());
-    CHECK_SERVICE_RESULT(ReadieFur::Service::ServiceManager::InstallAndStartService<Bluetooth::API>());
-    CHECK_SERVICE_RESULT(ReadieFur::Service::ServiceManager::InstallAndStartService<Bluetooth::TCU>());
+    // CHECK_SERVICE_RESULT(ReadieFur::Service::ServiceManager::InstallAndStartService<Bluetooth::BLE>());
+    // CHECK_SERVICE_RESULT(ReadieFur::Service::ServiceManager::InstallAndStartService<Bluetooth::API>());
+    // CHECK_SERVICE_RESULT(ReadieFur::Service::ServiceManager::InstallAndStartService<Bluetooth::TCU>());
 
     #ifdef ENABLE_CAN_DUMP
     CHECK_SERVICE_RESULT(ReadieFur::Service::ServiceManager::InstallAndStartService<CAN::Logger>());
