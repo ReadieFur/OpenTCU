@@ -218,7 +218,10 @@ namespace ReadieFur::OpenTCU::CAN
         {
             _QUERY_BOILERPLATE();
 
-            SCanMessage message;
+            SCanMessage message = {
+                .isExtended = false,
+                .isRemote = false
+            };
 
             if (!params.contains("id"))
             {
