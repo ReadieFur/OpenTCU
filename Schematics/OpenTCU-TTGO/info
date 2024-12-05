@@ -1,0 +1,336 @@
+{
+  "uuid": "4a6bfc69c8a9448a15c9ea15f19f5cd1",
+  "path": "Offline/OpenTCU-TTGO",
+  "name": "OpenTCU-TTGO",
+  "content": "",
+  "created_at": "2024-09-26 11:49:09",
+  "updated_at": "2024-09-26 14:55:49",
+  "stick": "",
+  "documents": [
+    {
+      "uuid": "19c0de5bae611285b33285a66da9197d",
+      "title": "Schematic_OpenTCUSandwich",
+      "description": "",
+      "docType": "1",
+      "master": "",
+      "thumb": "/images/thumb-default.png",
+      "components": {
+        "191eb850bad343198441701a98c87b7e": 1,
+        "bf46bcb87188446687daee4c14b87b2b": 1,
+        "74cc340db7ba4ef4babcd76d56f62eb0": 1,
+        "5b611319b2b64af7bec728e1ef7ec87f": 1,
+        "b3ae2f946ec28ceab3eddb0dfe90ae62": 2,
+        "e56e190f81fe4d05ab532e330dc5170c": 2,
+        "6daf28aec53a4dec898bb16d91cf0d54": 2,
+        "933d4754fbee4e5dba48c79e784ce254": 1,
+        "0b6ea66f1a77ef3069b26dadb3d73791": 5,
+        "bacf5553da266925c44144ce5fdc0a97": 1
+      },
+      "BOM": [
+        [
+          "Value",
+          "Quantity",
+          "Package",
+          "Components",
+          "CustomPara"
+        ],
+        [
+          "MX128-2.54-05P-GN01-CU-Y-A",
+          2,
+          "CONN-TH_5P-P2.54_MX128-2.54-05P-GN01-CU-Y-A",
+          "CN1,CN2",
+          {
+            "Manufacturer Part": "MX128-2.54-05P-GN01-Cu-Y-A",
+            "Manufacturer": "MAX(迈旭)",
+            "Supplier": "LCSC",
+            "Supplier Part": "C5188445"
+          }
+        ],
+        [
+          "PM254V-11-07-H85",
+          1,
+          "HDR-TH_7P-P2.54-V-F",
+          "H1",
+          {
+            "Manufacturer Part": "PM254V-11-07-H85",
+            "Manufacturer": "XFCN(兴飞)",
+            "Supplier": "LCSC",
+            "Supplier Part": "C2832270"
+          }
+        ],
+        [
+          "Header-Female-2.54_1x16",
+          2,
+          "HDR-TH_16P-P2.54-V-F-1",
+          "P1,P2",
+          {
+            "Manufacturer Part": "2.54-1*16P母",
+            "Manufacturer": "BOOMELE(博穆精密)",
+            "Supplier": "LCSC",
+            "Supplier Part": "C66987"
+          }
+        ],
+        [
+          "Header-Female-2.54_1x2",
+          5,
+          "HDR-TH_2P-P2.54-V-F",
+          "P3,P4,P6,P7,P8",
+          {
+            "Manufacturer Part": "2.54-1*2P母",
+            "Manufacturer": "BOOMELE(博穆精密)",
+            "Supplier": "LCSC",
+            "Supplier Part": "C49661"
+          }
+        ],
+        [
+          "Header-Female-2.54_1x8",
+          1,
+          "HDR-TH_8P-P2.54-V-F-1",
+          "P5",
+          {
+            "Manufacturer Part": "2.54-1*8P母环保",
+            "Manufacturer": "BOOMELE(博穆精密)",
+            "Supplier": "LCSC",
+            "Supplier Part": "C27438"
+          }
+        ],
+        [
+          "MCP2515CANSPI",
+          1,
+          "MCP2515CANSPI",
+          "U2",
+          {
+            "Manufacturer Part": "",
+            "Manufacturer": "",
+            "Supplier": "",
+            "Supplier Part": ""
+          }
+        ],
+        [
+          "CJMCU-1051",
+          1,
+          "CJMCU-1051",
+          "U3",
+          {
+            "Manufacturer Part": "",
+            "Manufacturer": "",
+            "Supplier": "",
+            "Supplier Part": ""
+          }
+        ],
+        [
+          "DB125-2.54-6P-GN",
+          2,
+          "CONN-TH_DB125-2.54-6P-GN",
+          "U4,U6",
+          {
+            "Manufacturer Part": "DB125-2.54-6P-GN-S",
+            "Manufacturer": "DORABO(地博电气)",
+            "Supplier": "LCSC",
+            "Supplier Part": "C918124"
+          }
+        ],
+        [
+          "MP1584-Buck-Converter_IGR2",
+          1,
+          "MP1584EN-BUCK-CONVERTER",
+          "U7",
+          {
+            "Manufacturer Part": "MP1584EN",
+            "Manufacturer": "",
+            "Supplier": "",
+            "Supplier Part": ""
+          }
+        ],
+        [
+          "LILYGO TTGO T-A7670G",
+          1,
+          "LILYGO TTGO T-SIM7000G",
+          "U8",
+          {
+            "Manufacturer Part": "",
+            "Manufacturer": "",
+            "Supplier": "",
+            "Supplier Part": ""
+          }
+        ]
+      ],
+      "updateTime": 1727358949,
+      "createTime": 1727348097,
+      "histories": [],
+      "created_at": "2024-09-26 11:54:57",
+      "updated_at": "2024-09-26 14:55:49"
+    },
+    {
+      "uuid": "83e0e036027ef42abef8efd097e080aa",
+      "puuid": "4a6bfc69c8a9448a15c9ea15f19f5cd1",
+      "title": "PCB_OpenTCU-TTGO",
+      "filename": "PCB_OpenTCU-TTGO.json",
+      "description": "",
+      "docType": "3",
+      "master": "",
+      "thumb": "/images/thumb-default.png",
+      "components": {
+        "3cedd95c5b4143699603b299d66ddf28": 2,
+        "9bf99f625597483ab82004a648b83cbf": 1,
+        "a249de7d161d4ae894913a5559e361f0": 2,
+        "73b13f40a1a24714ba033b6443e6b3a7": 5,
+        "366e1b46b2ba4833900571d9613df11d": 1,
+        "0d7a8aea22a7475a80f23792de4da70d": 2
+      },
+      "BOM": [
+        [
+          "Value",
+          "Quantity",
+          "Package",
+          "Components",
+          "CustomPara"
+        ],
+        [
+          "MX128-2.54-05P-GN01-CU-Y-A",
+          2,
+          "CONN-TH_5P-P2.54_MX128-2.54-05P-GN01-CU-Y-A",
+          "CN1,CN2",
+          {
+            "Manufacturer Part": "MX128-2.54-05P-GN01-Cu-Y-A",
+            "Manufacturer": "MAX(迈旭)",
+            "Supplier": "LCSC",
+            "Supplier Part": "C5188445"
+          }
+        ],
+        [
+          "PM254V-11-07-H85",
+          1,
+          "HDR-TH_7P-P2.54-V-F",
+          "H1",
+          {
+            "Manufacturer Part": "PM254V-11-07-H85",
+            "Manufacturer": "XFCN(兴飞)",
+            "Supplier": "LCSC",
+            "Supplier Part": "C2832270"
+          }
+        ],
+        [
+          "Header-Female-2.54_1x16",
+          2,
+          "HDR-TH_16P-P2.54-V-F-1",
+          "P1,P2",
+          {
+            "Manufacturer Part": "2.54-1*16P母",
+            "Manufacturer": "BOOMELE(博穆精密)",
+            "Supplier": "LCSC",
+            "Supplier Part": "C66987"
+          }
+        ],
+        [
+          "Header-Female-2.54_1x2",
+          1,
+          "HDR-TH_2P-P2.54-V-F",
+          "P3",
+          {
+            "Manufacturer Part": "2.54-1*2P母",
+            "Manufacturer": "BOOMELE(博穆精密)",
+            "Supplier": "LCSC",
+            "Supplier Part": "C49661"
+          }
+        ],
+        [
+          "Header-Female-2.54_1x2",
+          4,
+          "HDR-TH_2P-P2.54-V-F",
+          "P4,P6,P7,P8",
+          {
+            "Manufacturer Part": "2.54-1*2P母",
+            "Manufacturer": "BOOMELE(博穆精密)",
+            "Supplier": "LCSC",
+            "Supplier Part": "C49661"
+          }
+        ],
+        [
+          "Header-Female-2.54_1x8",
+          1,
+          "HDR-TH_8P-P2.54-V-F-1",
+          "P5",
+          {
+            "Manufacturer Part": "2.54-1*8P母环保",
+            "Manufacturer": "BOOMELE(博穆精密)",
+            "Supplier": "LCSC",
+            "Supplier Part": "C27438"
+          }
+        ],
+        [
+          "MCP2515CANSPI",
+          1,
+          "MCP2515CANSPI",
+          "U2",
+          {
+            "Manufacturer Part": "",
+            "Manufacturer": "",
+            "Supplier": "",
+            "Supplier Part": ""
+          }
+        ],
+        [
+          "CJMCU-1051",
+          1,
+          "CJMCU-1051",
+          "U3",
+          {
+            "Manufacturer Part": "",
+            "Manufacturer": "",
+            "Supplier": "",
+            "Supplier Part": ""
+          }
+        ],
+        [
+          "DB125-2.54-6P-GN",
+          2,
+          "CONN-TH_DB125-2.54-6P-GN",
+          "U4,U6",
+          {
+            "Manufacturer Part": "DB125-2.54-6P-GN-S",
+            "Manufacturer": "DORABO(地博电气)",
+            "Supplier": "LCSC",
+            "Supplier Part": "C918124"
+          }
+        ],
+        [
+          "MP1584-Buck-Converter_IGR2",
+          1,
+          "MP1584EN-BUCK-CONVERTER",
+          "U7",
+          {
+            "Manufacturer Part": "MP1584EN",
+            "Manufacturer": "",
+            "Supplier": "",
+            "Supplier Part": ""
+          }
+        ],
+        [
+          "LILYGO TTGO T-A7670G",
+          1,
+          "LILYGO TTGO T-SIM7000G",
+          "U8",
+          {
+            "Manufacturer Part": "",
+            "Manufacturer": "",
+            "Supplier": "",
+            "Supplier Part": ""
+          }
+        ]
+      ],
+      "updateTime": 1727358897,
+      "createTime": 1727354047,
+      "histories": [],
+      "created_at": "2024-09-26 13:34:07",
+      "updated_at": "2024-09-26 14:54:57"
+    }
+  ],
+  "sort": [
+    "19c0de5bae611285b33285a66da9197d"
+  ],
+  "title": "OpenTCU-TTGO",
+  "foldername": "OpenTCU-TTGO",
+  "schfilename": "OpenTCU-TTGO.json",
+  "schfilemtime": 1727358949635
+}
