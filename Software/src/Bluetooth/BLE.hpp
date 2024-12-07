@@ -14,183 +14,350 @@
 #include <functional>
 #include <freertos/semphr.h>
 #include "Environment.h"
+#include "Config/Device.h"
+#include "SGattServerProfile.h"
+#include <mutex>
+#include <algorithm>
+#include <esp_err.h>
 
-#define MS_TO_BLE_ADVERTISING_INTERVAL(ms) (ms / 0.625) //Advertising interval (in 0.625 ms units).
+#define ADV_CONFIG_FLAG                           (1 << 0)
+#define SCAN_RSP_CONFIG_FLAG                      (1 << 1)
+
+#define _BT_ESP_CHECK(func, msg) do {                       \
+        esp_err_t res = func;                               \
+        if (res != ESP_OK) {                                \
+            LOGE(nameof(Bluetooth::BLE), msg ": %s", esp_err_to_name(res));  \
+            return;                                         \
+        }                                                   \
+    } while (0)
 
 namespace ReadieFur::OpenTCU::Bluetooth
 {
+    //https://github.com/espressif/esp-idf/blob/6fe853a2c73437f74c0e6e79f9b15db68b231d32/examples/bluetooth/bluedroid/ble/gatt_security_server/tutorial/Gatt_Security_Server_Example_Walkthrough.md
     class BLE : public Service::AService
     {
     private:
-        typedef std::function<void(esp_gatt_if_t, esp_ble_gatts_cb_param_t*)> TServerCallback;
-        typedef std::function<void(esp_gatt_if_t, esp_ble_gattc_cb_param_t*)> TClientCallback;
+        static uint8_t _manufacturer[16];
+        static uint8_t _serviceUuid[16];
+        static esp_ble_adv_data_t _advertisingConfig;
+        static esp_ble_adv_data_t _rspConfig;
+        static esp_ble_adv_params_t _advertisingParams;
+        static uint32_t _passkey;
+        static std::mutex _mutex;
+        static uint8_t _advConfigDone;
+        static std::vector<SGattServerProfile*> _serverProfiles;
 
-        static SemaphoreHandle_t _instanceMutex;
-        static std::map<uint16_t, TServerCallback> _serverCallbacks;
-        static std::map<uint16_t, TClientCallback> _clientCallbacks;
-
-        static void GapCallback(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param_t* param)
+        static const char* EspKeyTypeToStr(esp_ble_key_type_t keyType)
         {
-            switch (event)
+            switch(keyType)
             {
-                case ESP_GAP_BLE_ADV_DATA_SET_COMPLETE_EVT:
-                    LOGV(nameof(Bluetooth::BLE), "Advertisement data set complete");
+                case ESP_LE_KEY_NONE:
+                    return "ESP_LE_KEY_NONE";
                     break;
-                case ESP_GAP_BLE_ADV_START_COMPLETE_EVT:
-                    if (param->adv_start_cmpl.status == ESP_OK)
-                        LOGV(nameof(Bluetooth::BLE), "Advertising started successfully");
-                    else
-                        ESP_LOGE("BLE", "Advertising start failed");
-                    break;
-                case ESP_GAP_BLE_SCAN_RESULT_EVT:
-                    LOGV(nameof(Bluetooth::BLE), "Scan result event received");
-                    // Handle scanning events if needed
-                    break;
-                // case ESP_GAP_BLE_CONNECT_EVT:
-                //     LOGV(nameof(Bluetooth::BLE), "Device connected");
-                //     // Handle BLE connection events
-                //     break;
-                // case ESP_GAP_BLE_DISCONNECT_EVT:
-                //     LOGV(nameof(Bluetooth::BLE), "Device disconnected");
-                //     // Handle BLE disconnection events
-                //     break;
+                case ESP_LE_KEY_PENC:
+                    return "ESP_LE_KEY_PENC";
+                case ESP_LE_KEY_PID:
+                    return "ESP_LE_KEY_PID";
+                case ESP_LE_KEY_PCSRK:
+                    return "ESP_LE_KEY_PCSRK";
+                case ESP_LE_KEY_PLK:
+                    return "ESP_LE_KEY_PLK";
+                case ESP_LE_KEY_LLK:
+                    return "ESP_LE_KEY_LLK";
+                case ESP_LE_KEY_LENC:
+                    return "ESP_LE_KEY_LENC";
+                case ESP_LE_KEY_LID:
+                    return "ESP_LE_KEY_LID";
+                case ESP_LE_KEY_LCSRK:
+                    return "ESP_LE_KEY_LCSRK";
                 default:
-                    break;
+                    return "INVALID BLE KEY TYPE";
             }
         }
 
-        static void GattServerCallback(esp_gatts_cb_event_t event, esp_gatt_if_t gatts_if, esp_ble_gatts_cb_param_t* param)
+        static const char* EspAuthReqToStr(esp_ble_auth_req_t authReq)
         {
-            if (_serverCallbacks.contains(param->reg.app_id))
-                _serverCallbacks[param->reg.app_id](gatts_if, param);
+            switch(authReq)
+            {
+                case ESP_LE_AUTH_NO_BOND:
+                    return "ESP_LE_AUTH_NO_BOND";
+                case ESP_LE_AUTH_BOND:
+                    return "ESP_LE_AUTH_BOND";
+                case ESP_LE_AUTH_REQ_MITM:
+                    return "ESP_LE_AUTH_REQ_MITM";
+                case ESP_LE_AUTH_REQ_BOND_MITM:
+                    return "ESP_LE_AUTH_REQ_BOND_MITM";
+                case ESP_LE_AUTH_REQ_SC_ONLY:
+                    return "ESP_LE_AUTH_REQ_SC_ONLY";
+                case ESP_LE_AUTH_REQ_SC_BOND:
+                    return "ESP_LE_AUTH_REQ_SC_BOND";
+                case ESP_LE_AUTH_REQ_SC_MITM:
+                    return "ESP_LE_AUTH_REQ_SC_MITM";
+                case ESP_LE_AUTH_REQ_SC_MITM_BOND:
+                    return "ESP_LE_AUTH_REQ_SC_MITM_BOND";
+                default:
+                    return "INVALID BLE AUTH REQ";
+            }
         }
 
-        static void GattClientCallback(esp_gattc_cb_event_t event, esp_gatt_if_t gattc_if, esp_ble_gattc_cb_param_t* param)
+        static void ShowBondedDevices()
         {
-            if (_clientCallbacks.contains(param->reg.app_id))
-                _clientCallbacks[param->reg.app_id](gattc_if, param);
+            int devNum = esp_ble_get_bond_device_num();
+
+            esp_ble_bond_dev_t *dev_list = (esp_ble_bond_dev_t *)malloc(sizeof(esp_ble_bond_dev_t) * devNum);
+            esp_ble_get_bond_device_list(&devNum, dev_list);
+            LOGI(nameof(Bluetooth::BLE), "Bonded devices number: %d", devNum);
+
+            LOGI(nameof(Bluetooth::BLE), "Bonded devices list: %d", devNum);
+            for (int i = 0; i < devNum; i++)
+                esp_log_buffer_hex(nameof(Bluetooth::BLE), (void*)dev_list[i].bd_addr, sizeof(esp_bd_addr_t));
+
+            free(dev_list);
+        }
+
+        static void GattServerEventHandler(esp_gatts_cb_event_t event, esp_gatt_if_t gattsIf, esp_ble_gatts_cb_param_t* param)
+        {
+            LOGV(nameof(Bluetooth::BLE), "GATT_EVT: %d", event);
+
+            switch (event)
+            {
+            case ESP_GATTS_REG_EVT: //If event is register event, store the gattsIf for each profile.
+            {
+                if (param->reg.status != ESP_GATT_OK)
+                {
+                    LOGE(nameof(Bluetooth::BLE), "Register app failed. Invalid status, app_id %04x, status %d", param->reg.app_id, param->reg.status);
+                    return;
+                }
+
+                auto profile = FindServerProfile(param->reg.app_id);
+                if (profile == _serverProfiles.end())
+                {
+                    LOGE(nameof(Bluetooth::BLE), "Register app failed. AppId not found: %d", param->reg.app_id);
+                    return;
+                }
+
+                esp_ble_gap_set_device_name(DeviceName.c_str());
+                esp_ble_gap_config_local_privacy(true);
+
+                (*profile)->gattsIf = gattsIf;
+                break;
+            }
+            case ESP_GATTS_CONNECT_EVT:
+            {
+                //Start security connect with peer device when receive the connect event sent by the master.
+                esp_ble_set_encryption(param->connect.remote_bda, ESP_BLE_SEC_ENCRYPT_MITM);
+                break;
+            }
+            case ESP_GATTS_DISCONNECT_EVT: //Start advertising again when missing the connect.
+            {
+                LOGD(nameof(Bluetooth::API), "Disconnect reason: 0x%x", param->disconnect.reason);
+                esp_ble_gap_start_advertising(&_advertisingParams);
+                break;
+            }
+            default:
+                break;
+            }
+
+            for (int idx = 0; idx < _serverProfiles.size(); idx++)
+            {
+                auto profile = _serverProfiles.at(idx);
+                //ESP_GATT_IF_NONE, not specify a certain gatt_if, need to call every profile cb function.
+                if ((gattsIf == ESP_GATT_IF_NONE || gattsIf == (*profile).gattsIf) && (*profile).gattServerCallback != nullptr)
+                    (*profile).gattServerCallback(event, gattsIf, param);
+            }
+        }
+
+        static void GapEventHandler(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param_t* param)
+        {
+            LOGV(nameof(Bluetooth::BLE), "GAP_EVT: %d", event);
+
+            switch (event)
+            {
+            case ESP_GAP_BLE_SCAN_RSP_DATA_SET_COMPLETE_EVT:
+            {
+                _advConfigDone &= (~SCAN_RSP_CONFIG_FLAG);
+                if (_advConfigDone == 0)
+                    esp_ble_gap_start_advertising(&_advertisingParams);
+                break;
+            }
+            case ESP_GAP_BLE_ADV_DATA_SET_COMPLETE_EVT:
+            {
+                _advConfigDone &= (~ADV_CONFIG_FLAG);
+                if (_advConfigDone == 0)
+                    esp_ble_gap_start_advertising(&_advertisingParams);
+                break;
+            }
+            case ESP_GAP_BLE_ADV_START_COMPLETE_EVT:
+            {
+                //advertising start complete event to indicate advertising start successfully or failed
+                if (param->adv_start_cmpl.status != ESP_BT_STATUS_SUCCESS)
+                    LOGE(nameof(Bluetooth::BLE), "Advertising start failed: %d", param->adv_start_cmpl.status);
+                else
+                    LOGD(nameof(Bluetooth::BLE), "Advertising start success.");
+                break;
+            }
+            case ESP_GAP_BLE_PASSKEY_REQ_EVT:
+            {
+                /* Call the following function to input the passkey which is displayed on the remote device */
+                // esp_ble_passkey_reply(heart_rate_profile_tab[HEART_PROFILE_APP_IDX].remote_bda, true, 0x00);
+                esp_ble_passkey_reply(param->ble_security.ble_req.bd_addr, true, _passkey);
+                break;
+            }
+            case ESP_GAP_BLE_OOB_REQ_EVT:
+            {
+                uint8_t tk[16] = {1}; //If you paired with OOB, both devices need to use the same tk
+                esp_ble_oob_req_reply(param->ble_security.ble_req.bd_addr, tk, sizeof(tk));
+                break;
+            }
+            case ESP_GAP_BLE_NC_REQ_EVT:
+            {
+                /* The app will receive this evt when the IO has DisplayYesNO capability and the peer device IO also has DisplayYesNo capability.
+                show the passkey number to the user to confirm it with the number displayed by peer device. */
+                esp_ble_confirm_reply(param->ble_security.ble_req.bd_addr, true);
+                // LOGI(nameof(Bluetooth::BLE), "ESP_GAP_BLE_NC_REQ_EVT, the passkey Notify number: %lu", param->ble_security.key_notif.passkey);
+                break;
+            }
+            case ESP_GAP_BLE_SEC_REQ_EVT:
+            {
+                /* send the positive(true) security response to the peer device to accept the security request.
+                If not accept the security request, should send the security response with negative(false) accept value*/
+                esp_ble_gap_security_rsp(param->ble_security.ble_req.bd_addr, true);
+                break;
+            }
+            // case ESP_GAP_BLE_PASSKEY_NOTIF_EVT:  //The app will receive this evt when the IO  has Output capability and the peer device IO has Input capability.
+            // {
+            //     //Show the passkey number to the user to input it in the peer device.
+            //     LOGI(nameof(Bluetooth::BLE), "The passkey Notify number: %06lu", param->ble_security.key_notif.passkey);
+            //     break;
+            // }
+            // case ESP_GAP_BLE_KEY_EVT:
+            // {
+            //     //Shows the ble key info share with peer device to the user.
+            //     LOGD(nameof(Bluetooth::BLE), "Key type: %s", EspKeyTypeToStr(param->ble_security.ble_key.key_type));
+            //     break;
+            // }
+            case ESP_GAP_BLE_AUTH_CMPL_EVT:
+            {
+                esp_bd_addr_t bdAddr;
+                // esp_ble_gap_set_rand_addr(bd_addr);
+                memcpy(bdAddr, param->ble_security.auth_cmpl.bd_addr, sizeof(esp_bd_addr_t));
+                LOGI(nameof(Bluetooth::BLE), "Remote BD_ADDR: %08x%04x",
+                    (bdAddr[0] << 24) + (bdAddr[1] << 16) + (bdAddr[2] << 8) + bdAddr[3],
+                    (bdAddr[4] << 8) + bdAddr[5]);
+                LOGI(nameof(Bluetooth::BLE), "Address type: %ul", param->ble_security.auth_cmpl.addr_type);
+                LOGI(nameof(Bluetooth::BLE), "Pair status: %s",param->ble_security.auth_cmpl.success ? "success" : "fail");
+                if(!param->ble_security.auth_cmpl.success)
+                    LOGE(nameof(Bluetooth::BLE), "Fail reason: %d", param->ble_security.auth_cmpl.fail_reason);
+                else
+                    LOGI(nameof(Bluetooth::BLE), "Auth mode: %s", EspAuthReqToStr(param->ble_security.auth_cmpl.auth_mode));
+                // ShowBondedDevices();
+                break;
+            }
+            // case ESP_GAP_BLE_REMOVE_BOND_DEV_COMPLETE_EVT:
+            // {
+            //     LOGD(nameof(Bluetooth::BLE), "ESP_GAP_BLE_REMOVE_BOND_DEV_COMPLETE_EVT status: %d", param->remove_bond_dev_cmpl.status);
+            //     LOGI(nameof(Bluetooth::BLE), "ESP_GAP_BLE_REMOVE_BOND_DEV");
+            //     LOGI(nameof(Bluetooth::BLE), "-----ESP_GAP_BLE_REMOVE_BOND_DEV----");
+            //     esp_log_buffer_hex(nameof(Bluetooth::BLE), (void *)param->remove_bond_dev_cmpl.bd_addr, sizeof(esp_bd_addr_t));
+            //     LOGI(nameof(Bluetooth::BLE), "------------------------------------");
+            //     break;
+            // }
+            case ESP_GAP_BLE_SET_LOCAL_PRIVACY_COMPLETE_EVT:
+            {
+                if (param->local_privacy_cmpl.status != ESP_BT_STATUS_SUCCESS)
+                {
+                    LOGE(nameof(Bluetooth::BLE), "Config local privacy failed: %d", param->local_privacy_cmpl.status);
+                    break;
+                }
+
+                esp_err_t ret = esp_ble_gap_config_adv_data(&_advertisingConfig);
+                if (ret != ESP_OK)
+                    LOGE(nameof(Bluetooth::BLE), "config adv data failed: %d", ret);
+                else
+                    _advConfigDone |= ADV_CONFIG_FLAG;
+
+                ret = esp_ble_gap_config_adv_data(&_rspConfig);
+                if (ret != ESP_OK)
+                    LOGE(nameof(Bluetooth::BLE), "config adv data failed, error code: %d", ret);
+                else
+                    _advConfigDone |= SCAN_RSP_CONFIG_FLAG;
+
+                break;
+            }
+            default:
+                break;
+            }
+        }
+
+        static std::vector<ReadieFur::OpenTCU::Bluetooth::SGattServerProfile*>::iterator FindServerProfile(uint16_t appId)
+        {
+            return std::find_if(_serverProfiles.begin(), _serverProfiles.end(), [appId](auto p){ return appId == p->appId; });
         }
 
     protected:
         void RunServiceImpl() override
         {
-            if (xSemaphoreTake(_instanceMutex, 0) == pdFALSE)
-            {
-                LOGW(nameof(Bluetooth::BLE), "BLE instance already running.");
-                return;
-            }
+            esp_err_t err;
 
-            esp_err_t err = nvs_flash_init();
-            if (err == ESP_ERR_NVS_NO_FREE_PAGES || err == ESP_ERR_NVS_NEW_VERSION_FOUND)
-            {
-                nvs_flash_erase();
-                err = nvs_flash_init();
-            }
-            if (err != ESP_OK)
-                return;
+            // err = nvs_flash_init();
+            // if (err == ESP_ERR_NVS_NO_FREE_PAGES || err == ESP_ERR_NVS_NEW_VERSION_FOUND)
+            // {
+            //     nvs_flash_erase();
+            //     err = nvs_flash_init();
+            // }
+            // if (err != ESP_OK)
+            //     return;
+
+            //Set to BLE only (disable BT Classic).
+            _BT_ESP_CHECK(esp_bt_controller_mem_release(ESP_BT_MODE_CLASSIC_BT), "Failed to release BT mode");
 
             //Initialize BLE controller.
             esp_bt_controller_config_t btCfg = BT_CONTROLLER_INIT_CONFIG_DEFAULT();
-            if ((err = esp_bt_controller_init(&btCfg)) != ESP_OK)
-            {
-                LOGE(nameof(Bluetooth::BLE), "Initialize BLE controller failed: %x", err);
-                return;
-            }
-            if ((err = esp_bt_controller_enable(ESP_BT_MODE_BLE)) != ESP_OK)
-            {
-                LOGE(nameof(Bluetooth::BLE), "Enable BLE controller failed: %x", err);
-                return;
-            }
+            _BT_ESP_CHECK(esp_bt_controller_init(&btCfg), "Initialize BLE controller failed");
+            _BT_ESP_CHECK(esp_bt_controller_enable(ESP_BT_MODE_BLE), "Enable BLE controller failed");
+            _BT_ESP_CHECK(esp_bluedroid_init(), "Initialize bluetooth failed");
+            _BT_ESP_CHECK(esp_bluedroid_enable(), "Enable bluetooth failed");
+            // _BT_ESP_CHECK(esp_ble_gap_set_device_name(DeviceName.c_str()), "Failed to set device name");
+            // _BT_ESP_CHECK(esp_ble_gap_config_local_privacy(true), "Failed to set privacy setting");
 
-            if ((err = esp_bluedroid_init()) != ESP_OK)
-            {
-                LOGE(nameof(Bluetooth::BLE), "Init bluetooth failed: %x", err);
-                return;
-            }
-            if ((err = esp_bluedroid_enable()) != ESP_OK)
-            {
-                LOGE(nameof(Bluetooth::BLE), "Enable bluetooth failed: %x", err);
-                return;
-            }
+            //Configure callbacks.
+            _BT_ESP_CHECK(esp_ble_gatts_register_callback(GattServerEventHandler), "GATT server callback registration failed");
+            _BT_ESP_CHECK(esp_ble_gap_register_callback(GapEventHandler), "GAP register callback failed");
 
-            esp_err_t local_mtu_ret = esp_ble_gatt_set_local_mtu(500);
-            if (local_mtu_ret)
-            {
-                LOGE(nameof(Bluetooth::BLE), "Set local MTU failed: %x", local_mtu_ret);
-                return;
-            }
-
-            //Callbacks.
-            if ((err = esp_ble_gap_register_callback(GapCallback)) != ESP_OK)
-            {
-                LOGE(nameof(Bluetooth::BLE), "Gap register failed: %x", err);
-                return;
-            }
-            if ((err = esp_ble_gatts_register_callback(GattServerCallback)) != ESP_OK)
-            {
-                LOGE(nameof(Bluetooth::BLE), "GATT server callback registration failed: %x", err);
-                return;
-            }
-            if ((err = esp_ble_gattc_register_callback(GattClientCallback)) != ESP_OK)
-            {
-                LOGE(nameof(Bluetooth::BLE), "GATT client callback registration failed: %x", err);
-                return;
-            }
-
-            //Broadcasting.
-            if ((err = esp_ble_gap_set_device_name(DeviceName.c_str())) != ESP_OK)
-            {
-                LOGE(nameof(Bluetooth::BLE), "Set device name failed: %x", err);
-                return;
-            }
-            uint16_t advertisingIntervalMin = MS_TO_BLE_ADVERTISING_INTERVAL(20);
-            uint16_t advertisingIntervalMax = MS_TO_BLE_ADVERTISING_INTERVAL(40);
-            esp_ble_adv_data_t advertiseData = {
-                .set_scan_rsp = false,
-                .include_name = true,
-                .include_txpower = true,
-                .min_interval = advertisingIntervalMin,
-                .max_interval = advertisingIntervalMax,
-            };
-            if ((err = esp_ble_gap_config_adv_data(&advertiseData)) != ESP_OK)
-            {
-                LOGE(nameof(Bluetooth::BLE), "Config advertising data failed: %x", err);
-                return;
-            }
-            esp_ble_adv_params_t advertiseParams = {
-                .adv_int_min = advertisingIntervalMin,
-                .adv_int_max = advertisingIntervalMax,
-                .adv_type = ADV_TYPE_IND, // Connectable undirected advertisement
-                .own_addr_type = BLE_ADDR_TYPE_PUBLIC,
-                .peer_addr = {0},
-                .peer_addr_type = BLE_ADDR_TYPE_PUBLIC,
-                .channel_map = ADV_CHNL_ALL,
-                .adv_filter_policy = ADV_FILTER_ALLOW_SCAN_ANY_CON_ANY,
-            };
-            if ((err = esp_ble_gap_start_advertising(&advertiseParams)) != ESP_OK)
-            {
-                LOGE(nameof(Bluetooth::BLE), "Start advertising failed: %x", err);
-                return;
-            }
+            //Set security parameters.
+            esp_ble_auth_req_t authReq = ESP_LE_AUTH_REQ_SC_MITM_BOND; //Bonding with client device after authentication.
+            esp_ble_io_cap_t ioCap = ESP_IO_CAP_OUT; //Require passkey from user.
+            uint8_t keySizeMin = 4; //The passkey size should be 4~16 bytes.
+            uint8_t keySizeMax = 16;
+            uint8_t initKey = ESP_BLE_ENC_KEY_MASK | ESP_BLE_ID_KEY_MASK;
+            uint8_t rspKey = ESP_BLE_ENC_KEY_MASK | ESP_BLE_ID_KEY_MASK;
+            uint8_t authOption = ESP_BLE_ONLY_ACCEPT_SPECIFIED_AUTH_DISABLE;
+            uint8_t oobSupport = ESP_BLE_OOB_DISABLE;
+            esp_ble_gap_set_security_param(ESP_BLE_SM_SET_STATIC_PASSKEY, &_passkey, sizeof(uint32_t));
+            esp_ble_gap_set_security_param(ESP_BLE_SM_AUTHEN_REQ_MODE, &authReq, sizeof(uint8_t));
+            esp_ble_gap_set_security_param(ESP_BLE_SM_IOCAP_MODE, &ioCap, sizeof(uint8_t));
+            esp_ble_gap_set_security_param(ESP_BLE_SM_MIN_KEY_SIZE, &keySizeMin, sizeof(uint8_t));
+            esp_ble_gap_set_security_param(ESP_BLE_SM_MAX_KEY_SIZE, &keySizeMax, sizeof(uint8_t));
+            esp_ble_gap_set_security_param(ESP_BLE_SM_ONLY_ACCEPT_SPECIFIED_SEC_AUTH, &authOption, sizeof(uint8_t));
+            esp_ble_gap_set_security_param(ESP_BLE_SM_OOB_SUPPORT, &oobSupport, sizeof(uint8_t));
+            esp_ble_gap_set_security_param(ESP_BLE_SM_SET_INIT_KEY, &initKey, sizeof(uint8_t));
+            esp_ble_gap_set_security_param(ESP_BLE_SM_SET_RSP_KEY, &rspKey, sizeof(uint8_t));
 
             ServiceCancellationToken.WaitForCancellation();
 
+            _serverProfiles.clear();
+
             if ((err = esp_bluedroid_disable()) != ESP_OK)
-                LOGE(nameof(Bluetooth::BLE), "Disable bluetooth failed: %x", err);
+                LOGE(nameof(Bluetooth::BLE), "Disable bluetooth failed: %d", err);
 
             if ((err = esp_bluedroid_deinit()) != ESP_OK)
-                LOGE(nameof(Bluetooth::BLE), "Deinit bluetooth failed: %x", err);
+                LOGE(nameof(Bluetooth::BLE), "Deinit bluetooth failed: %d", err);
 
             if ((err = esp_bt_controller_disable()) != ESP_OK)
-                LOGE(nameof(Bluetooth::BLE), "Disable BLE controller failed: %x", err);
+                LOGE(nameof(Bluetooth::BLE), "Disable BLE controller failed: %d", err);
 
             if ((err = esp_bt_controller_deinit()) != ESP_OK)
-                LOGE(nameof(Bluetooth::BLE), "Deinit BLE controller failed: %x", err);
-
-            _serverCallbacks.clear();
-            _clientCallbacks.clear();
-
-            xSemaphoreGive(_instanceMutex);
+                LOGE(nameof(Bluetooth::BLE), "Deinit BLE controller failed: %d", err);
         }
 
     public:
@@ -199,60 +366,81 @@ namespace ReadieFur::OpenTCU::Bluetooth
             ServiceEntrypointStackDepth += 1024;
         }
 
-        esp_err_t RegisterServerApp(uint16_t appId, TServerCallback callback)
+        esp_err_t RegisterServerApp(SGattServerProfile* profile)
         {
-            if (_serverCallbacks.contains(appId))
+            _mutex.lock();
+
+            if (FindServerProfile(profile->appId) != _serverProfiles.end())
                 return ESP_ERR_INVALID_STATE;
 
-            esp_err_t retVal = esp_ble_gatts_app_register(appId);
+            //Has to be added before esp_ble_gatts_app_register so we can access it in that callback.
+            _serverProfiles.push_back(profile);
+
+            esp_err_t retVal = esp_ble_gatts_app_register(profile->appId);
             if (retVal != ESP_OK)
-                return retVal;
+                _serverProfiles.erase(FindServerProfile(profile->appId));
 
-            _serverCallbacks[appId] = callback;
-            return ESP_OK;
-        }
-
-        esp_err_t RegisterClientApp(uint16_t appId, TClientCallback callback)
-        {
-            if (_clientCallbacks.contains(appId))
-                return ESP_ERR_INVALID_STATE;
-                
-            esp_err_t retVal = esp_ble_gattc_app_register(appId);
-            if (retVal != ESP_OK)
-                return retVal;
-
-            _clientCallbacks[appId] = callback;
-            return ESP_OK;
+            _mutex.unlock();
+            return retVal;
         }
 
         esp_err_t UnregisterServerApp(uint16_t appId)
         {
-            if (!_serverCallbacks.contains(appId))
+            _mutex.lock();
+
+            auto iterator = FindServerProfile(appId);
+            if (iterator == _serverProfiles.end())
+            {
+                _mutex.unlock();
                 return ESP_ERR_INVALID_STATE;
-
-            esp_err_t retVal = esp_ble_gatts_app_unregister(appId);
-            if (retVal != ESP_OK)
-                return retVal;
-
-            _serverCallbacks.erase(appId);
-            return ESP_OK;
-        }
-
-        esp_err_t UnregisterClientApp(uint16_t appId)
-        {
-            if (!_clientCallbacks.contains(appId))
-                return ESP_ERR_INVALID_STATE;
-
-            esp_err_t retVal = esp_ble_gattc_app_unregister(appId);
-            if (retVal != ESP_OK)
-                return retVal;
-
-            _clientCallbacks.erase(appId);
+            }
+            
+            _serverProfiles.erase(iterator);
+            _mutex.unlock();
             return ESP_OK;
         }
     };
 };
 
-SemaphoreHandle_t ReadieFur::OpenTCU::Bluetooth::BLE::_instanceMutex = xSemaphoreCreateMutex();
-std::map<uint16_t, ReadieFur::OpenTCU::Bluetooth::BLE::TServerCallback> ReadieFur::OpenTCU::Bluetooth::BLE::_serverCallbacks;
-std::map<uint16_t, ReadieFur::OpenTCU::Bluetooth::BLE::TClientCallback> ReadieFur::OpenTCU::Bluetooth::BLE::_clientCallbacks;
+uint8_t ReadieFur::OpenTCU::Bluetooth::BLE::_manufacturer[16] = { 'E', 'S', 'P' };
+uint8_t ReadieFur::OpenTCU::Bluetooth::BLE::_serviceUuid[16] =
+{
+    /* LSB <--------------------------------------------------------------------------------> MSB */
+    //first uuid, 16bit, [12],[13] is the value
+    0xfb, 0x34, 0x9b, 0x5f, 0x80, 0x00, 0x00, 0x80, 0x00, 0x10, 0x00, 0x00, 0x18, 0x0D, 0x00, 0x00,
+};
+esp_ble_adv_data_t ReadieFur::OpenTCU::Bluetooth::BLE::_advertisingConfig =
+{
+    .set_scan_rsp = false,
+    .include_txpower = true,
+    .min_interval = 0x0006, //Slave connection min interval, Time = min_interval * 1.25 msec
+    .max_interval = 0x0010, //Slave connection max interval, Time = max_interval * 1.25 msec
+    .appearance = 0x00,
+    .manufacturer_len = sizeof(_manufacturer),
+    .p_manufacturer_data = _manufacturer,
+    .service_data_len = 0,
+    .p_service_data = NULL,
+    .service_uuid_len = sizeof(_serviceUuid),
+    .p_service_uuid = _serviceUuid,
+    .flag = (ESP_BLE_ADV_FLAG_GEN_DISC | ESP_BLE_ADV_FLAG_BREDR_NOT_SPT),
+};
+esp_ble_adv_data_t ReadieFur::OpenTCU::Bluetooth::BLE::_rspConfig =
+{
+    .set_scan_rsp = true,
+    .include_name = true,
+    .manufacturer_len = sizeof(_manufacturer),
+    .p_manufacturer_data = _manufacturer,
+};
+esp_ble_adv_params_t ReadieFur::OpenTCU::Bluetooth::BLE::_advertisingParams =
+{
+    .adv_int_min        = 0x100,
+    .adv_int_max        = 0x100,
+    .adv_type           = ADV_TYPE_IND,
+    .own_addr_type      = BLE_ADDR_TYPE_RPA_PUBLIC,
+    .channel_map        = ADV_CHNL_ALL,
+    .adv_filter_policy = ADV_FILTER_ALLOW_SCAN_ANY_CON_ANY,
+};
+uint32_t ReadieFur::OpenTCU::Bluetooth::BLE::_passkey = TCU_PIN;
+std::mutex ReadieFur::OpenTCU::Bluetooth::BLE::_mutex;
+uint8_t ReadieFur::OpenTCU::Bluetooth::BLE::_advConfigDone = 0;
+std::vector<ReadieFur::OpenTCU::Bluetooth::SGattServerProfile*> ReadieFur::OpenTCU::Bluetooth::BLE::_serverProfiles;
