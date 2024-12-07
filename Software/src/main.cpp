@@ -18,7 +18,7 @@
 #include "Config/Device.h"
 #include "CAN/BusMaster.hpp"
 #include "CAN/Logger.hpp"
-#include "CAN/API.hpp"
+// #include "CAN/API.hpp"
 #include <esp_sleep.h>
 #include <freertos/task.h>
 #include "Logging.hpp"
@@ -30,8 +30,8 @@
 #endif
 #include <Network/OTA/API.hpp>
 #include <esp_pm.h>
-// #include "Bluetooth/BLE.hpp"
-// #include "Bluetooth/API.hpp"
+#include "Bluetooth/BLE.hpp"
+#include "Bluetooth/API.hpp"
 // #include "Bluetooth/TCU.hpp"
 #include <string>
 #include <esp_mac.h>
@@ -81,7 +81,7 @@ void SetLogLevel()
 {
     #ifdef DEBUG
     //Set base log level.
-    esp_log_level_set("*", ESP_LOG_DEBUG);
+    esp_log_level_set("*", ESP_LOG_VERBOSE);
     //Set custom log levels.
     esp_log_level_set(nameof(CAN::BusMaster), ESP_LOG_ERROR);
     esp_log_level_set(nameof(CAN::TwaiCan), ESP_LOG_ERROR);
@@ -174,10 +174,19 @@ void setup()
     #endif
 
     ConfigureDeviceName();
+
+    esp_err_t err = nvs_flash_init();
+    if (err == ESP_ERR_NVS_NO_FREE_PAGES || err == ESP_ERR_NVS_NEW_VERSION_FOUND)
+    {
+        nvs_flash_erase();
+        err = nvs_flash_init();
+    }
+    CHECK_ESP_RESULT(err);
+
     CHECK_ESP_RESULT(ReadieFur::Network::WiFi::Init());
     wifi_config_t apConfig = {
         .ap = {
-            .password = "OpenTCU" TCU_PIN, //Temporary, still left open for now.
+            // .password = "OpenTCU" TCU_PIN, //Temporary, still left open for now.
             .ssid_len = (uint8_t)DeviceName.length(),
             .channel = 1,
             #ifdef DEBUG
@@ -198,8 +207,8 @@ void setup()
     ConfigureAdditionalLoggers();
     #endif
 
-    // CHECK_SERVICE_RESULT(ReadieFur::Service::ServiceManager::InstallAndStartService<Bluetooth::BLE>());
-    // CHECK_SERVICE_RESULT(ReadieFur::Service::ServiceManager::InstallAndStartService<Bluetooth::API>());
+    CHECK_SERVICE_RESULT(ReadieFur::Service::ServiceManager::InstallAndStartService<Bluetooth::BLE>());
+    CHECK_SERVICE_RESULT(ReadieFur::Service::ServiceManager::InstallAndStartService<Bluetooth::API>());
     // CHECK_SERVICE_RESULT(ReadieFur::Service::ServiceManager::InstallAndStartService<Bluetooth::TCU>());
 
     #ifdef ENABLE_CAN_DUMP
@@ -214,7 +223,7 @@ void setup()
     otaHttpdConfig.ctrl_port += 1;
     CHECK_ESP_RESULT(ReadieFur::Network::OTA::API::Init(&otaHttpdConfig));
 
-    CHECK_SERVICE_RESULT(ReadieFur::Service::ServiceManager::InstallAndStartService<CAN::API>());
+    // CHECK_SERVICE_RESULT(ReadieFur::Service::ServiceManager::InstallAndStartService<CAN::API>());
 }
 
 void loop()
