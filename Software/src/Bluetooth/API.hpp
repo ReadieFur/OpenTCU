@@ -9,6 +9,7 @@
 
 namespace ReadieFur::OpenTCU::Bluetooth
 {
+    //https://www.bluetooth.com/wp-content/uploads/Files/Specification/HTML/Assigned_Numbers/out/en/Assigned_Numbers.pdf?v=1733673361043
     class API : public Service::AService
     {
     private:
@@ -27,9 +28,12 @@ namespace ReadieFur::OpenTCU::Bluetooth
 
             BLE* bleService = GetService<BLE>();
 
-            GattServerService testService(ESP_GATT_UUID_DEVICE_INFO_SVC, 0);
-            uint16_t testValue = 2;
-            testService.AddAttribute(0x2A24, ESP_GATT_PERM_READ | ESP_GATT_PERM_WRITE, &testValue, sizeof(testValue), sizeof(uint16_t));
+            //https://www.gofakeit.com/funcs/uint32
+            //https://www.rapidtables.com/convert/number/decimal-to-hex.html
+            GattServerService testService(SUUID(0x98C220BEUL), 0);
+            uint16_t testValue = 53;
+            testService.AddAttribute(SUUID(0xCAE35F80UL), "TestAttribute", ESP_GATT_PERM_READ | ESP_GATT_PERM_WRITE, &testValue, sizeof(testValue), sizeof(uint16_t));
+            // testService.AddAttribute(SUUID(0x38B18BECUL), ESP_GATT_PERM_READ | ESP_GATT_PERM_WRITE, &testValue, sizeof(testValue), sizeof(uint16_t));
             _services.push_back(&testService);
 
             SGattServerProfile serverProfile =
