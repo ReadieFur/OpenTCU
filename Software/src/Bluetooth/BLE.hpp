@@ -16,6 +16,7 @@
 #include "Environment.h"
 #include "Config/Device.h"
 #include "SGattServerProfile.h"
+#include "SGattClientProfile.h"
 #include <mutex>
 #include <algorithm>
 #include <esp_err.h>
@@ -46,6 +47,7 @@ namespace ReadieFur::OpenTCU::Bluetooth
         static std::mutex _mutex;
         static uint8_t _advConfigDone;
         static std::vector<SGattServerProfile*> _serverProfiles;
+        static std::vector<SGattClientProfile*> _clientProfiles;
 
         static const char* EspKeyTypeToStr(esp_ble_key_type_t keyType)
         {
@@ -117,7 +119,7 @@ namespace ReadieFur::OpenTCU::Bluetooth
 
         static void GattServerEventHandler(esp_gatts_cb_event_t event, esp_gatt_if_t gattsIf, esp_ble_gatts_cb_param_t* param)
         {
-            LOGV(nameof(Bluetooth::BLE), "GATT_EVT: %d", event);
+            LOGV(nameof(Bluetooth::BLE), "GATTS_EVT: %d", event);
 
             switch (event)
             {
@@ -125,14 +127,14 @@ namespace ReadieFur::OpenTCU::Bluetooth
             {
                 if (param->reg.status != ESP_GATT_OK)
                 {
-                    LOGE(nameof(Bluetooth::BLE), "Register app failed. Invalid status, app_id %04x, status %d", param->reg.app_id, param->reg.status);
+                    LOGE(nameof(Bluetooth::BLE), "Register server app failed. Invalid status, app_id %04x, status %d", param->reg.app_id, param->reg.status);
                     return;
                 }
 
                 auto profile = FindServerProfile(param->reg.app_id);
                 if (profile == _serverProfiles.end())
                 {
-                    LOGE(nameof(Bluetooth::BLE), "Register app failed. AppId not found: %d", param->reg.app_id);
+                    LOGE(nameof(Bluetooth::BLE), "Register server app failed. AppId not found: %d", param->reg.app_id);
                     return;
                 }
 
@@ -158,12 +160,48 @@ namespace ReadieFur::OpenTCU::Bluetooth
                 break;
             }
 
-            for (int idx = 0; idx < _serverProfiles.size(); idx++)
+            for (int i = 0; i < _serverProfiles.size(); i++)
             {
-                auto profile = _serverProfiles.at(idx);
+                auto profile = _serverProfiles.at(i);
                 //ESP_GATT_IF_NONE, not specify a certain gatt_if, need to call every profile cb function.
                 if ((gattsIf == ESP_GATT_IF_NONE || gattsIf == (*profile).gattsIf) && (*profile).gattServerCallback != nullptr)
                     (*profile).gattServerCallback(event, gattsIf, param);
+            }
+        }
+
+        static void GattClientEventHandler(esp_gattc_cb_event_t event, esp_gatt_if_t gattcIf, esp_ble_gattc_cb_param_t* param)
+        {
+            LOGV(nameof(Bluetooth::BLE), "GATTC_EVT: %d", event);
+
+            switch (event)
+            {
+            case ESP_GATTC_REG_EVT:
+            {
+                if (param->reg.status != ESP_GATT_OK)
+                {
+                    LOGE(nameof(Bluetooth::BLE), "Register client app failed. Invalid status, app_id %04x, status %d", param->reg.app_id, param->reg.status);
+                    return;
+                }
+
+                auto profile = FindClientProfile(param->reg.app_id);
+                if (profile == _clientProfiles.end())
+                {
+                    LOGE(nameof(Bluetooth::BLE), "Register client app failed. AppId not found: %d", param->reg.app_id);
+                    return;
+                }
+                (*profile)->gattcIf = gattcIf;
+                break;
+            }
+            default:
+                break;
+            }
+
+            for (int i = 0; i < _clientProfiles.size(); i++)
+            {
+                auto profile = _clientProfiles.at(i);
+                //ESP_GATT_IF_NONE, not specify a certain gatt_if, need to call every profile cb function.
+                if ((gattcIf == ESP_GATT_IF_NONE || gattcIf == (*profile).gattcIf) && (*profile).gattClientCallback != nullptr)
+                    (*profile).gattClientCallback(event, gattcIf, param);
             }
         }
 
@@ -294,6 +332,11 @@ namespace ReadieFur::OpenTCU::Bluetooth
             return std::find_if(_serverProfiles.begin(), _serverProfiles.end(), [appId](auto p){ return appId == p->appId; });
         }
 
+        static std::vector<ReadieFur::OpenTCU::Bluetooth::SGattClientProfile*>::iterator FindClientProfile(uint16_t appId)
+        {
+            return std::find_if(_clientProfiles.begin(), _clientProfiles.end(), [appId](auto p){ return appId == p->appId; });
+        }
+
     protected:
         void RunServiceImpl() override
         {
@@ -319,10 +362,12 @@ namespace ReadieFur::OpenTCU::Bluetooth
             _BT_ESP_CHECK(esp_bluedroid_enable(), "Enable bluetooth failed");
             // _BT_ESP_CHECK(esp_ble_gap_set_device_name(DeviceName.c_str()), "Failed to set device name");
             // _BT_ESP_CHECK(esp_ble_gap_config_local_privacy(true), "Failed to set privacy setting");
+            _BT_ESP_CHECK(esp_ble_gatt_set_local_mtu(200), "Failed to set MTU");
 
             //Configure callbacks.
-            _BT_ESP_CHECK(esp_ble_gatts_register_callback(GattServerEventHandler), "GATT server callback registration failed");
             _BT_ESP_CHECK(esp_ble_gap_register_callback(GapEventHandler), "GAP register callback failed");
+            _BT_ESP_CHECK(esp_ble_gatts_register_callback(GattServerEventHandler), "GATT server callback registration failed");
+            _BT_ESP_CHECK(esp_ble_gattc_register_callback(GattClientEventHandler), "GATT client callback registration failed");
 
             //Set security parameters.
             esp_ble_auth_req_t authReq = ESP_LE_AUTH_REQ_SC_MITM_BOND; //Bonding with client device after authentication.
@@ -345,7 +390,15 @@ namespace ReadieFur::OpenTCU::Bluetooth
 
             ServiceCancellationToken.WaitForCancellation();
 
+            for (auto &&profile : _serverProfiles)
+                if (profile->gattsIf != ESP_GATT_IF_NONE)
+                    esp_ble_gatts_app_unregister(profile->gattsIf);
             _serverProfiles.clear();
+
+            for (auto &&profile : _clientProfiles)
+                if (profile->gattcIf != ESP_GATT_IF_NONE)
+                    esp_ble_gattc_app_unregister(profile->gattcIf);
+            _clientProfiles.clear();
 
             if ((err = esp_bluedroid_disable()) != ESP_OK)
                 LOGE(nameof(Bluetooth::BLE), "Disable bluetooth failed: %d", err);
@@ -394,10 +447,54 @@ namespace ReadieFur::OpenTCU::Bluetooth
                 _mutex.unlock();
                 return ESP_ERR_INVALID_STATE;
             }
-            
+
+            esp_err_t retVal = ESP_OK;
+            if ((*iterator)->gattsIf != ESP_GATT_IF_NONE)
+                retVal = esp_ble_gatts_app_unregister((*iterator)->gattsIf);
+
             _serverProfiles.erase(iterator);
+
             _mutex.unlock();
-            return ESP_OK;
+            return retVal;
+        }
+
+        esp_err_t RegisterClientApp(SGattClientProfile* profile)
+        {
+            _mutex.lock();
+
+            if (FindClientProfile(profile->appId) != _clientProfiles.end())
+                return ESP_ERR_INVALID_STATE;
+
+            //Has to be added before esp_ble_gatts_app_register so we can access it in that callback.
+            _clientProfiles.push_back(profile);
+
+            esp_err_t retVal = esp_ble_gattc_app_register(profile->appId);
+            if (retVal != ESP_OK)
+                _clientProfiles.erase(FindClientProfile(profile->appId));
+
+            _mutex.unlock();
+            return retVal;
+        }
+
+        esp_err_t UnregisterClientApp(uint16_t appId)
+        {
+            _mutex.lock();
+
+            auto iterator = FindClientProfile(appId);
+            if (iterator == _clientProfiles.end())
+            {
+                _mutex.unlock();
+                return ESP_ERR_INVALID_STATE;
+            }
+
+            esp_err_t retVal = ESP_OK;
+            if ((*iterator)->gattcIf != ESP_GATT_IF_NONE)
+                retVal = esp_ble_gattc_app_unregister((*iterator)->gattcIf);
+
+            _clientProfiles.erase(iterator);
+
+            _mutex.unlock();
+            return retVal;
         }
     };
 };
@@ -438,9 +535,10 @@ esp_ble_adv_params_t ReadieFur::OpenTCU::Bluetooth::BLE::_advertisingParams =
     .adv_type           = ADV_TYPE_IND,
     .own_addr_type      = BLE_ADDR_TYPE_RPA_PUBLIC,
     .channel_map        = ADV_CHNL_ALL,
-    .adv_filter_policy = ADV_FILTER_ALLOW_SCAN_ANY_CON_ANY,
+    .adv_filter_policy  = ADV_FILTER_ALLOW_SCAN_ANY_CON_ANY,
 };
 uint32_t ReadieFur::OpenTCU::Bluetooth::BLE::_passkey = TCU_PIN;
 std::mutex ReadieFur::OpenTCU::Bluetooth::BLE::_mutex;
 uint8_t ReadieFur::OpenTCU::Bluetooth::BLE::_advConfigDone = 0;
 std::vector<ReadieFur::OpenTCU::Bluetooth::SGattServerProfile*> ReadieFur::OpenTCU::Bluetooth::BLE::_serverProfiles;
+std::vector<ReadieFur::OpenTCU::Bluetooth::SGattClientProfile*> ReadieFur::OpenTCU::Bluetooth::BLE::_clientProfiles;
