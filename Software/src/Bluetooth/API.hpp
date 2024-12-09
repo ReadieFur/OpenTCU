@@ -34,11 +34,18 @@ namespace ReadieFur::OpenTCU::Bluetooth
             uint16_t testValue = 53;
             uint16_t testValue2 = 25;
             testService.AddAttribute(SUUID(0xCAE35F80UL), ESP_GATT_PERM_READ | ESP_GATT_PERM_WRITE, &testValue, sizeof(testValue), sizeof(uint16_t));
-            testService.AddAttribute(SUUID(0x38B18BECUL), ESP_GATT_PERM_READ | ESP_GATT_PERM_WRITE, sizeof(uint16_t), [testValue2](auto outValue, auto outLength)
+            testService.AddAttribute(SUUID(0x38B18BECUL), ESP_GATT_PERM_READ | ESP_GATT_PERM_WRITE, sizeof(uint16_t),
+            [testValue2](auto outValue, auto outLength)
             {
                 LOGD(nameof(Bluetooth::API), "Manual read callback.");
                 *outValue = testValue2;
                 *outLength = sizeof(testValue2);
+                return ESP_GATT_OK;
+            },
+            [&testValue2](auto inValue, auto inLength)
+            {
+                LOGD(nameof(Bluetooth::API), "Manual write callback.");
+                testValue2 = *(uint16_t*)inValue;
                 return ESP_GATT_OK;
             });
             _services.push_back(&testService);
