@@ -95,7 +95,9 @@
 			"*.tcc": "cpp",
 			"memory_resource": "cpp",
 			"cinttypes": "cpp",
-			"any": "cpp"
+			"any": "cpp",
+			"iomanip": "cpp",
+			"iostream": "cpp"
 		}
 	}
 }

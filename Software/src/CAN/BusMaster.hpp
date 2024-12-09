@@ -20,6 +20,9 @@
 #include <map>
 #include <vector>
 #include <queue>
+#include "EStringType.h"
+#include "Samples.hpp"
+#include "SLiveData.h"
 
 // #define CAN_DUMP_BEFORE_INTERCEPT
 #define CAN_DUMP_AFTER_INTERCEPT
@@ -30,11 +33,8 @@ namespace ReadieFur::OpenTCU::CAN
     {
     private:
         static const TickType_t CAN_TIMEOUT_TICKS = pdMS_TO_TICKS(100);
-        static const uint RELAY_TASK_STACK_SIZE = CONFIG_FREERTOS_IDLE_TASK_STACKSIZE * 2.5;
+        static const uint RELAY_TASK_STACK_SIZE = CONFIG_FREERTOS_IDLE_TASK_STACKSIZE + 1024;
         static const uint RELAY_TASK_PRIORITY = configMAX_PRIORITIES * 0.6;
-        static const uint CONFIG_TASK_STACK_SIZE = CONFIG_FREERTOS_IDLE_TASK_STACKSIZE * 2.5;
-        static const uint CONFIG_TASK_PRIORITY = configMAX_PRIORITIES * 0.3;
-        static const TickType_t CONFIG_TASK_INTERVAL = pdMS_TO_TICKS(1000);
         #ifdef ENABLE_CAN_DUMP
         static const uint CAN_DUMP_QUEUE_SIZE = 500;
         #endif
@@ -55,6 +55,22 @@ namespace ReadieFur::OpenTCU::CAN
         TaskHandle_t _can1TaskHandle = NULL;
         TaskHandle_t _can2TaskHandle = NULL;
 
+        EStringType _stringRequestType = EStringType::None;
+        size_t _stringRequestBufferIndex = 0;
+        char* _stringRequestBuffer = nullptr;
+
+        Samples<uint16_t, uint32_t> _bikeSpeedBuffer = Samples<uint16_t, uint32_t>(10);
+
+        bool _walkMode = false;
+        uint8_t _easeSetting = 0;
+        uint8_t _powerSetting = 0;
+
+        Samples<uint16_t, uint32_t> _batteryVoltage = Samples<uint16_t, uint32_t>(10);
+        Samples<int32_t, int64_t> _batteryCurrent = Samples<int32_t, int64_t>(10);
+
+        ulong _lastLogTimestamp = 0;
+        size_t _sampleCount = 0;
+
         static void RelayTask(void* param)
         {
             static_cast<SRelayTaskParameters*>(param)->self->RelayTaskLocal(param);
@@ -70,6 +86,24 @@ namespace ReadieFur::OpenTCU::CAN
             //Check if the task has been signalled for deletion.
             while (!ServiceCancellationToken.IsCancellationRequested())
             {
+                #ifdef DEBUG
+                if (_lastLogTimestamp + 1000 < esp_log_timestamp())
+                {
+                    printf("Sample count: %i\n", _sampleCount);
+                    _sampleCount = 0;
+                    _lastLogTimestamp = esp_log_timestamp();
+
+                    printf("Average speed: %u\n", _bikeSpeedBuffer.Average());
+
+                    printf("Walk mode: %s\n", _walkMode ? "On" : "Off");
+                    printf("Ease setting: %u\n", _easeSetting);
+                    printf("Power setting: %u\n", _powerSetting);
+
+                    printf("Average battery voltage: %u\n", _batteryVoltage.Average());
+                    printf("Average battery current: %li\n", _batteryCurrent.Average());
+                }
+                #endif
+
                 //Attempt to read a message from the bus.
                 SCanMessage message;
                 esp_err_t res = ESP_OK;
@@ -138,7 +172,102 @@ namespace ReadieFur::OpenTCU::CAN
         //Force inline for minor performance improvements, ideal in this program as it will be called extremely frequently and is used for real-time data analysis.
         inline virtual void InterceptMessage(SCanMessage* message)
         {
-            //TODO: Implement.
+            switch (message->id)
+            {
+            case 0x100:
+            {
+                if (message->data[0] == 0x05
+                    && message->data[1] == 0x2E
+                    && message->data[2] == 0x02
+                    && message->data[4] == 0x00
+                    && message->data[5] == 0x00
+                    && message->data[6] == 0x00
+                    && message->data[7] == 0x00)
+                {
+                    LOGI(nameof(CAN::BusMaster), "Received request for string: %x", message->data[3]);
+                    if (_stringRequestBuffer != nullptr)
+                    {
+                        LOGW(nameof(CAN::BusMaster), "New string request before previous request was processed.");
+                        delete[] _stringRequestBuffer;
+                    }
+                    _stringRequestType = (EStringType)message->data[3];
+                    _stringRequestBuffer = new char[20];
+                }
+                break;
+            }
+            case 0x101:
+            {
+                if (message->data[0] == 0x10
+                    && message->data[2] == 0x62
+                    && message->data[3] == 0x02)
+                {
+                    //String response.
+                    LOGI(nameof(CAN::BusMaster), "Received string response for %x.", message->data[4]);
+                    if (_stringRequestBuffer == nullptr)
+                    {
+                        LOGW(nameof(CAN::BusMaster), "String response received before a request was sent.");
+                        break;
+                    }
+
+                    for (size_t i = 5; i < 8; i++)
+                        _stringRequestBuffer[_stringRequestBufferIndex++] = message->data[i];
+                }
+                else if (message->data[0] == 0x21 || message->data[1] == 0x22)
+                {
+                    //String response continued.
+                    LOGI(nameof(CAN::BusMaster), "Continued response for %x.", _stringRequestType);
+                    if (_stringRequestBuffer == nullptr)
+                    {
+                        LOGW(nameof(CAN::BusMaster), "String response continued before a request was sent.");
+                        break;
+                    }
+
+                    for (size_t i = 1; i < 8; i++)
+                        _stringRequestBuffer[_stringRequestBufferIndex++] = message->data[i];
+                }
+                else if (message->data[0] == 0x23)
+                {
+                    //String response end.
+                    LOGI(nameof(CAN::BusMaster), "String response end for %x.", _stringRequestType);
+                    if (_stringRequestBuffer == nullptr)
+                    {
+                        LOGW(nameof(CAN::BusMaster), "String response end before a request was sent.");
+                        break;
+                    }
+                    for (size_t i = 1; i < 4; i++)
+                        _stringRequestBuffer[_stringRequestBufferIndex++] = message->data[i];
+                    LOGI(nameof(CAN::BusMaster), "String response for %x: %s", _stringRequestType, _stringRequestBuffer);
+                }
+                break;
+            }
+            case 0x201:
+            {
+                //D1 and D2 combined contain the speed of the bike in km/h * 100 (little-endian).
+                //Example: EA, 01 -> 01EA -> 490 -> 4.9km/h.
+                //We won't work in decimals.
+                _bikeSpeedBuffer.AddSample(message->data[0] | message->data[1] << 8);
+                break;
+            }
+            case 0x300:
+            {
+                _walkMode = message->data[1] == 0xA5;
+                _easeSetting = message->data[4];
+                _powerSetting = message->data[6];
+                break;
+            }
+            case 0x401:
+            {
+                _batteryVoltage.AddSample(message->data[0] | message->data[1] << 8);
+
+                //D5, D6, D7 and D8 combined contain the battery current in mA (little-endian with two's complement).
+                //Example 1: 46, 00, 00, 00 -> 00 000046 -> 70mA.
+                //Example 2: 5B, F0, FF, FF -> FF FFF05B -> -4005mA.
+                _batteryCurrent.AddSample(message->data[4] | message->data[5] << 8 | message->data[6] << 16 | message->data[7] << 24);
+                break;
+            }
+            default:
+                break;
+            }
         }
 
         void RunServiceImpl() override
@@ -373,6 +502,19 @@ namespace ReadieFur::OpenTCU::CAN
         {
             ServiceEntrypointStackDepth += 1024;
             ServiceEntrypointPriority = RELAY_TASK_PRIORITY;
+        }
+
+        SLiveData GetLiveData()
+        {
+            return SLiveData
+            {
+                .BikeSpeed = _bikeSpeedBuffer.Average(),
+                .InWalkMode = _walkMode,
+                .EaseSetting = _easeSetting,
+                .PowerSetting = _powerSetting,
+                .BatteryVoltage = _batteryVoltage.Average(),
+                .BatteryCurrent = _batteryCurrent.Average()
+            };
         }
     };
 };
