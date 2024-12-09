@@ -1,6 +1,6 @@
 #ifdef DEBUG
 // #define LOG_UDP
-#define ENABLE_CAN_DUMP_SERIAL
+// #define ENABLE_CAN_DUMP_SERIAL
 #ifdef LOG_UDP
 // #define ENABLE_CAN_DUMP_UDP
 #endif
