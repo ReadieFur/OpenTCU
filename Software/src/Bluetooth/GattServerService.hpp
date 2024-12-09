@@ -267,6 +267,33 @@ namespace ReadieFur::OpenTCU::Bluetooth
             return ESP_OK;
         }
 
+        uint16_t GetAttributeHandle(SUUID uuid)
+        {
+            _mutex.lock();
+            if (!_frozen)
+            {
+                _mutex.unlock();
+                return 0;
+            }
+
+            auto attributeIndex = std::find_if(_attributeInfos.begin(), _attributeInfos.end(), [uuid](SAttributeInfo info) { return info.uuid == uuid; });
+            if (attributeIndex == _attributeInfos.end())
+            {
+                _mutex.unlock();
+                return 0;
+            }
+
+            auto handleIndex = _handleMap.find(attributeIndex - _attributeInfos.begin());
+            if (handleIndex == _handleMap.end())
+            {
+                _mutex.unlock();
+                return 0;
+            }
+
+            _mutex.unlock();
+            return handleIndex->first;
+        }
+
         void ProcessServerEvent(esp_gatts_cb_event_t event, esp_gatt_if_t gattsIf, esp_ble_gatts_cb_param_t* param)
         {
             // LOGV(nameof(Bluetooth::GattServerService), "GATT_SVC_EVT: %d", event);

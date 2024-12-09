@@ -191,5 +191,23 @@ namespace ReadieFur::OpenTCU::Bluetooth
                 return false;
             }
         }
+
+        bool operator==(const SUUID& other) const
+        {
+            if (len != other.len)
+                return false;
+
+            switch (len)
+            {
+            case ESP_UUID_LEN_16:
+                return uuid.uuid16 == other.uuid.uuid16;
+            case ESP_UUID_LEN_32:
+                return uuid.uuid32 == other.uuid.uuid32;
+            case ESP_UUID_LEN_128:
+                return memcmp(uuid.uuid128, other.uuid.uuid128, ESP_UUID_LEN_128) == 0;
+            default:
+                return false;
+            }
+        }
     };
 };
