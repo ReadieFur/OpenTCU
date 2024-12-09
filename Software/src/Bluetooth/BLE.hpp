@@ -131,15 +131,15 @@ namespace ReadieFur::OpenTCU::Bluetooth
                     return;
                 }
 
+                esp_ble_gap_set_device_name(DeviceName.c_str());
+                esp_ble_gap_config_local_privacy(true);
+
                 auto profile = FindServerProfile(param->reg.app_id);
                 if (profile == _serverProfiles.end())
                 {
                     LOGE(nameof(Bluetooth::BLE), "Register server app failed. AppId not found: %d", param->reg.app_id);
                     return;
                 }
-
-                esp_ble_gap_set_device_name(DeviceName.c_str());
-                esp_ble_gap_config_local_privacy(true);
 
                 (*profile)->gattsIf = gattsIf;
                 break;
@@ -148,12 +148,20 @@ namespace ReadieFur::OpenTCU::Bluetooth
             {
                 //Start security connect with peer device when receive the connect event sent by the master.
                 esp_ble_set_encryption(param->connect.remote_bda, ESP_BLE_SEC_ENCRYPT_MITM);
+                
+                for (auto &&profile : _serverProfiles)
+                    profile->connectionId = param->connect.conn_id;
+
                 break;
             }
             case ESP_GATTS_DISCONNECT_EVT: //Start advertising again when missing the connect.
             {
                 LOGD(nameof(Bluetooth::API), "Disconnect reason: 0x%x", param->disconnect.reason);
                 esp_ble_gap_start_advertising(&_advertisingParams);
+
+                for (auto &&profile : _serverProfiles)
+                    profile->connectionId = 0;
+
                 break;
             }
             default:

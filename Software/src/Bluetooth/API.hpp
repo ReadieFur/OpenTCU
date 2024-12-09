@@ -13,6 +13,12 @@ namespace ReadieFur::OpenTCU::Bluetooth
     class API : public Service::AService
     {
     private:
+        SGattServerProfile _serverProfile =
+        {
+            .appId = 0x01,
+            .gattServerCallback = [this](auto a, auto b, auto c){ ServerAppCallback(a, b, c); },
+        };
+
         std::vector<GattServerService*> _services;
 
         void ServerAppCallback(esp_gatts_cb_event_t event, esp_gatt_if_t gattsIf, esp_ble_gatts_cb_param_t* param)
@@ -50,21 +56,23 @@ namespace ReadieFur::OpenTCU::Bluetooth
             });
             _services.push_back(&testService);
 
-            SGattServerProfile serverProfile =
-            {
-                .appId = 0x01,
-                .gattServerCallback = [this](auto a, auto b, auto c){ ServerAppCallback(a, b, c); },
-            };
-            if ((err = bleService->RegisterServerApp(&serverProfile)) != ESP_OK)
+            if ((err = bleService->RegisterServerApp(&_serverProfile)) != ESP_OK)
             {
                 LOGE(nameof(Bluetooth::API), "Failed to register server app: %s", esp_err_to_name(err));
                 return;
             }
 
             LOGD(nameof(Bluetooth::API), "BLE API started.");
+
+            //Test external notification.
+            vTaskDelay(pdMS_TO_TICKS(15000));
+            testValue2 = 42;
+            LOGI(nameof(Bluetooth::API), "Sending notification.");
+            esp_ble_gatts_send_indicate(_serverProfile.gattsIf, _serverProfile.connectionId, testService.GetAttributeHandle(SUUID(0x38B18BECUL)), sizeof(testValue2), (uint8_t*)&testValue2, false);
+
             ServiceCancellationToken.WaitForCancellation();
 
-            bleService->UnregisterServerApp(serverProfile.appId);
+            bleService->UnregisterServerApp(_serverProfile.appId);
 
             for (auto &&service : _services)
                 delete service;
