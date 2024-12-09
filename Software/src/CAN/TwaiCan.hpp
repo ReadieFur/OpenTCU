@@ -1,7 +1,6 @@
 #pragma once
 
 #include <cstdint>
-#include "pch.h"
 #include <driver/gpio.h>
 #include <driver/twai.h>
 #include <stdexcept>

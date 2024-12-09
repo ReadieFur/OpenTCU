@@ -1,11 +1,9 @@
 #ifdef DEBUG
-// #define _CAN_TEST
 // #define LOG_UDP
 #define ENABLE_CAN_DUMP_SERIAL
 #ifdef LOG_UDP
 // #define ENABLE_CAN_DUMP_UDP
 #endif
-// #define _LIVE_LOG
 
 #if defined(ENABLE_CAN_DUMP_SERIAL) || defined(ENABLE_CAN_DUMP_UDP)
 #define ENABLE_CAN_DUMP
@@ -13,21 +11,17 @@
 #endif
 
 #include <freertos/FreeRTOS.h> //Has to always be the first included FreeRTOS related header.
-#include "pch.h"
 #include "Service/ServiceManager.hpp"
 #include "Config/Device.h"
 #include "CAN/BusMaster.hpp"
 #include "CAN/Logger.hpp"
-// #include "CAN/API.hpp"
 #include <esp_sleep.h>
 #include <freertos/task.h>
 #include "Logging.hpp"
-#ifdef _CAN_TEST
-#include "CAN/Test.hpp"
-#endif
 #ifdef DEBUG
 #include "Diagnostic/DiagnosticsService.hpp"
 #endif
+#include <Network/WiFi.hpp>
 #include <Network/OTA/API.hpp>
 #include <esp_pm.h>
 #include <Network/Bluetooth/BLE.hpp>
@@ -37,17 +31,16 @@
 #include <esp_mac.h>
 #include <cstring>
 #ifdef LOG_UDP
-#include <Network/WiFi.hpp>
 #include <lwip/sockets.h>
 #include <lwip/netdb.h>
 #include <lwip/inet.h>
 #endif
 
-#define CHECK_SERVICE_RESULT(func) do {                                     \
-        ReadieFur::Service::EServiceResult result = func;                   \
-        if (result == ReadieFur::Service::Ok) break;                        \
-        LOGE(pcTaskGetName(NULL), "Failed with result: %i", result);        \
-        abort();                                                            \
+#define CHECK_SERVICE_RESULT(func) do {                                                 \
+        ReadieFur::Service::EServiceResult result = func;                               \
+        if (result == ReadieFur::Service::Ok) break;                                    \
+        LOGE(pcTaskGetName(NULL), "Failed with result: %i", result);                    \
+        abort();                                                                        \
     } while (0)
 
 #define CHECK_ESP_RESULT(func) do {                                                     \
@@ -58,6 +51,8 @@
     } while (0)
 
 using namespace ReadieFur::OpenTCU;
+
+std::string DeviceName = "OpenTCU" TCU_NAME; //Placeholder value.
 
 #ifdef LOG_UDP
 int UdpSocket;
@@ -81,7 +76,7 @@ void SetLogLevel()
 {
     #ifdef DEBUG
     //Set base log level.
-    esp_log_level_set("*", ESP_LOG_VERBOSE);
+    esp_log_level_set("*", ESP_LOG_DEBUG);
     //Set custom log levels.
     esp_log_level_set(nameof(CAN::BusMaster), ESP_LOG_ERROR);
     esp_log_level_set(nameof(CAN::TwaiCan), ESP_LOG_ERROR);
@@ -153,7 +148,7 @@ void ConfigureAdditionalLoggers()
     #endif
 }
 
-void setup()
+extern "C" void app_main()
 {
     #ifdef _ENABLE_STDOUT_HOOK
     ReadieFur::Logging::OverrideStdout();
@@ -162,15 +157,10 @@ void setup()
     // SetCPUFrequency();
     SetLogLevel();
 
-    #ifndef _CAN_TEST
     CHECK_SERVICE_RESULT(ReadieFur::Service::ServiceManager::InstallAndStartService<CAN::BusMaster>());
-    #else
-    CHECK_SERVICE_RESULT(ReadieFur::Service::ServiceManager::InstallAndStartService<CAN::Test>());
-    return;
-    #endif
 
     #ifdef DEBUG
-    // CHECK_SERVICE_RESULT(ReadieFur::Service::ServiceManager::InstallAndStartService<ReadieFur::Diagnostic::DiagnosticsService>());
+    CHECK_SERVICE_RESULT(ReadieFur::Service::ServiceManager::InstallAndStartService<ReadieFur::Diagnostic::DiagnosticsService>());
     #endif
 
     ConfigureDeviceName();
@@ -184,8 +174,10 @@ void setup()
     CHECK_ESP_RESULT(err);
 
     CHECK_ESP_RESULT(ReadieFur::Network::WiFi::Init());
-    wifi_config_t apConfig = {
-        .ap = {
+    wifi_config_t apConfig =
+    {
+        .ap =
+        {
             // .password = "OpenTCU" TCU_PIN, //Temporary, still left open for now.
             .ssid_len = (uint8_t)DeviceName.length(),
             .channel = 1,
@@ -222,25 +214,4 @@ void setup()
     otaHttpdConfig.server_port = 81;
     otaHttpdConfig.ctrl_port += 1;
     CHECK_ESP_RESULT(ReadieFur::Network::OTA::API::Init(&otaHttpdConfig));
-
-    // CHECK_SERVICE_RESULT(ReadieFur::Service::ServiceManager::InstallAndStartService<CAN::API>());
 }
-
-void loop()
-{
-    //I don't need this loop method as this program is task based.
-    vTaskDelete(NULL);
-}
-
-#ifndef ARDUINO
-extern "C" void app_main()
-{
-    TaskHandle_t mainTaskHandle = xTaskGetHandle(pcTaskGetName(NULL));
-    setup();
-    while (eTaskGetState(mainTaskHandle) != eTaskState::eDeleted)
-    {
-        loop();
-        portYIELD();
-    }
-}
-#endif

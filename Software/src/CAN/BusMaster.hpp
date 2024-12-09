@@ -1,8 +1,10 @@
 #pragma once
 
-#include "pch.h"
+#include <esp_check.h>
 #include <freertos/FreeRTOS.h>
 #include <freertos/FreeRTOSConfig.h>
+#include "Config/Pinout.h"
+#include "Config/Device.h"
 #include <freertos/task.h>
 #include <driver/gpio.h>
 #include <driver/spi_master.h>
@@ -26,29 +28,7 @@ namespace ReadieFur::OpenTCU::CAN
 {
     class BusMaster : public Service::AService
     {
-    public:
-        struct SMessageOverrides
-        {
-            // uint32_t id;
-            bool dataMask[8] = { false };
-            uint8_t data[8] = { 0 };
-        };
-
-        struct SMessageReplacements
-        {
-            uint32_t id;
-            bool dataMask[8] = { false };
-            uint8_t original[8] = { 0 };
-            uint8_t replacement[8] = { 0 };
-        };
-
-        std::map<uint32_t, SMessageOverrides> MessageOverrides;
-        std::vector<SMessageReplacements> MessageReplacements;
-        std::vector<uint32_t> Blacklist;
-        std::queue<SCanMessage> InjectQueue0;
-        std::queue<SCanMessage> InjectQueue1;
-
-    protected:
+    private:
         static const TickType_t CAN_TIMEOUT_TICKS = pdMS_TO_TICKS(100);
         static const uint RELAY_TASK_STACK_SIZE = CONFIG_FREERTOS_IDLE_TASK_STACKSIZE * 2.5;
         static const uint RELAY_TASK_PRIORITY = configMAX_PRIORITIES * 0.6;
@@ -66,7 +46,6 @@ namespace ReadieFur::OpenTCU::CAN
             ACan* can2;
         };
 
-    private:
         #if SOC_TWAI_CONTROLLER_NUM <= 1
         spi_device_handle_t _mcpDeviceHandle = nullptr; //TODO: Move this to the MCP2515 file.
         #endif
@@ -88,48 +67,9 @@ namespace ReadieFur::OpenTCU::CAN
 
             char bus = pcTaskGetName(xTaskGetHandle(pcTaskGetName(NULL)))[3]; //Only really used for logging & debugging.
 
-            std::queue<SCanMessage>* injectQueue = nullptr;
-            if (bus == '1')
-                injectQueue = &params->self->InjectQueue0;
-            else if (bus == '2')
-                injectQueue = &params->self->InjectQueue1;
-
             //Check if the task has been signalled for deletion.
             while (!ServiceCancellationToken.IsCancellationRequested())
             {
-                //Inject messages into the bus.
-                while (!injectQueue->empty())
-                {
-                    SCanMessage message = injectQueue->front();
-                    injectQueue->pop();
-                    esp_err_t res = ESP_OK;
-                    if ((res = params->can2->Send(message, CAN_TIMEOUT_TICKS)) != ESP_OK)
-                    {
-                        LOGE(nameof(CAN::BusMaster), "CAN%c failed to inject message: %i", bus, res);
-                        continue;
-                    }
-                    
-                    SCanDump dump =
-                    {
-                        .timestamp = esp_log_timestamp(),
-                        .bus = bus,
-                        .message = message //Creates a copy of the struct.
-                    };
-
-                    #if defined(_LIVE_LOG)
-                    #elif false
-                    while (xQueueSend(BusMaster::CanDumpQueue, &dump, 0) == errQUEUE_FULL)
-                    {
-                        //If the queue is full, remove the oldest item.
-                        SCanDump oldDump;
-                        xQueueReceive(BusMaster::CanDumpQueue, &oldDump, 0);
-                    }
-                    #else
-                    if (xQueueSend(BusMaster::CanDumpQueue, &dump, 0) == errQUEUE_FULL)
-                        LOGW(nameof(CAN::BusMaster), "CAN log queue is full.");
-                    #endif
-                }
-
                 //Attempt to read a message from the bus.
                 SCanMessage message;
                 esp_err_t res = ESP_OK;
@@ -141,81 +81,14 @@ namespace ReadieFur::OpenTCU::CAN
                 }
 
                 #if defined(ENABLE_CAN_DUMP) && defined(CAN_DUMP_BEFORE_INTERCEPT)
-                //Copy the original message for logging.
-                SCanDump dump =
-                {
-                    .timestamp = esp_log_timestamp(),
-                    .bus = bus,
-                    .message = message //Creates a copy of the struct.
-                };
-
-                //Set wait time to 0 as this should not delay the task.
-                #if defined(_LIVE_LOG)
-                #elif false
-                while (xQueueSend(BusMaster::CanDumpQueue, &dump, 0) == errQUEUE_FULL)
-                {
-                    //If the queue is full, remove the oldest item.
-                    SCanDump oldDump;
-                    xQueueReceive(BusMaster::CanDumpQueue, &oldDump, 0);
-                }
-                #else
-                if (xQueueSend(BusMaster::CanDumpQueue, &dump, 0) == errQUEUE_FULL)
-                    LOGW(nameof(CAN::BusMaster), "CAN log queue is full.");
-                #endif
-                #endif
-
-                //Test dropping messages:
-                #if defined(DEBUG) && true
-                //Dropping results:
-                //0x200 TCU doesn't seem to care.
-                //0x201 TCU doesn't seem to care, no speed reported.
-                //0x202 TCU doesn't seem to care.
-                //0x203 TCU doesn't seem to care.
-                //0x204 TCU doesn't seem to care.
-                //0x206 TCU doesn't seem to care.
-                //0x300 system shuts down, briefly saw that battery reads 0.
-                //0x301 system doesn't seem to care.
-                //0x400 TCU doesn't seem to care.
-                //0x401 TCU (doesn't seem to care) still reads battery level.
-                //0x402 TCU doesn't read battery level, otherwise doesn't seem to care.
-                //0x403 TCU doesn't seem to care.
-                //0x404 TCU doesn't seem to care.
-                //0x405 TCU doesn't seem to care.
-                //0x665 TCU doesn't seem to care.
-                //0x666 TCU doesn't seem to care.
-                //With all but 0x300 dropped, the TCU will complain about system errors, but the bike still runs.
-                if (Blacklist.size() > 0 && std::find(Blacklist.begin(), Blacklist.end(), message.id) != Blacklist.end())
-                {
-                    taskYIELD();
-                    continue;
-                }
+                LogMessage(bus, message);
                 #endif
 
                 //Analyze the message and modify it if needed.
                 InterceptMessage(&message);
 
                 #if defined(ENABLE_CAN_DUMP) && defined(CAN_DUMP_AFTER_INTERCEPT)
-                //Copy the original message for logging.
-                SCanDump dump =
-                {
-                    .timestamp = esp_log_timestamp(),
-                    .bus = bus,
-                    .message = message //Creates a copy of the struct.
-                };
-
-                //Set wait time to 0 as this should not delay the task.
-                #if defined(_LIVE_LOG)
-                #elif false
-                while (xQueueSend(BusMaster::CanDumpQueue, &dump, 0) == errQUEUE_FULL)
-                {
-                    //If the queue is full, remove the oldest item.
-                    SCanDump oldDump;
-                    xQueueReceive(BusMaster::CanDumpQueue, &oldDump, 0);
-                }
-                #else
-                if (xQueueSend(BusMaster::CanDumpQueue, &dump, 0) == errQUEUE_FULL)
-                    LOGW(nameof(CAN::BusMaster), "CAN log queue is full.");
-                #endif
+                LogMessage(bus, message);
                 #endif
 
                 //Relay the message to the other CAN bus.
@@ -235,173 +108,35 @@ namespace ReadieFur::OpenTCU::CAN
             delete params;
         }
 
+        inline virtual void LogMessage(char bus, SCanMessage& message)
+        {
+            //Copy the original message for logging.
+            SCanDump dump =
+            {
+                .timestamp = esp_log_timestamp(),
+                .bus = bus,
+                .message = message //Creates a copy of the struct.
+            };
+
+            //Set wait time to 0 as this should not delay the task.
+            #if defined(_LIVE_LOG)
+            #elif false
+            while (xQueueSend(BusMaster::CanDumpQueue, &dump, 0) == errQUEUE_FULL)
+            {
+                //If the queue is full, remove the oldest item.
+                SCanDump oldDump;
+                xQueueReceive(BusMaster::CanDumpQueue, &oldDump, 0);
+            }
+            #else
+            if (xQueueSend(BusMaster::CanDumpQueue, &dump, 0) == errQUEUE_FULL)
+                LOGW(nameof(CAN::BusMaster), "CAN log queue is full.");
+            #endif
+        }
+
         //Force inline for minor performance improvements, ideal in this program as it will be called extremely frequently and is used for real-time data analysis.
         inline virtual void InterceptMessage(SCanMessage* message)
         {
             //TODO: Implement.
-            #if defined(DEBUG) && true
-            // if (message->id == 0x201)
-            // {
-            //     //TESTING: Modify reported speed value.
-            //     // float speedKph = 30.0;
-            //     // int speedValue = static_cast<int>(speedKph * 100); //Convert speed to integer.
-            //     // //Convert the integer value into two bytes (little-endian).
-            //     // message->data[0] = speedValue & 0xFF; // Low byte (D1)
-            //     // message->data[1] = (speedValue >> 8) & 0xFF; // High byte (D2)
-            // }
-            // else if (message->id == 0x300)
-            // {
-            //     //Attempt dropping parts of 0x300.
-            //     // message->data[0] = 0; //No motor power.
-            //     // message->data[1] = 0; //No change.
-            //     // message->data[2] = 0; //No change.
-            //     // message->data[3] = 0; //No battery warning (system still runs).
-            //     // message->data[4] = 0; //No motor power. //Max power
-            //     // message->data[5] = 0; //No change.
-            //     // message->data[6] = 0; //No change. //Throttle response.
-            //     // message->data[7] = 0; //No change.
-
-            //     message->data[0] = 0x03; //Mode, 0 = off, 1 = low power, 2 = medium, 3 = high.
-            //     message->data[1] = 0x5A; //A5 sets walk mode.
-            //     message->data[2] = 0x0; //?
-            //     message->data[3] = 0x5A; //?
-            //     message->data[4] = 0x64; //Ease.
-            //     message->data[5] = 0x0; //N/A.
-            //     message->data[6] = 0x64; //Power.
-            //     // message->data[7] = 0x0; //Clock?
-
-            //     //When the bike is locked D1,D3,D5,D6,D7 are all set to 0.
-            // }
-
-            // if (message->id == 0x100)
-            // {
-            //     //Hardcoded testing.
-
-            //     static const uint8_t sets[][8] =
-            //     {
-            //         { 0x03, 0x22, 0x02, 0x03, 0x00, 0x00, 0x00, 0x00 },
-            //         { 0x30, 0x00, 0x00 },
-            //         { 0x03, 0x22, 0x02, 0x02, 0x00, 0x00, 0x00, 0x00 },
-            //         { 0x30, 0x00, 0x00 },
-            //         { 0x03, 0x22, 0x02, 0x04, 0x00, 0x00, 0x00, 0x00 },
-            //         { 0x30, 0x00, 0x00 },
-            //         { 0x03, 0x22, 0x02, 0x07, 0x00, 0x00, 0x00, 0x00 },
-            //         { 0x03, 0x22, 0x02, 0x06, 0x00, 0x00, 0x00, 0x00 },
-            //         { 0x03, 0x22, 0x02, 0x0D, 0x00, 0x00, 0x00, 0x00 },
-            //         { 0x03, 0x22, 0x02, 0x13, 0x00, 0x00, 0x00, 0x00 },
-            //         { 0x03, 0x22, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00 },
-            //         { 0x03, 0x22, 0x02, 0x0B, 0x00, 0x00, 0x00, 0x00 },
-            //         { 0x03, 0x22, 0x02, 0x17, 0x00, 0x00, 0x00, 0x00 }
-            //     };
-
-            //     int matchingIndex = -1;
-            //     for (int i = 0; i < sizeof(sets) / sizeof(sets[0]); i++)
-            //     {
-            //         bool match = true;
-
-            //         for (int j = 0; j < message->length; j++)
-            //         {
-            //             if (sets[i][j] != message->data[j])
-            //             {
-            //                 match = false;
-            //                 break;
-            //             }
-            //         }
-                        
-            //         if (match)
-            //         {
-            //             matchingIndex = i;
-            //             break;
-            //         }
-            //     }
-
-            //     uint8_t* newData = nullptr;
-            //     switch (matchingIndex)
-            //     {
-            //     case 0:
-            //         newData = new uint8_t[8]{ 0x03, 0x22, 0x02, 0x03, 0x00, 0x00, 0x00, 0x00 };
-            //         break;
-            //     case 1:
-            //         newData = new uint8_t[3]{ 0x30, 0x00, 0x00 };
-            //         break;
-            //     case 2:
-            //         newData = new uint8_t[8]{ 0x03, 0x22, 0x02, 0x02, 0x00, 0x00, 0x00, 0x00 };
-            //         break;
-            //     case 3:
-            //         newData = new uint8_t[3]{ 0x30, 0x00, 0x00 };
-            //         break;
-            //     case 4:
-            //         newData = new uint8_t[8]{ 0x03, 0x22, 0x02, 0x04, 0x00, 0x00, 0x00, 0x00 };
-            //         break;
-            //     case 5:
-            //         newData = new uint8_t[3]{ 0x30, 0x00, 0x00 };
-            //         break;
-            //     case 6:
-            //         newData = new uint8_t[8]{ 0x03, 0x22, 0x02, 0x07, 0x00, 0x00, 0x00, 0x00 };
-            //         break;
-            //     case 7:
-            //         newData = new uint8_t[8]{ 0x03, 0x22, 0x02, 0x06, 0x00, 0x00, 0x00, 0x00 };
-            //         break;
-            //     case 8:
-            //         newData = new uint8_t[8]{ 0x03, 0x22, 0x02, 0x0D, 0x00, 0x00, 0x00, 0x00 };
-            //         break;
-            //     case 9:
-            //         newData = new uint8_t[8]{ 0x03, 0x22, 0x02, 0x13, 0x00, 0x00, 0x00, 0x00 };
-            //         break;
-            //     case 10:
-            //         newData = new uint8_t[8]{ 0x03, 0x22, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00 };
-            //         break;
-            //     case 11:
-            //         newData = new uint8_t[8]{ 0x03, 0x22, 0x02, 0x0B, 0x00, 0x00, 0x00, 0x00 };
-            //         break;
-            //     case 12:
-            //         newData = new uint8_t[8]{ 0x03, 0x22, 0x02, 0x17, 0x00, 0x00, 0x00, 0x00 };
-            //         break;
-            //     default:
-            //         break;
-            //     }
-            //     if (newData != nullptr)
-            //     {
-            //         for (int i = 0; i < message->length; i++)
-            //             message->data[i] = newData[i];
-            //         delete[] newData;
-            //     }
-
-            //     return;
-            // }
-
-            //Check if a replacement message matches the current message.
-            for (auto& replacement : MessageReplacements)
-            {
-                if (replacement.id == message->id)
-                {
-                    bool match = true;
-                    for (int i = 0; i < 8; i++)
-                    {
-                        if (replacement.dataMask[i] && replacement.original[i] != message->data[i])
-                        {
-                            match = false;
-                            break;
-                        }
-                    }
-                    if (match)
-                    {
-                        for (int i = 0; i < message->length; i++)
-                            if (replacement.dataMask[i])
-                                message->data[i] = replacement.replacement[i];
-                        return;
-                    }
-                }
-            }
-
-            if (MessageOverrides.contains(message->id))
-            {
-                SMessageOverrides& overrides = MessageOverrides[message->id];
-                for (int i = 0; i < 8; i++)
-                    if (overrides.dataMask[i])
-                        message->data[i] = overrides.data[i];
-            }
-            #endif
         }
 
         void RunServiceImpl() override
