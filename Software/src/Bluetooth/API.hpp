@@ -1,10 +1,10 @@
 #pragma once
 
 #include <Service/AService.hpp>
-#include "BLE.hpp"
-#include "SGattServerProfile.h"
+#include <Network/Bluetooth/BLE.hpp>
+#include <Network/Bluetooth/SGattServerProfile.h>
+#include <Network/Bluetooth/GattServerService.hpp>
 #include <esp_err.h>
-#include "GattServerService.hpp"
 #include <vector>
 
 namespace ReadieFur::OpenTCU::Bluetooth
@@ -13,13 +13,13 @@ namespace ReadieFur::OpenTCU::Bluetooth
     class API : public Service::AService
     {
     private:
-        SGattServerProfile _serverProfile =
+        Network::Bluetooth::SGattServerProfile _serverProfile =
         {
             .appId = 0x01,
             .gattServerCallback = [this](auto a, auto b, auto c){ ServerAppCallback(a, b, c); },
         };
 
-        std::vector<GattServerService*> _services;
+        std::vector<Network::Bluetooth::GattServerService*> _services;
 
         void ServerAppCallback(esp_gatts_cb_event_t event, esp_gatt_if_t gattsIf, esp_ble_gatts_cb_param_t* param)
         {
@@ -32,9 +32,13 @@ namespace ReadieFur::OpenTCU::Bluetooth
         {
             esp_err_t err;
 
-            BLE* bleService = GetService<BLE>();
+            if (!Network::Bluetooth::BLE::IsInitialized())
+            {
+                LOGE(nameof(Bluetooth::API), "BLE API not initialized.");
+                return;
+            }
 
-            if ((err = bleService->RegisterServerApp(&_serverProfile)) != ESP_OK)
+            if ((err = Network::Bluetooth::BLE::RegisterServerApp(&_serverProfile)) != ESP_OK)
             {
                 LOGE(nameof(Bluetooth::API), "Failed to register server app: %s", esp_err_to_name(err));
                 return;
@@ -44,7 +48,7 @@ namespace ReadieFur::OpenTCU::Bluetooth
 
             ServiceCancellationToken.WaitForCancellation();
 
-            bleService->UnregisterServerApp(_serverProfile.appId);
+            Network::Bluetooth::BLE::UnregisterServerApp(_serverProfile.appId);
 
             for (auto &&service : _services)
                 delete service;
@@ -55,7 +59,6 @@ namespace ReadieFur::OpenTCU::Bluetooth
         API()
         {
             ServiceEntrypointStackDepth += 1024;
-            AddDependencyType<BLE>();
         }
     };
 };
