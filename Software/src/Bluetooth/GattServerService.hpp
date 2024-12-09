@@ -16,7 +16,6 @@ namespace ReadieFur::OpenTCU::Bluetooth
 {
     static const uint16_t GATT_PRIMARY_SERVICE_UUID = ESP_GATT_UUID_PRI_SERVICE;
     static const uint16_t GATT_CHARACTERISTIC_DECLARATION_UUID = ESP_GATT_UUID_CHAR_DECLARE;
-    static const uint16_t GATT_CHARACTERISTIC_DESCRIPTION_UUID = ESP_GATT_UUID_CHAR_DESCRIPTION;
     static const uint8_t GATT_CHARACTERISTIC_PROP_READ = ESP_GATT_CHAR_PROP_BIT_READ;
     static const uint8_t GATT_CHARACTERISTIC_PROP_WRITE = ESP_GATT_CHAR_PROP_BIT_WRITE;
     static const uint8_t GATT_CHARACTERISTIC_PROP_READ_WRITE = ESP_GATT_CHAR_PROP_BIT_READ | ESP_GATT_CHAR_PROP_BIT_WRITE;
@@ -28,26 +27,31 @@ namespace ReadieFur::OpenTCU::Bluetooth
     private:
         struct SAttributeInfo
         {
-            esp_gatts_attr_db_t* attribute;
+            SUUID uuid;
+            uint16_t permissions;
+            void* value;
+            uint16_t length;
+            uint16_t maxLength;
+            bool autoResponse;
             TGattServerReadCallback readCallback;
         };
 
         std::mutex _mutex;
         bool _frozen = false;
+        SUUID _serviceUUID;
         uint8_t _instanceId;
+        std::vector<SAttributeInfo> _attributeInfos;
+        size_t _uuidsSize = 0;
+        SUUID* _uuids = nullptr;
+        size_t _nativeAttributesSize = 0;
+        esp_gatts_attr_db_t* _nativeAttributes = nullptr;
         uint16_t* _handleTable = nullptr;
-        size_t _uuidsSize = 1;
-        SUUID* _uuids = (SUUID*)malloc(1 * sizeof(SUUID));
-        size_t _attributesSize = 1;
-        esp_gatts_attr_db_t* _rawAttributes = (esp_gatts_attr_db_t*)malloc(1 * sizeof(esp_gatts_attr_db_t));
-        std::map<uint16_t, SUUID> _handleMap;
-        std::map<SUUID, SAttributeInfo> _attributes;
+        std::map<uint16_t, size_t> _handleMap;
 
         GattServerService() {}
 
         esp_err_t AddAttribute(
             SUUID uuid,
-            const char* description,
             uint16_t permissions,
             void* value,
             uint16_t length,
@@ -63,25 +67,6 @@ namespace ReadieFur::OpenTCU::Bluetooth
                 return ESP_ERR_INVALID_STATE;
             }
 
-            auto uuids = (SUUID*)realloc(_uuids, (_uuidsSize + 1) * sizeof(SUUID));
-            if (uuids == nullptr)
-            {
-                LOGE(nameof(Bluetooth::GattServerService), "Failed to allocate memory for UUIDs.");
-                _mutex.unlock();
-                return ESP_ERR_NO_MEM;
-            }
-            _uuids = uuids;
-            _uuids[_uuidsSize] = uuid;
-
-            auto attributes = (esp_gatts_attr_db_t*)realloc(_rawAttributes, (_attributesSize + (description != NULL ? 3 : 2)) * sizeof(esp_gatts_attr_db_t));
-            if (attributes == nullptr)
-            {
-                LOGE(nameof(Bluetooth::GattServerService), "Failed to allocate memory for attributes.");
-                _mutex.unlock();
-                return ESP_ERR_NO_MEM;
-            }
-            _rawAttributes = attributes;
-
             //Decleration.
             const uint8_t* declerationValue;
             if ((permissions & ESP_GATT_PERM_READ && permissions & ESP_GATT_PERM_WRITE) || (permissions & ESP_GATT_PERM_READ_ENCRYPTED && permissions & ESP_GATT_PERM_WRITE_ENCRYPTED))
@@ -92,83 +77,94 @@ namespace ReadieFur::OpenTCU::Bluetooth
                 declerationValue = &GATT_CHARACTERISTIC_PROP_WRITE;
             else
                 declerationValue = 0;
-            _rawAttributes[_attributesSize++] =
-            {
-                .attr_control = { .auto_rsp = ESP_GATT_AUTO_RSP },
-                .att_desc =
-                {
-                    .uuid_length = ESP_UUID_LEN_16,
-                    .uuid_p = (uint8_t*)&GATT_CHARACTERISTIC_DECLARATION_UUID,
-                    .perm = ESP_GATT_PERM_READ,
-                    .max_length = sizeof(uint8_t),
-                    .length = sizeof(uint8_t),
-                    .value = (uint8_t*)declerationValue
-                }
-            };
 
-            //Description.
-            if (description != NULL)
+            _attributeInfos.push_back(SAttributeInfo
             {
-                _rawAttributes[_attributesSize++] =
-                {
-                    .attr_control = { .auto_rsp = ESP_GATT_AUTO_RSP },
-                    .att_desc =
-                    {
-                        .uuid_length = ESP_UUID_LEN_16,
-                        .uuid_p = (uint8_t*)&GATT_CHARACTERISTIC_DESCRIPTION_UUID,
-                        .perm = ESP_GATT_PERM_READ,
-                        .max_length = (uint16_t)strlen(description),
-                        .length = (uint16_t)strlen(description),
-                        .value = (uint8_t*)description
-                    }
-                };
-            }
+                .uuid = SUUID(GATT_CHARACTERISTIC_DECLARATION_UUID),
+                .permissions = ESP_GATT_PERM_READ,
+                .value = (void*)declerationValue,
+                .length = sizeof(uint8_t),
+                .maxLength = sizeof(uint8_t),
+                .autoResponse = true,
+                .readCallback = nullptr
+            });
 
             //Value.
-            _rawAttributes[_attributesSize++] =
+            _attributeInfos.push_back(SAttributeInfo
             {
-                .attr_control = { .auto_rsp = (uint8_t)(autoResponse ? ESP_GATT_AUTO_RSP : ESP_GATT_RSP_BY_APP) },
-                .att_desc =
-                {
-                    .uuid_length = (uint16_t)_uuids[_uuidsSize].Length(),
-                    .uuid_p = (uint8_t*)_uuids[_uuidsSize].Data(),
-                    .perm = permissions,
-                    .max_length = maxLength,
-                    .length = length,
-                    .value = (uint8_t*)value
-                }
-            };
-
-            _attributes[_uuids[_uuidsSize]] =
-            {
-                .attribute = &_rawAttributes[_attributesSize - 1],
+                .uuid = uuid,
+                .permissions = permissions,
+                .value = value,
+                .length = length,
+                .maxLength = maxLength,
+                .autoResponse = autoResponse,
                 .readCallback = readCallback
-            };
-
-            _uuidsSize++;
+            });
 
             _mutex.unlock();
             return ESP_OK;
         }
 
-    public:
-        GattServerService(SUUID uuid, uint8_t instanceId) : _instanceId(instanceId)
+        esp_err_t GenerateNativeAttributes()
         {
-            //Keep UUIDs copied in memory so the calling method can go out of scope.
-            _uuids[0] = uuid;
-            _rawAttributes[0] =
+            size_t size = _attributeInfos.size();
+
+            _uuids = (SUUID*)malloc(size * sizeof(SUUID));
+            if (_uuids == nullptr)
             {
-                .attr_control = { .auto_rsp = ESP_GATT_AUTO_RSP },
-                .att_desc =
+                LOGE(nameof(Bluetooth::GattServerService), "Failed to allocate memory for UUIDs.");
+                return ESP_ERR_NO_MEM;
+            }
+            _uuidsSize = size;
+
+            //Previously I was assigning to this directly with realloc however that caused pointer issues which broke old references, so now the native objects will be created once the object is frozen.
+            _nativeAttributes = (esp_gatts_attr_db_t*)malloc(size * sizeof(esp_gatts_attr_db_t));
+            if (_nativeAttributes == nullptr)
+            {
+                _uuidsSize = 0;
+                free(_uuids);
+                LOGE(nameof(Bluetooth::GattServerService), "Failed to allocate memory for attributes.");
+                return ESP_ERR_NO_MEM;
+            }
+            _nativeAttributesSize = size;
+
+            for (size_t i = 0; i < _attributeInfos.size(); i++)
+            {
+                LOGV(nameof(Bluetooth::GattServerService), "Generating attribute %d, UUID: %x", i, *(uint16_t*)_attributeInfos[i].uuid.Data());
+
+                auto attributeInfo = _attributeInfos[i];
+                _uuids[i] = attributeInfo.uuid;
+                _nativeAttributes[i] =
                 {
-                    .uuid_length = ESP_UUID_LEN_16,
-                    .uuid_p = (uint8_t*)&GATT_PRIMARY_SERVICE_UUID,
-                    .perm = ESP_GATT_PERM_READ,
-                    .max_length = (uint16_t)_uuids[0].Length(),
-                    .length = (uint16_t)_uuids[0].Length(),
-                    .value = (uint8_t*)_uuids[0].Data() //TODO: Figure out why the values passed here do not reflect in the BLE client but the ones passed in the AddAttribute method do.
-                }
-            };
+                    .attr_control = { .auto_rsp = (uint8_t)(attributeInfo.autoResponse ? ESP_GATT_AUTO_RSP : ESP_GATT_RSP_BY_APP) },
+                    .att_desc =
+                    {
+                        .uuid_length = (uint16_t)_uuids[i].Length(),
+                        .uuid_p = (uint8_t*)_uuids[i].Data(),
+                        .perm = attributeInfo.permissions,
+                        .max_length = attributeInfo.maxLength,
+                        .length = attributeInfo.length,
+                        .value = (uint8_t*)attributeInfo.value
+                    }
+                };
+            }
+
+            return ESP_OK;
+        }
+
+    public:
+        GattServerService(SUUID uuid, uint8_t instanceId) : _serviceUUID(uuid), _instanceId(instanceId)
+        {
+            _attributeInfos.push_back(SAttributeInfo
+            {
+                .uuid = SUUID(GATT_PRIMARY_SERVICE_UUID),
+                .permissions = ESP_GATT_PERM_READ,
+                .value = (void*)_serviceUUID.Data(),
+                .length = sizeof(uint16_t),
+                .maxLength = sizeof(uint16_t),
+                .autoResponse = true,
+                .readCallback = nullptr
+            });
         }
 
         ~GattServerService()
@@ -181,10 +177,10 @@ namespace ReadieFur::OpenTCU::Bluetooth
                 _handleTable = nullptr;
             }
 
-            if (_rawAttributes != nullptr)
+            if (_nativeAttributes != nullptr)
             {
-                free(_rawAttributes);
-                _rawAttributes = nullptr;
+                free(_nativeAttributes);
+                _nativeAttributes = nullptr;
             }
 
             if (_uuids != nullptr)
@@ -205,20 +201,9 @@ namespace ReadieFur::OpenTCU::Bluetooth
             uint16_t maxLength
         )
         {
-            return AddAttribute(uuid, nullptr, permissions, value, length, maxLength, true, nullptr);
+            return AddAttribute(uuid, permissions, value, length, maxLength, true, nullptr);
         }
 
-        esp_err_t AddAttribute(
-            SUUID uuid,
-            const char* description,
-            uint16_t permissions,
-            void* value,
-            uint16_t length,
-            uint16_t maxLength
-        )
-        {
-            return AddAttribute(uuid, description, permissions, value, length, maxLength, true, nullptr);
-        }
         #pragma endregion
 
         #pragma region Manual responders
@@ -229,22 +214,11 @@ namespace ReadieFur::OpenTCU::Bluetooth
             TGattServerReadCallback readCallback
         )
         {
-            return AddAttribute(uuid, NULL, permissions, NULL, 0, maxLength, false, readCallback);
-        }
-
-        esp_err_t AddAttribute(
-            SUUID uuid,
-            const char* description,
-            uint16_t permissions,
-            uint16_t maxLength,
-            TGattServerReadCallback readCallback
-        )
-        {
-            return AddAttribute(uuid, description, permissions, NULL, 0, maxLength, false, readCallback);
+            return AddAttribute(uuid, permissions, NULL, 0, maxLength, false, readCallback);
         }
         #pragma endregion
 
-        esp_err_t AddAttribute(esp_gatts_attr_db_t attribute)
+        esp_err_t AddAttribute(esp_gatts_attr_db_t attribute, TGattServerReadCallback readCallback = nullptr)
         {
             _mutex.lock();
             if (_frozen)
@@ -253,20 +227,33 @@ namespace ReadieFur::OpenTCU::Bluetooth
                 return ESP_ERR_INVALID_STATE;
             }
 
-            auto attributes = (esp_gatts_attr_db_t*)realloc(_rawAttributes, (_attributesSize + 1) * sizeof(esp_gatts_attr_db_t));
-            if (attributes == nullptr)
+            SUUID uuid;
+            switch (attribute.att_desc.uuid_length)
             {
+            case ESP_UUID_LEN_16:
+                uuid = SUUID(*(uint16_t*)attribute.att_desc.uuid_p);
+                break;
+            case ESP_UUID_LEN_32:
+                uuid = SUUID(*(uint32_t*)attribute.att_desc.uuid_p);
+                break;
+            case ESP_UUID_LEN_128:
+                uuid = SUUID((uint8_t*)attribute.att_desc.uuid_p);
+                break;
+            default:
                 _mutex.unlock();
-                return ESP_ERR_NO_MEM;
+                return ESP_ERR_INVALID_ARG;
             }
-            _rawAttributes = attributes;
 
-            _rawAttributes[_attributesSize++] = attribute;
-
-            _attributes[*(uint16_t*)attribute.att_desc.uuid_p] =
+            _attributeInfos.push_back(SAttributeInfo
             {
-                .attribute = &_rawAttributes[_attributesSize - 1]
-            };
+                .uuid = uuid,
+                .permissions = attribute.att_desc.perm,
+                .value = attribute.att_desc.value,
+                .length = attribute.att_desc.length,
+                .maxLength = attribute.att_desc.max_length,
+                .autoResponse = attribute.attr_control.auto_rsp == ESP_GATT_AUTO_RSP,
+                .readCallback = readCallback
+            });
 
             _mutex.unlock();
             return ESP_OK;
@@ -282,27 +269,49 @@ namespace ReadieFur::OpenTCU::Bluetooth
             {
             case ESP_GATTS_REG_EVT:
             {
+                //Freeze the object and register it.
                 if (_frozen)
                     break;
 
-                //Freeze the object and register it.
-                _handleTable = new uint16_t[_attributesSize];
+                esp_err_t err;
+
+                if ((err = GenerateNativeAttributes()) != ESP_OK)
+                {
+                    LOGE(nameof(Bluetooth::GattServerService), "Failed to generate native attributes: %s", esp_err_to_name(err));
+                    break;
+                }
+
+                _handleTable = new uint16_t[_nativeAttributesSize];
                 if (_handleTable == nullptr)
                 {
+                    free(_uuids);
+                    _uuids = nullptr;
+                    _uuidsSize = 0;
+                    free(_nativeAttributes);
+                    _nativeAttributes = nullptr;
+                    _nativeAttributesSize = 0;
                     _mutex.unlock();
                     break;
                 }
 
-                esp_err_t err = esp_ble_gatts_create_attr_tab(_rawAttributes, gattsIf, _attributesSize, _instanceId);
-                if (err != ESP_OK)
+                if ((err = esp_ble_gatts_create_attr_tab(_nativeAttributes, gattsIf, _nativeAttributesSize, _instanceId)) != ESP_OK)
                 {
+                    free(_uuids);
+                    _uuids = nullptr;
+                    _uuidsSize = 0;
+                    free(_nativeAttributes);
+                    _nativeAttributes = nullptr;
+                    _nativeAttributesSize = 0;
                     LOGE(nameof(Bluetooth::GattServerService), "Register attribute table failed: %s", esp_err_to_name(err));
                     break;
                 }
                 else
                 {
-                    LOGV(nameof(Bluetooth::GattServerService), "Registered %d attributes.", _attributesSize);
+                    LOGV(nameof(Bluetooth::GattServerService), "Registered %d attributes.", _nativeAttributesSize);
                 }
+
+                //Free memory by clearing the wrapped attribute vector.
+                // _attributeInfos.clear(); //Currently needed for references to the original data.
 
                 _frozen = true;
                 break;
@@ -322,37 +331,16 @@ namespace ReadieFur::OpenTCU::Bluetooth
                     break;
                 }
 
-                if (param->add_attr_tab.num_handle != _attributesSize)
+                if (param->add_attr_tab.num_handle != _nativeAttributesSize)
                 {
-                    LOGE(nameof(Bluetooth::GattServerService), "Create attribute table abnormally, num_handle (%d) doesn't equal to _attributes.size(%d)", param->add_attr_tab.num_handle, _attributesSize);
+                    LOGE(nameof(Bluetooth::GattServerService), "Create attribute table abnormally, num_handle (%d) doesn't equal to _attributes.size(%d)", param->add_attr_tab.num_handle, _nativeAttributesSize);
                     break;
                 }
 
                 for (size_t i = 0; i < param->add_attr_tab.num_handle; i++)
-                {
+                    _handleMap[param->add_attr_tab.handles[i]] = i;
 
-                    switch (_rawAttributes[i].att_desc.uuid_length)
-                    {
-                    case ESP_UUID_LEN_16:
-                        _handleMap[param->add_attr_tab.handles[i]] = SUUID(*(uint16_t*)_rawAttributes[i].att_desc.uuid_p);
-                        LOGV(nameof(Bluetooth::GattServerService), "Attribute handle: %d, UUID: %x", param->add_attr_tab.handles[i], *(uint16_t*)_rawAttributes[i].att_desc.uuid_p);
-                        break;
-                    case ESP_UUID_LEN_32:
-                        _handleMap[param->add_attr_tab.handles[i]] = SUUID(*(uint32_t*)_rawAttributes[i].att_desc.uuid_p);
-                        LOGV(nameof(Bluetooth::GattServerService), "Attribute handle: %d, UUID: %x", param->add_attr_tab.handles[i], *(uint32_t*)_rawAttributes[i].att_desc.uuid_p);
-                        break;
-                    case ESP_UUID_LEN_128:
-                        _handleMap[param->add_attr_tab.handles[i]] = SUUID((uint8_t*)_rawAttributes[i].att_desc.uuid_p);
-                        LOGV(nameof(Bluetooth::GattServerService), "Attribute handle: %d, UUID: (cba to log, too long)", param->add_attr_tab.handles[i]);
-                        break;
-                    default:
-                        LOGV(nameof(Bluetooth::GattServerService), "Attribute handle: %d, UUID length: %d, No match!", param->add_attr_tab.handles[i], _rawAttributes[i].att_desc.uuid_length);
-                        continue;
-                    }
-
-                }
-
-                memcpy(_handleTable, param->add_attr_tab.handles, _attributesSize);
+                memcpy(_handleTable, param->add_attr_tab.handles, _nativeAttributesSize);
                 esp_err_t err = esp_ble_gatts_start_service(_handleTable[0]);
                 if (err != ESP_OK)
                     LOGE(nameof(Bluetooth::GattServerService), "Start service failed: %s", esp_err_to_name(err));
@@ -368,16 +356,9 @@ namespace ReadieFur::OpenTCU::Bluetooth
                     break;
                 }
 
-                if (!_attributes.contains(_handleMap[param->read.handle]))
-                {
-                    LOGW(nameof(Bluetooth::GattServerService), "Attribute not found for handle: %d", param->read.handle);
-                    esp_ble_gatts_send_response(gattsIf, param->read.conn_id, param->read.trans_id, ESP_GATT_NOT_FOUND, nullptr);
-                    break;
-                }
+                SAttributeInfo attributeInfo = _attributeInfos[_handleMap[param->read.handle]];
 
-                SAttributeInfo attributeInfo = _attributes[_handleMap[param->read.handle]];
-
-                if (attributeInfo.attribute->attr_control.auto_rsp == ESP_GATT_AUTO_RSP)
+                if (attributeInfo.autoResponse)
                 {
                     //If auto response is set, the BLE stack will handle getting and setting the balue, so just return here.
                     break;
@@ -395,8 +376,8 @@ namespace ReadieFur::OpenTCU::Bluetooth
                 else
                 {
                     //If the write callback is not set, return the value as is.
-                    rsp.attr_value.len = attributeInfo.attribute->att_desc.length;
-                    memcpy(rsp.attr_value.value, attributeInfo.attribute->att_desc.value, rsp.attr_value.len);
+                    rsp.attr_value.len = attributeInfo.length;
+                    memcpy(rsp.attr_value.value, attributeInfo.value, rsp.attr_value.len);
                     status = ESP_GATT_OK;
                 }
 

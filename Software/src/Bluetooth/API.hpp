@@ -32,8 +32,15 @@ namespace ReadieFur::OpenTCU::Bluetooth
             //https://www.rapidtables.com/convert/number/decimal-to-hex.html
             GattServerService testService(SUUID(0x98C220BEUL), 0);
             uint16_t testValue = 53;
-            testService.AddAttribute(SUUID(0xCAE35F80UL), "TestAttribute", ESP_GATT_PERM_READ | ESP_GATT_PERM_WRITE, &testValue, sizeof(testValue), sizeof(uint16_t));
-            // testService.AddAttribute(SUUID(0x38B18BECUL), ESP_GATT_PERM_READ | ESP_GATT_PERM_WRITE, &testValue, sizeof(testValue), sizeof(uint16_t));
+            uint16_t testValue2 = 25;
+            testService.AddAttribute(SUUID(0xCAE35F80UL), ESP_GATT_PERM_READ | ESP_GATT_PERM_WRITE, &testValue, sizeof(testValue), sizeof(uint16_t));
+            testService.AddAttribute(SUUID(0x38B18BECUL), ESP_GATT_PERM_READ | ESP_GATT_PERM_WRITE, sizeof(uint16_t), [testValue2](auto outValue, auto outLength)
+            {
+                LOGD(nameof(Bluetooth::API), "Manual read callback.");
+                *outValue = testValue2;
+                *outLength = sizeof(testValue2);
+                return ESP_GATT_OK;
+            });
             _services.push_back(&testService);
 
             SGattServerProfile serverProfile =
