@@ -52,6 +52,8 @@ namespace ReadieFur::OpenTCU::Bluetooth
 
         GattServerService() {}
 
+        //https://www.gofakeit.com/funcs/uint32
+        //https://www.rapidtables.com/convert/number/decimal-to-hex.html
         esp_err_t AddAttribute(
             SUUID uuid,
             uint16_t permissions,
