@@ -30,7 +30,7 @@
 #endif
 #include <Network/OTA/API.hpp>
 #include <esp_pm.h>
-#include "Bluetooth/BLE.hpp"
+#include <Network/Bluetooth/BLE.hpp>
 #include "Bluetooth/API.hpp"
 // #include "Bluetooth/TCU.hpp"
 #include <string>
@@ -207,7 +207,7 @@ void setup()
     ConfigureAdditionalLoggers();
     #endif
 
-    CHECK_SERVICE_RESULT(ReadieFur::Service::ServiceManager::InstallAndStartService<Bluetooth::BLE>());
+    CHECK_ESP_RESULT(ReadieFur::Network::Bluetooth::BLE::Init(DeviceName.c_str(), TCU_PIN));
     CHECK_SERVICE_RESULT(ReadieFur::Service::ServiceManager::InstallAndStartService<Bluetooth::API>());
     // CHECK_SERVICE_RESULT(ReadieFur::Service::ServiceManager::InstallAndStartService<Bluetooth::TCU>());
 

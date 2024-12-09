@@ -1,7 +1,7 @@
 #pragma once
 
 #include <Service/AService.hpp>
-#include "BLE.hpp"
+#include <Network/Bluetooth/BLE.hpp>
 
 //https://github.com/espressif/esp-idf/blob/master/examples/bluetooth/bluedroid/ble/gatt_client/tutorial/Gatt_Client_Example_Walkthrough.md
 namespace ReadieFur::OpenTCU::Bluetooth
@@ -37,7 +37,7 @@ namespace ReadieFur::OpenTCU::Bluetooth
         TCU()
         {
             ServiceEntrypointStackDepth += 1024;
-            AddDependencyType<BLE>();
+            AddDependencyType<ReadieFur::Network::Bluetooth::BLE>();
         }
     };
 };
