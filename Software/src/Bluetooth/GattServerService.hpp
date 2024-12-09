@@ -20,6 +20,7 @@ namespace ReadieFur::OpenTCU::Bluetooth
     static const uint8_t GATT_CHARACTERISTIC_PROP_WRITE = ESP_GATT_CHAR_PROP_BIT_WRITE;
     static const uint8_t GATT_CHARACTERISTIC_PROP_READ_WRITE = ESP_GATT_CHAR_PROP_BIT_READ | ESP_GATT_CHAR_PROP_BIT_WRITE;
     typedef std::function<esp_gatt_status_t(uint8_t* outValue, uint16_t* outLength)> TGattServerReadCallback; //Set the parameter names for IDE hints.
+    typedef std::function<esp_gatt_status_t(uint8_t* inValue, uint16_t inLength)> TGattServerWriteCallback;
 
     //https://github.com/espressif/esp-idf/blob/master/examples/bluetooth/bluedroid/ble/gatt_server/tutorial/Gatt_Server_Example_Walkthrough.md
     class GattServerService
@@ -34,6 +35,7 @@ namespace ReadieFur::OpenTCU::Bluetooth
             uint16_t maxLength;
             bool autoResponse;
             TGattServerReadCallback readCallback;
+            TGattServerWriteCallback writeCallback;
         };
 
         std::mutex _mutex;
@@ -57,7 +59,8 @@ namespace ReadieFur::OpenTCU::Bluetooth
             uint16_t length,
             uint16_t maxLength,
             bool autoResponse,
-            TGattServerReadCallback readCallback
+            TGattServerReadCallback readCallback,
+            TGattServerWriteCallback writeCallback
         )
         {
             _mutex.lock();
@@ -86,7 +89,8 @@ namespace ReadieFur::OpenTCU::Bluetooth
                 .length = sizeof(uint8_t),
                 .maxLength = sizeof(uint8_t),
                 .autoResponse = true,
-                .readCallback = nullptr
+                .readCallback = nullptr,
+                .writeCallback = nullptr
             });
 
             //Value.
@@ -98,7 +102,8 @@ namespace ReadieFur::OpenTCU::Bluetooth
                 .length = length,
                 .maxLength = maxLength,
                 .autoResponse = autoResponse,
-                .readCallback = readCallback
+                .readCallback = readCallback,
+                .writeCallback = writeCallback
             });
 
             _mutex.unlock();
@@ -163,7 +168,8 @@ namespace ReadieFur::OpenTCU::Bluetooth
                 .length = sizeof(uint16_t),
                 .maxLength = sizeof(uint16_t),
                 .autoResponse = true,
-                .readCallback = nullptr
+                .readCallback = nullptr,
+                .writeCallback = nullptr
             });
         }
 
@@ -201,7 +207,7 @@ namespace ReadieFur::OpenTCU::Bluetooth
             uint16_t maxLength
         )
         {
-            return AddAttribute(uuid, permissions, value, length, maxLength, true, nullptr);
+            return AddAttribute(uuid, permissions, value, length, maxLength, true, nullptr, nullptr);
         }
 
         #pragma endregion
@@ -211,14 +217,15 @@ namespace ReadieFur::OpenTCU::Bluetooth
             SUUID uuid,
             uint16_t permissions,
             uint16_t maxLength,
-            TGattServerReadCallback readCallback
+            TGattServerReadCallback readCallback = nullptr,
+            TGattServerWriteCallback writeCallback = nullptr
         )
         {
-            return AddAttribute(uuid, permissions, NULL, 0, maxLength, false, readCallback);
+            return AddAttribute(uuid, permissions, NULL, 0, maxLength, false, readCallback, writeCallback);
         }
         #pragma endregion
 
-        esp_err_t AddAttribute(esp_gatts_attr_db_t attribute, TGattServerReadCallback readCallback = nullptr)
+        esp_err_t AddAttribute(esp_gatts_attr_db_t attribute, TGattServerReadCallback readCallback = nullptr, TGattServerWriteCallback writeCallback = nullptr)
         {
             _mutex.lock();
             if (_frozen)
@@ -252,7 +259,8 @@ namespace ReadieFur::OpenTCU::Bluetooth
                 .length = attribute.att_desc.length,
                 .maxLength = attribute.att_desc.max_length,
                 .autoResponse = attribute.attr_control.auto_rsp == ESP_GATT_AUTO_RSP,
-                .readCallback = readCallback
+                .readCallback = readCallback,
+                .writeCallback = writeCallback
             });
 
             _mutex.unlock();
@@ -380,26 +388,35 @@ namespace ReadieFur::OpenTCU::Bluetooth
                     memcpy(rsp.attr_value.value, attributeInfo.value, rsp.attr_value.len);
                     status = ESP_GATT_OK;
                 }
-
                 esp_ble_gatts_send_response(gattsIf, param->read.conn_id, param->read.trans_id, status, &rsp);
                 break;
             }
             case ESP_GATTS_WRITE_EVT:
             {
                 if (!_frozen)
+                {
+                    esp_ble_gatts_send_response(gattsIf, param->write.conn_id, param->write.trans_id, ESP_GATT_NO_RESOURCES, nullptr);
+                    break;
+                }
+
+                SAttributeInfo attributeInfo = _attributeInfos[_handleMap[param->read.handle]];
+
+                if (attributeInfo.autoResponse)
                     break;
 
-                //Set the attribute value.
-                esp_err_t status = esp_ble_gatts_set_attr_value(param->write.handle, param->write.len, param->write.value);
-                if (status != ESP_GATT_OK)
+                esp_gatt_status_t status;
+                if (attributeInfo.writeCallback != nullptr)
                 {
-                    LOGE(nameof(Bluetooth::GattServerService), "Write attribute failed: %s", esp_err_to_name(status));
-                    break;
+                    status = attributeInfo.writeCallback(param->write.value, param->write.len);
                 }
                 else
                 {
-                    LOGV(nameof(Bluetooth::GattServerService), "Wrote attribute: %d", *(uint16_t*)param->write.value);
+                    ////If the write callback is not set, attempt to write to the value directly.
+                    //The above wont work as this wrapper code assumes value is null when a write callback is set.
+                    //Instead send an error response.
+                    status = ESP_GATT_WRITE_NOT_PERMIT;
                 }
+                esp_ble_gatts_send_response(gattsIf, param->write.conn_id, param->write.trans_id, status, nullptr);
                 break;
             }
             default:
