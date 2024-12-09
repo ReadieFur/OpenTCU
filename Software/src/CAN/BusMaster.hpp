@@ -108,6 +108,7 @@ namespace ReadieFur::OpenTCU::CAN
             delete params;
         }
 
+        #if defined(ENABLE_CAN_DUMP) && defined(CAN_DUMP_BEFORE_INTERCEPT)
         inline virtual void LogMessage(char bus, SCanMessage& message)
         {
             //Copy the original message for logging.
@@ -132,6 +133,7 @@ namespace ReadieFur::OpenTCU::CAN
                 LOGW(nameof(CAN::BusMaster), "CAN log queue is full.");
             #endif
         }
+        #endif
 
         //Force inline for minor performance improvements, ideal in this program as it will be called extremely frequently and is used for real-time data analysis.
         inline virtual void InterceptMessage(SCanMessage* message)
