@@ -97,7 +97,12 @@
 			"cinttypes": "cpp",
 			"any": "cpp",
 			"iomanip": "cpp",
-			"iostream": "cpp"
+			"iostream": "cpp",
+			"chrono": "cpp",
+			"codecvt": "cpp",
+			"filesystem": "cpp",
+			"forward_list": "cpp",
+			"fstream": "cpp"
 		}
 	}
 }

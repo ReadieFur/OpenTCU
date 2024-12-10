@@ -15,6 +15,7 @@ All data codes are in hexadecimal format.
   Requires a bike system restart to take effect.
 
 <a name="str_request"></a>
+<!-- Not strictly for a string request. -->
 - `03`, `22`, `02`, `*A`, `00`, `00`, `00`, `00`  
   Gets a string.  
   `*A` is the string ID. Below is a table of known string codes.
