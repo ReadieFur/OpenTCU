@@ -172,6 +172,7 @@ extern "C" void app_main()
     }
     CHECK_ESP_RESULT(err);
 
+    CHECK_ESP_RESULT(Config::Flash::Init());
 
     ConfigureDeviceName();
 
