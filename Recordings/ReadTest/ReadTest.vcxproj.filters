@@ -22,6 +22,15 @@
     <ClInclude Include="EStringType.h">
       <Filter>Source Files</Filter>
     </ClInclude>
+    <ClInclude Include="SCanMessage.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="BusMaster.hpp">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Helpers.hpp">
+      <Filter>Source Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include=".gitignore" />
