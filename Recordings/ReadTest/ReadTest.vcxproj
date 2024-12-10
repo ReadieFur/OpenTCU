@@ -131,8 +131,11 @@
     <ClCompile Include="main.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="BusMaster.hpp" />
     <ClInclude Include="EStringType.h" />
+    <ClInclude Include="Helpers.hpp" />
     <ClInclude Include="Samples.hpp" />
+    <ClInclude Include="SCanMessage.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include=".gitignore" />
