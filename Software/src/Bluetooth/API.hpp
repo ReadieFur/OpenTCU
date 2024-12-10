@@ -8,6 +8,9 @@
 #include <vector>
 #include "CAN/BusMaster.hpp"
 #include "CAN/SLiveData.h"
+#ifdef ENABLE_CAN_DUMP
+#include "CAN/Logger.hpp"
+#endif
 
 #define _BLE_TCU_ATTR(uuid, property) \
     liveDataService.AddAttribute(Network::Bluetooth::SUUID(uuid), ESP_GATT_PERM_READ, sizeof(CAN::SLiveData::property), \
@@ -50,6 +53,10 @@ namespace ReadieFur::OpenTCU::Bluetooth
             }
 
             CAN::BusMaster* busMaster = GetService<CAN::BusMaster>();
+            #ifdef ENABLE_CAN_DUMP
+            CAN::Logger* logger = GetService<CAN::Logger>();
+            #endif
+
             CAN::SLiveData liveData = {};
 
             //Temporary solution to sending the data.
@@ -61,6 +68,85 @@ namespace ReadieFur::OpenTCU::Bluetooth
             _BLE_TCU_ATTR(0x79AAC18DUL, BatteryVoltage);
             _BLE_TCU_ATTR(0x741A2984UL, BatteryCurrent);
             _services.push_back(&liveDataService);
+
+            #ifdef DEBUG
+            Network::Bluetooth::GattServerService debugService(Network::Bluetooth::SUUID(0x877C911DUL), 1);
+
+            const size_t injectMessageDataSize =
+                sizeof(uint8_t) //bus
+                + sizeof(uint32_t) //id
+                + sizeof(uint8_t) //length
+                + (sizeof(uint8_t) * 8); //data
+            debugService.AddAttribute(
+                Network::Bluetooth::SUUID(0x78FDC1CEUL),
+                ESP_GATT_PERM_WRITE,
+                0,
+                nullptr,
+                [busMaster](uint8_t* inValue, uint16_t inLength)
+                {
+                    if (inLength != injectMessageDataSize)
+                    {
+                        LOGW(nameof(Bluetooth::API), "Invalid message length: %i", inLength);
+                        return ESP_GATT_ILLEGAL_PARAMETER;
+                    }
+
+                    bool bus = inValue[0];
+                    CAN::SCanMessage message =
+                    {
+                        .id = (uint32_t)(inValue[1] | inValue[2] << 8 | inValue[3] << 16 | inValue[4] << 24),
+                        .length = inValue[5],
+                        .isExtended = false,
+                        .isRemote = false
+                    };
+                    if (message.length > 8)
+                    {
+                        LOGW(nameof(Bluetooth::API), "Invalid data length: %i", message.length);
+                        return ESP_GATT_ILLEGAL_PARAMETER;
+                    }
+                    for (size_t i = 0; i < message.length; i++)
+                        message.data[i] = inValue[6 + i];
+
+                    esp_err_t res = busMaster->InjectMessage(bus, message);
+                    if (res != ESP_OK)
+                    {
+                        LOGE(nameof(Bluetooth::API), "Failed to inject message: %i", res);
+                        return ESP_GATT_INTERNAL_ERROR;
+                    }
+
+                    return ESP_GATT_OK;
+                });
+
+            #ifdef ENABLE_CAN_DUMP
+            debugService.AddAttribute(
+                Network::Bluetooth::SUUID(0x1450D8E6UL),
+                ESP_GATT_PERM_WRITE,
+                0,
+                nullptr,
+                [logger](uint8_t* inValue, uint16_t inLength)
+                {
+                    //Make sure the length is a multiple of 4.
+                    if (inLength % 4 != 0)
+                    {
+                        LOGW(nameof(Bluetooth::API), "Invalid whitelist length: %i", inLength);
+                        return ESP_GATT_ILLEGAL_PARAMETER;
+                    }
+
+                    LOGD(nameof(Bluetooth::API), "Clearing log whitelist.");
+                    logger->Whitelist.clear();
+
+                    for (size_t i = 0; i < inLength; i += 4)
+                    {
+                        uint32_t id = inValue[i] | inValue[i + 1] << 8 | inValue[i + 2] << 16 | inValue[i + 3] << 24;
+                        LOGD(nameof(Bluetooth::API), "Adding ID to whitelist: %x", id);
+                        logger->Whitelist.push_back(id);
+                    }
+
+                    return ESP_GATT_OK;
+                });
+            #endif
+
+            _services.push_back(&debugService);
+            #endif
 
             esp_err_t err;
             if ((err = Network::Bluetooth::BLE::RegisterServerApp(&_serverProfile)) != ESP_OK)
@@ -98,6 +184,9 @@ namespace ReadieFur::OpenTCU::Bluetooth
         {
             ServiceEntrypointStackDepth += 1024;
             AddDependencyType<CAN::BusMaster>();
+            #ifdef ENABLE_CAN_DUMP
+            AddDependencyType<CAN::Logger>();
+            #endif
         }
     };
 };
