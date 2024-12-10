@@ -60,6 +60,11 @@ namespace ReadieFur::OpenTCU::Config
             return err;
         }
 
+        static bool IsInitialized()
+        {
+            return _initialized;
+        }
+
         static esp_err_t Read(const char* path, char* outBuffer, size_t* outLength)
         {
             _mutex.lock();

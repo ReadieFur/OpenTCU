@@ -158,6 +158,8 @@ extern "C" void app_main()
     // SetCPUFrequency();
     SetLogLevel();
 
+    CHECK_ESP_RESULT(Config::Flash::Init());
+
     CHECK_SERVICE_RESULT(ReadieFur::Service::ServiceManager::InstallAndStartService<CAN::BusMaster>());
 
     #ifdef DEBUG
@@ -171,8 +173,6 @@ extern "C" void app_main()
         err = nvs_flash_init();
     }
     CHECK_ESP_RESULT(err);
-
-    CHECK_ESP_RESULT(Config::Flash::Init());
 
     ConfigureDeviceName();
 

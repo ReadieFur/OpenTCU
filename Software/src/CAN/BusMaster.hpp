@@ -24,6 +24,8 @@
 #include "Samples.hpp"
 #include "SLiveData.h"
 #include <string>
+#include "Config/Flash.hpp"
+#include <ArduinoJson.h>
 
 // #define CAN_DUMP_BEFORE_INTERCEPT
 #define CAN_DUMP_AFTER_INTERCEPT
@@ -39,6 +41,7 @@ namespace ReadieFur::OpenTCU::CAN
         #ifdef ENABLE_CAN_DUMP
         static const uint CAN_DUMP_QUEUE_SIZE = 500;
         #endif
+        constexpr static const char* CONFIG_PATH = "/spiffs/can.json";
 
         struct SRelayTaskParameters
         {
@@ -56,17 +59,21 @@ namespace ReadieFur::OpenTCU::CAN
         TaskHandle_t _can1TaskHandle = NULL;
         TaskHandle_t _can2TaskHandle = NULL;
 
+        JsonDocument _flashConfig;
+
         #pragma region Other data
         uint8_t _stringRequestType = 0;
         size_t _stringRequestBufferIndex = 0;
         char* _stringRequestBuffer = nullptr;
         std::map<uint8_t, std::string> _strings;
 
-        uint32_t _wheelCircumference = 0;
+        uint32_t _baseWheelCircumference = 2160; //Default value.
+        uint32_t _wheelCircumference = 2160;
+        double _wheelMultiplier = 1.0;
         #pragma endregion
 
         #pragma region Live data
-        Samples<uint16_t, uint32_t> _bikeSpeedBuffer = Samples<uint16_t, uint32_t>(10);
+        Samples<uint16_t, uint32_t> _speedBuffer = Samples<uint16_t, uint32_t>(10);
 
         bool _walkMode = false;
         uint8_t _easeSetting = 0;
@@ -76,8 +83,10 @@ namespace ReadieFur::OpenTCU::CAN
         Samples<int32_t, int64_t> _batteryCurrent = Samples<int32_t, int64_t>(10);
         #pragma endregion
 
+        #ifdef DEBUG
         ulong _lastLogTimestamp = 0;
         size_t _sampleCount = 0;
+        #endif
 
         static void RelayTask(void* param)
         {
@@ -94,14 +103,17 @@ namespace ReadieFur::OpenTCU::CAN
             //Check if the task has been signalled for deletion.
             while (!ServiceCancellationToken.IsCancellationRequested())
             {
-                #if defined(DEBUG) && false
+                #if defined(DEBUG) && true
                 if (_lastLogTimestamp + 1000 < esp_log_timestamp())
                 {
-                    printf("Sample count: %i\n", _sampleCount);
-                    _sampleCount = 0;
                     _lastLogTimestamp = esp_log_timestamp();
 
-                    printf("Average speed: %u\n", _bikeSpeedBuffer.Average());
+                    printf("Sample count: %i\n", _sampleCount);
+                    _sampleCount = 0;
+
+                    uint16_t realSpeed = _speedBuffer.Average();
+                    printf("Average bike speed: %u\n", (uint32_t)(realSpeed / _wheelMultiplier));
+                    printf("Average real speed: %u\n", realSpeed);
 
                     printf("Walk mode: %s\n", _walkMode ? "On" : "Off");
                     printf("Ease setting: %u\n", _easeSetting);
@@ -261,7 +273,9 @@ namespace ReadieFur::OpenTCU::CAN
                     && message->data[7] == 0xAA)
                 {
                     _wheelCircumference = message->data[4] | message->data[5] << 8;
+                    _wheelMultiplier = (double)_baseWheelCircumference / _wheelCircumference;
                     LOGD(nameof(CAN::BusMaster), "Received wheel circumference: %u", _wheelCircumference);
+                    LOGD(nameof(CAN::BusMaster), "Wheel multiplier set to: %f", _wheelMultiplier);
                 }
                 break;
             }
@@ -270,14 +284,31 @@ namespace ReadieFur::OpenTCU::CAN
                 //D1 and D2 combined contain the speed of the bike in km/h * 100 (little-endian).
                 //Example: EA, 01 -> 01EA -> 490 -> 4.9km/h.
                 //We won't work in decimals.
-                _bikeSpeedBuffer.AddSample(message->data[0] | message->data[1] << 8);
+                uint16_t bikeSpeed = message->data[0] | message->data[1] << 8;
+                uint16_t realSpeed = (uint16_t)(bikeSpeed * _wheelMultiplier);
+                _speedBuffer.AddSample(realSpeed);
+                message->data[0] = realSpeed & 0xFF;
+                message->data[1] = realSpeed >> 8;
                 break;
             }
             case 0x300:
             {
+                //Assist settings.
                 _walkMode = message->data[1] == 0xA5;
                 _easeSetting = message->data[4];
                 _powerSetting = message->data[6];
+
+                //If we are in walk mode and a speed multiplier exists, attempt to keep the walk speed at the original 5kph by setting the motor power to 0 when over a real speed of 5kph.
+                if (_walkMode && _wheelMultiplier != 1.0)
+                {
+                    uint16_t realSpeed = _speedBuffer.Latest();
+                    if (realSpeed > 650) //Set to 650 to allow for some margin.
+                    {
+                        message->data[0] = 0; //Motor mode?
+                        /*_easeSetting = */message->data[4] = 0;
+                        /*_powerSetting = */message->data[6] = 0;
+                    }
+                }
                 break;
             }
             case 0x401:
@@ -297,6 +328,8 @@ namespace ReadieFur::OpenTCU::CAN
 
         void RunServiceImpl() override
         {
+            esp_err_t err;
+
             #pragma region CAN1
             gpio_config_t hostTxPinConfig1 = {
                 .pin_bit_mask = 1ULL << TWAI1_RX_PIN, //Have the GPIO config inverted, e.g. the RX of the CAN controller is the TX of the host.
@@ -490,6 +523,38 @@ namespace ReadieFur::OpenTCU::CAN
             #endif
             #pragma endregion
 
+            //Load config after starting core tasks as the core tasks can function without the config.
+            size_t configSize;
+            err = Config::Flash::Read(CONFIG_PATH, nullptr, &configSize);
+            if (err == ESP_OK)
+            {
+                char configBuffer[configSize];
+                if (Config::Flash::Read(CONFIG_PATH, configBuffer, &configSize) == ESP_OK)
+                {
+                    DeserializationError jsonErr = deserializeJson(_flashConfig, configBuffer);
+                    if (jsonErr != DeserializationError::Ok)
+                    {
+                        LOGE(nameof(CAN::BusMaster), "Failed to deserialize config file: %s", jsonErr.c_str());
+                        err = ESP_FAIL;
+                    }
+                }
+                else
+                {
+                    LOGE(nameof(CAN::BusMaster), "Failed to read config file.");
+                    err = ESP_FAIL;
+                }
+            }
+
+            if (err == ESP_ERR_NOT_FOUND || err == ESP_FAIL)
+            {
+                //Initialize a default config.
+                // _flashConfig["base_wheel_circumference"] = (uint32_t)2160;
+            }
+            else
+            {
+                LOGE(nameof(CAN::BusMaster), "Failed to read config file: %i", err);
+            }
+
             ServiceCancellationToken.WaitForCancellation();
 
             #pragma region Cleanup
@@ -533,7 +598,7 @@ namespace ReadieFur::OpenTCU::CAN
         {
             return SLiveData
             {
-                .BikeSpeed = _bikeSpeedBuffer.Average(),
+                .BikeSpeed = _speedBuffer.Average(),
                 .InWalkMode = _walkMode,
                 .EaseSetting = _easeSetting,
                 .PowerSetting = _powerSetting,
