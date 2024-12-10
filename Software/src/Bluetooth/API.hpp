@@ -145,6 +145,20 @@ namespace ReadieFur::OpenTCU::Bluetooth
                 });
             #endif
 
+            debugService.AddAttribute(
+                Network::Bluetooth::SUUID(0xBFB5E32FUL),
+                ESP_GATT_PERM_WRITE,
+                0,
+                nullptr,
+                [logger](uint8_t* inValue, uint16_t inLength)
+                {
+                    //Reboot.
+                    LOGW(nameof(Bluetooth::API), "Rebooting device.");
+                    esp_restart();
+                    return ESP_GATT_OK;
+                }
+            );
+
             _services.push_back(&debugService);
             #endif
 
