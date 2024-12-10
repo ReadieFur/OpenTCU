@@ -1,6 +1,6 @@
 #ifdef DEBUG
 // #define LOG_UDP
-// #define ENABLE_CAN_DUMP_SERIAL
+#define ENABLE_CAN_DUMP_SERIAL
 #ifdef LOG_UDP
 // #define ENABLE_CAN_DUMP_UDP
 #endif
@@ -35,18 +35,19 @@
 #include <lwip/netdb.h>
 #include <lwip/inet.h>
 #endif
+#include "Config/Flash.hpp"
 
 #define CHECK_SERVICE_RESULT(func) do {                                                 \
         ReadieFur::Service::EServiceResult result = func;                               \
         if (result == ReadieFur::Service::Ok) break;                                    \
-        LOGE(pcTaskGetName(NULL), "Failed with result: %i", result);                    \
+        LOGE(pcTaskGetName(NULL), "[%d] Failed with result: %i", __LINE__, result);                    \
         abort();                                                                        \
     } while (0)
 
 #define CHECK_ESP_RESULT(func) do {                                                     \
         esp_err_t result = func;                                                        \
         if (result == ESP_OK) break;                                                    \
-        LOGE(pcTaskGetName(NULL), "Failed with result: %s", esp_err_to_name(result));   \
+        LOGE(pcTaskGetName(NULL), "[%d] Failed with result: %s", __LINE__, esp_err_to_name(result));   \
         abort();                                                                        \
     } while (0)
 
@@ -163,8 +164,6 @@ extern "C" void app_main()
     CHECK_SERVICE_RESULT(ReadieFur::Service::ServiceManager::InstallAndStartService<ReadieFur::Diagnostic::DiagnosticsService>());
     #endif
 
-    ConfigureDeviceName();
-
     esp_err_t err = nvs_flash_init();
     if (err == ESP_ERR_NVS_NO_FREE_PAGES || err == ESP_ERR_NVS_NEW_VERSION_FOUND)
     {
@@ -172,6 +171,9 @@ extern "C" void app_main()
         err = nvs_flash_init();
     }
     CHECK_ESP_RESULT(err);
+
+
+    ConfigureDeviceName();
 
     CHECK_ESP_RESULT(ReadieFur::Network::WiFi::Init());
     wifi_config_t apConfig =
@@ -199,16 +201,16 @@ extern "C" void app_main()
     ConfigureAdditionalLoggers();
     #endif
 
-    CHECK_ESP_RESULT(ReadieFur::Network::Bluetooth::BLE::Init(DeviceName.c_str(), TCU_PIN));
-    CHECK_SERVICE_RESULT(ReadieFur::Service::ServiceManager::InstallAndStartService<Bluetooth::API>());
-    // CHECK_SERVICE_RESULT(ReadieFur::Service::ServiceManager::InstallAndStartService<Bluetooth::TCU>());
-
     #ifdef ENABLE_CAN_DUMP
     CHECK_SERVICE_RESULT(ReadieFur::Service::ServiceManager::InstallAndStartService<CAN::Logger>());
     #ifdef LOG_UDP
     ReadieFur::Service::ServiceManager::GetService<CAN::Logger>()->UdpLogger = LogUDP;
     #endif
     #endif
+
+    CHECK_ESP_RESULT(ReadieFur::Network::Bluetooth::BLE::Init(DeviceName.c_str(), TCU_PIN));
+    CHECK_SERVICE_RESULT(ReadieFur::Service::ServiceManager::InstallAndStartService<Bluetooth::API>());
+    // CHECK_SERVICE_RESULT(ReadieFur::Service::ServiceManager::InstallAndStartService<Bluetooth::TCU>());
 
     httpd_config_t otaHttpdConfig = HTTPD_DEFAULT_CONFIG();
     otaHttpdConfig.server_port = 81;

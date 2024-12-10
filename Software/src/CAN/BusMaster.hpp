@@ -55,10 +55,15 @@ namespace ReadieFur::OpenTCU::CAN
         TaskHandle_t _can1TaskHandle = NULL;
         TaskHandle_t _can2TaskHandle = NULL;
 
+        #pragma region Other data
         EStringType _stringRequestType = EStringType::None;
         size_t _stringRequestBufferIndex = 0;
         char* _stringRequestBuffer = nullptr;
 
+        uint32_t _wheelCircumference = 0;
+        #pragma endregion
+
+        #pragma region Live data
         Samples<uint16_t, uint32_t> _bikeSpeedBuffer = Samples<uint16_t, uint32_t>(10);
 
         bool _walkMode = false;
@@ -67,6 +72,7 @@ namespace ReadieFur::OpenTCU::CAN
 
         Samples<uint16_t, uint32_t> _batteryVoltage = Samples<uint16_t, uint32_t>(10);
         Samples<int32_t, int64_t> _batteryCurrent = Samples<int32_t, int64_t>(10);
+        #pragma endregion
 
         ulong _lastLogTimestamp = 0;
         size_t _sampleCount = 0;
@@ -86,7 +92,7 @@ namespace ReadieFur::OpenTCU::CAN
             //Check if the task has been signalled for deletion.
             while (!ServiceCancellationToken.IsCancellationRequested())
             {
-                #ifdef DEBUG
+                #if defined(DEBUG) && false
                 if (_lastLogTimestamp + 1000 < esp_log_timestamp())
                 {
                     printf("Sample count: %i\n", _sampleCount);
@@ -106,7 +112,7 @@ namespace ReadieFur::OpenTCU::CAN
 
                 //Attempt to read a message from the bus.
                 SCanMessage message;
-                esp_err_t res = ESP_OK;
+                esp_err_t res;
                 if ((res = params->can1->Receive(&message, CAN_TIMEOUT_TICKS)) != ESP_OK)
                 {
                     LOGW(nameof(CAN::BusMaster), "CAN%c failed to receive message: %i", bus, res); //This should probably be an error not a warning.
@@ -126,7 +132,6 @@ namespace ReadieFur::OpenTCU::CAN
                 #endif
 
                 //Relay the message to the other CAN bus.
-                res = ESP_OK;
                 if ((res = params->can2->Send(message, CAN_TIMEOUT_TICKS)) != ESP_OK)
                 {
                     LOGW(nameof(CAN::BusMaster), "CAN%c failed to relay message: %i", bus, res);
@@ -142,7 +147,7 @@ namespace ReadieFur::OpenTCU::CAN
             delete params;
         }
 
-        #if defined(ENABLE_CAN_DUMP) && defined(CAN_DUMP_BEFORE_INTERCEPT)
+        #ifdef ENABLE_CAN_DUMP
         inline virtual void LogMessage(char bus, SCanMessage& message)
         {
             //Copy the original message for logging.
@@ -184,7 +189,7 @@ namespace ReadieFur::OpenTCU::CAN
                     && message->data[6] == 0x00
                     && message->data[7] == 0x00)
                 {
-                    LOGI(nameof(CAN::BusMaster), "Received request for string: %x", message->data[3]);
+                    LOGD(nameof(CAN::BusMaster), "Received request for string: %x", message->data[3]);
                     if (_stringRequestBuffer != nullptr)
                     {
                         LOGW(nameof(CAN::BusMaster), "New string request before previous request was processed.");
@@ -202,7 +207,7 @@ namespace ReadieFur::OpenTCU::CAN
                     && message->data[3] == 0x02)
                 {
                     //String response.
-                    LOGI(nameof(CAN::BusMaster), "Received string response for %x.", message->data[4]);
+                    LOGD(nameof(CAN::BusMaster), "Received string response for %x.", message->data[4]);
                     if (_stringRequestBuffer == nullptr)
                     {
                         LOGW(nameof(CAN::BusMaster), "String response received before a request was sent.");
@@ -215,7 +220,7 @@ namespace ReadieFur::OpenTCU::CAN
                 else if (message->data[0] == 0x21 || message->data[1] == 0x22)
                 {
                     //String response continued.
-                    LOGI(nameof(CAN::BusMaster), "Continued response for %x.", _stringRequestType);
+                    LOGD(nameof(CAN::BusMaster), "Continued response for %x.", _stringRequestType);
                     if (_stringRequestBuffer == nullptr)
                     {
                         LOGW(nameof(CAN::BusMaster), "String response continued before a request was sent.");
@@ -228,7 +233,7 @@ namespace ReadieFur::OpenTCU::CAN
                 else if (message->data[0] == 0x23)
                 {
                     //String response end.
-                    LOGI(nameof(CAN::BusMaster), "String response end for %x.", _stringRequestType);
+                    LOGD(nameof(CAN::BusMaster), "String response end for %x.", _stringRequestType);
                     if (_stringRequestBuffer == nullptr)
                     {
                         LOGW(nameof(CAN::BusMaster), "String response end before a request was sent.");
@@ -236,7 +241,17 @@ namespace ReadieFur::OpenTCU::CAN
                     }
                     for (size_t i = 1; i < 4; i++)
                         _stringRequestBuffer[_stringRequestBufferIndex++] = message->data[i];
-                    LOGI(nameof(CAN::BusMaster), "String response for %x: %s", _stringRequestType, _stringRequestBuffer);
+                    LOGD(nameof(CAN::BusMaster), "String response for %x: %s", _stringRequestType, _stringRequestBuffer);
+                }
+                else if (message->data[0] == 0x05
+                    && message->data[1] == 0x62
+                    && message->data[2] == 0x02
+                    && message->data[3] == 0x06
+                    && message->data[6] == 0xE0
+                    && message->data[7] == 0xAA)
+                {
+                    _wheelCircumference = message->data[4] | message->data[5] << 8;
+                    LOGD(nameof(CAN::BusMaster), "Received wheel circumference: %u", _wheelCircumference);
                 }
                 break;
             }
@@ -515,6 +530,30 @@ namespace ReadieFur::OpenTCU::CAN
                 .BatteryVoltage = _batteryVoltage.Average(),
                 .BatteryCurrent = _batteryCurrent.Average()
             };
+        }
+
+        esp_err_t InjectMessage(bool bus, SCanMessage message)
+        {
+            LOGI(nameof(CAN::BusMaster), "Injecting message into CAN%c, ID: %x, Length: %i, Data: %02X %02X %02X %02X %02X %02X %02X %02X",
+                bus ? '2' : '1',
+                message.id,
+                message.length,
+                message.data[0],
+                message.data[1],
+                message.data[2],
+                message.data[3],
+                message.data[4],
+                message.data[5],
+                message.data[6],
+                message.data[7]
+            );
+
+            if (bus)
+                return _can2->Send(message, CAN_TIMEOUT_TICKS);
+            else
+                return _can1->Send(message, CAN_TIMEOUT_TICKS);
+
+            return ESP_OK;
         }
     };
 };
