@@ -62,6 +62,8 @@ Continuation of a request for string data.
   `**` is the wheel circumference in millimeters (little-endian).  
   Example: `70`, `08` -> `0870` -> 2160mm.
 
+<!-- 03,6E,02,06,E0,B3,F8,02 | Confirmation response to set wheel circumference message. -->
+
 ### 201
 - **Origin:** Motor
 - **Length:** 5
