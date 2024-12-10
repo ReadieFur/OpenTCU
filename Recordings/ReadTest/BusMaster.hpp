@@ -6,11 +6,13 @@
 #include <vector>
 #include "Samples.hpp"
 #include "EStringType.h"
+#include <map>
 
 #pragma region Other data
-EStringType _stringRequestType = EStringType::None;
+uint8_t _stringRequestType = 0;
 size_t _stringRequestBufferIndex = 0;
 char* _stringRequestBuffer = nullptr;
+std::map<uint8_t, std::string> _strings;
 
 uint32_t _wheelCircumference = 0;
 #pragma endregion
@@ -37,19 +39,11 @@ void InterceptMessage(SCanMessage* message)
         if (message->data[0] == 0x05
             && message->data[1] == 0x2E
             && message->data[2] == 0x02
-            && message->data[4] == 0x00
-            && message->data[5] == 0x00
+            && message->data[3] == 0x06
             && message->data[6] == 0x00
             && message->data[7] == 0x00)
         {
-            LOGD(nameof(CAN::BusMaster), "Received request for string: %x", message->data[3]);
-            if (_stringRequestBuffer != nullptr)
-            {
-                LOGW(nameof(CAN::BusMaster), "New string request before previous request was processed.");
-                delete[] _stringRequestBuffer;
-            }
-            _stringRequestType = (EStringType)message->data[3];
-            _stringRequestBuffer = new char[20];
+			LOGD(nameof(CAN::BusMaster), "Received request to set wheel circumference to: %u", message->data[4] | message->data[5] << 8);
         }
         break;
     }
@@ -59,8 +53,17 @@ void InterceptMessage(SCanMessage* message)
             && message->data[2] == 0x62
             && message->data[3] == 0x02)
         {
-            //String response.
             LOGD(nameof(CAN::BusMaster), "Received string response for %x.", message->data[4]);
+            if (_stringRequestBuffer != nullptr)
+            {
+				LOGW(nameof(CAN::BusMaster), "New string request before previous request was completed, discarding previous request.");
+                delete[] _stringRequestBuffer;
+            }
+            _stringRequestType = message->data[4];
+            _stringRequestBuffer = new char[21];  //All string requests seem to be sent in a buffer of 20 bytes.
+            _stringRequestBufferIndex = 0;
+
+            //String response.
             if (_stringRequestBuffer == nullptr)
             {
                 LOGW(nameof(CAN::BusMaster), "String response received before a request was sent.");
@@ -68,9 +71,9 @@ void InterceptMessage(SCanMessage* message)
             }
 
             for (size_t i = 5; i < 8; i++)
-                _stringRequestBuffer[_stringRequestBufferIndex++] = message->data[i];
+                _stringRequestBuffer[_stringRequestBufferIndex++] = (char)message->data[i];
         }
-        else if (message->data[0] == 0x21 || message->data[1] == 0x22)
+        else if (message->data[0] == 0x21 || message->data[0] == 0x22)
         {
             //String response continued.
             LOGD(nameof(CAN::BusMaster), "Continued response for %x.", _stringRequestType);
@@ -81,7 +84,7 @@ void InterceptMessage(SCanMessage* message)
             }
 
             for (size_t i = 1; i < 8; i++)
-                _stringRequestBuffer[_stringRequestBufferIndex++] = message->data[i];
+                _stringRequestBuffer[_stringRequestBufferIndex++] = (char)message->data[i];
         }
         else if (message->data[0] == 0x23)
         {
@@ -92,9 +95,16 @@ void InterceptMessage(SCanMessage* message)
                 LOGW(nameof(CAN::BusMaster), "String response end before a request was sent.");
                 break;
             }
+
             for (size_t i = 1; i < 4; i++)
-                _stringRequestBuffer[_stringRequestBufferIndex++] = message->data[i];
+                _stringRequestBuffer[_stringRequestBufferIndex++] = (char)message->data[i];
+			_stringRequestBuffer[_stringRequestBufferIndex] = '\0';
+
             LOGD(nameof(CAN::BusMaster), "String response for %x: %s", _stringRequestType, _stringRequestBuffer);
+
+			_strings[_stringRequestType] = std::string(_stringRequestBuffer);
+			delete[] _stringRequestBuffer;
+			_stringRequestBuffer = nullptr;
         }
         else if (message->data[0] == 0x05
             && message->data[1] == 0x62
