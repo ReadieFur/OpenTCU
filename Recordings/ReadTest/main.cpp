@@ -189,7 +189,8 @@ bool ParseLine(std::string line, SCanMessage* message)
 
 int main()
 {
-    std::string filePath = "C:\\Users\\Chloe\\Documents\\GitHub\\ReadieFur\\OpenTCU\\Recordings\\valuable_recordings\\serial_20241205_105247.txt";
+    std::string filePath = "..\\valuable_recordings\\serial_20241205_110119.txt";
+	//std::string filePath;
 
     //Prompt the user for the file path.
     if (filePath.empty())
