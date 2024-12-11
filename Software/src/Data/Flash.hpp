@@ -2,8 +2,12 @@
 
 #include <esp_spiffs.h>
 #include <mutex>
+#include <ArduinoJson.h>
 
-namespace ReadieFur::OpenTCU::Config
+#define JSON_ASSIGN_TO_SOURCE_IF_TYPE(doc, src, type) if (doc[#src].is<type>()) src = doc[#src].as<type>();
+#define JSON_SET_PROP(doc, src) doc[#src] = src;
+
+namespace ReadieFur::OpenTCU::Data
 {
     class Flash
     {
@@ -128,8 +132,37 @@ namespace ReadieFur::OpenTCU::Config
             _mutex.unlock();
             return bytesWritten > 0 ? ESP_OK : ESP_FAIL;
         }
+
+        static esp_err_t LoadJson(const char* path, JsonDocument& document)
+        {
+            if (!_initialized)
+                return ESP_ERR_INVALID_STATE;
+
+            //Load config after starting core tasks as the core tasks can function without the config.
+            size_t configSize;
+            esp_err_t err;
+            if ((err = Data::Flash::Read(path, nullptr, &configSize)) != ESP_OK)
+                return err;
+            
+            char configBuffer[configSize];
+            if ((err = Data::Flash::Read(path, configBuffer, &configSize)) != ESP_OK)
+                return err;
+            
+            DeserializationError jsonErr = deserializeJson(document, configBuffer);
+            return jsonErr == DeserializationError::Ok ? ESP_OK : ESP_FAIL;
+        }
+
+        static esp_err_t SaveJson(const char* path, JsonDocument& document)
+        {
+            if (!_initialized)
+                return ESP_ERR_INVALID_STATE;
+
+            char buffer[measureJson(document)];
+            serializeJson(document, buffer, sizeof(buffer));
+            return Data::Flash::Write(path, buffer, sizeof(buffer));
+        };
     };
 };
 
-std::mutex ReadieFur::OpenTCU::Config::Flash::_mutex;
-bool ReadieFur::OpenTCU::Config::Flash::_initialized = false;
+std::mutex ReadieFur::OpenTCU::Data::Flash::_mutex;
+bool ReadieFur::OpenTCU::Data::Flash::_initialized = false;

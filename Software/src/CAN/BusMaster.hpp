@@ -3,7 +3,7 @@
 #include <esp_check.h>
 #include <freertos/FreeRTOS.h>
 #include <freertos/FreeRTOSConfig.h>
-#include "Config/Pinout.h"
+#include "Data/Pinout.h"
 #include <freertos/task.h>
 #include <driver/gpio.h>
 #include <driver/spi_master.h>
@@ -21,10 +21,9 @@
 #include <queue>
 #include "EStringType.h"
 #include "Samples.hpp"
-#include "SLiveData.h"
 #include <string>
-#include "Config/Flash.hpp"
-#include <ArduinoJson.h>
+#include "Data/PersistentData.hpp"
+#include "Data/RuntimeStats.hpp"
 
 // #define CAN_DUMP_BEFORE_INTERCEPT
 #define CAN_DUMP_AFTER_INTERCEPT
@@ -37,9 +36,9 @@ namespace ReadieFur::OpenTCU::CAN
         static const TickType_t CAN_TIMEOUT_TICKS = pdMS_TO_TICKS(100);
         static const uint RELAY_TASK_STACK_SIZE = CONFIG_FREERTOS_IDLE_TASK_STACKSIZE + 1024;
         static const uint RELAY_TASK_PRIORITY = configMAX_PRIORITIES * 0.6;
-        static const uint CONFIG_TASK_STACK_SIZE = CONFIG_FREERTOS_IDLE_TASK_STACKSIZE + 1024;
-        static const uint CONFIG_TASK_PRIORITY = configMAX_PRIORITIES * 0.3;
-        static const TickType_t CONFIG_TASK_INTERVAL = pdMS_TO_TICKS(10000);
+        static const uint SECONDARY_TASK_STACK_SIZE = CONFIG_FREERTOS_IDLE_TASK_STACKSIZE + 1024;
+        static const uint SECONDARY_TASK_PRIORITY = configMAX_PRIORITIES * 0.3;
+        static const TickType_t SECONDARY_TASK_INTERVAL = pdMS_TO_TICKS(1000);
         #ifdef ENABLE_CAN_DUMP
         static const uint CAN_DUMP_QUEUE_SIZE = 500;
         #endif
@@ -57,80 +56,89 @@ namespace ReadieFur::OpenTCU::CAN
         #endif
         ACan* _can1 = nullptr;
         ACan* _can2 = nullptr;
-        TaskHandle_t _configTaskHandle = NULL;
         TaskHandle_t _can1TaskHandle = NULL;
         TaskHandle_t _can2TaskHandle = NULL;
-
-        JsonDocument _flashConfig;
+        TaskHandle_t _secondaryTaskHandle = NULL;
 
         #pragma region Other data
+        bool _savePersistentData = false;
+
         uint8_t _stringRequestType = 0;
         size_t _stringRequestBufferIndex = 0;
         char* _stringRequestBuffer = nullptr;
-        std::map<uint8_t, std::string> _strings;
+        // std::map<uint8_t, std::string> _strings;
 
-        uint32_t _baseWheelCircumference = 2160; //Default value.
-        uint32_t _wheelCircumference = 2160;
         double _wheelMultiplier = 1.0;
         #pragma endregion
 
         #pragma region Live data
-        Samples<uint16_t, uint32_t> _speedBuffer = Samples<uint16_t, uint32_t>(10);
+        TickType_t _lastLiveDataUpdate = 0;
 
-        bool _walkMode = false;
-        uint8_t _easeSetting = 0;
-        uint8_t _powerSetting = 0;
+        Samples<uint16_t, uint32_t> _speedBuffer = Samples<uint16_t, uint32_t>(10);
 
         Samples<uint16_t, uint32_t> _batteryVoltage = Samples<uint16_t, uint32_t>(10);
         Samples<int32_t, int64_t> _batteryCurrent = Samples<int32_t, int64_t>(10);
         #pragma endregion
 
         #ifdef DEBUG
-        ulong _lastLogTimestamp = 0;
         size_t _sampleCount = 0;
         #endif
 
     protected:
-        void ConfigTask()
+        void SecondaryTask()
         {
-            //Load config after starting core tasks as the core tasks can function without the config.
-            size_t configSize;
-            esp_err_t err = Config::Flash::Read(CONFIG_PATH, nullptr, &configSize);
-            if (err == ESP_OK)
+            while (!ServiceCancellationToken.IsCancellationRequested())
             {
-                char configBuffer[configSize];
-                if (Config::Flash::Read(CONFIG_PATH, configBuffer, &configSize) == ESP_OK)
+                if (_savePersistentData)
                 {
-                    DeserializationError jsonErr = deserializeJson(_flashConfig, configBuffer);
-                    if (jsonErr != DeserializationError::Ok)
-                    {
-                        LOGE(nameof(CAN::BusMaster), "Failed to deserialize config file: %s", jsonErr.c_str());
-                        err = ESP_FAIL;
-                    }
+                    Data::PersistentData::Save();
+                    _savePersistentData = false;
+                }
+
+                if (xTaskGetTickCount() - _lastLiveDataUpdate < pdMS_TO_TICKS(5000))
+                {
+                    Data::RuntimeStats::BikeSpeed = (uint32_t)(Data::RuntimeStats::RealSpeed / _wheelMultiplier);
+                    Data::RuntimeStats::RealSpeed = _speedBuffer.Average();
+                    // Data::RuntimeStats::Cadence = 0; //TODO: Implement cadence.
+                    // Data::RuntimeStats::RiderPower = 0; //TODO: Implement rider power.
+                    // Data::RuntimeStats::MotorPower = 0; //TODO: Implement motor power.
+                    Data::RuntimeStats::BatteryVoltage = _batteryVoltage.Average();
+                    Data::RuntimeStats::BatteryCurrent = _batteryCurrent.Average();
                 }
                 else
                 {
-                    LOGE(nameof(CAN::BusMaster), "Failed to read config file.");
-                    err = ESP_FAIL;
+                    //If the last live data update was over 5 seconds ago, consider the data to be broken/the bike is off.
+                    Data::RuntimeStats::BikeSpeed =
+                        Data::RuntimeStats::RealSpeed =
+                        Data::RuntimeStats::Cadence =
+                        Data::RuntimeStats::RiderPower =
+                        Data::RuntimeStats::MotorPower =
+                        Data::RuntimeStats::BatteryVoltage =
+                        Data::RuntimeStats::BatteryCurrent =
+                        Data::RuntimeStats::EaseSetting =
+                        Data::RuntimeStats::PowerSetting = 0;
+                    Data::RuntimeStats::WalkMode = false;
                 }
-            }
 
-            if (err == ESP_ERR_NOT_FOUND)
-            {
-                //Initialize a default config.
-                // _flashConfig["base_wheel_circumference"] = (uint32_t)2160;
-            }
-            else if (err == ESP_FAIL)
-            {
-                //If the config fails to load, don't brick the system, instead run using defaults.
-                LOGE(nameof(CAN::BusMaster), "Failed to read config file (%s). Using defaults for this session.", esp_err_to_name(err));
-                vTaskDelete(NULL);
-                return;
-            }
+                #ifdef DEBUG
+                if (EnableRuntimeStats)
+                {
+                    printf("Sample count: %i\n", _sampleCount);
+                    _sampleCount = 0;
 
-            while (!ServiceCancellationToken.IsCancellationRequested())
-            {
-                vTaskDelay(CONFIG_TASK_INTERVAL);
+                    printf("Average bike speed: %u\n", Data::RuntimeStats::BikeSpeed);
+                    printf("Average real speed: %u\n", Data::RuntimeStats::RealSpeed);
+
+                    printf("Walk mode: %s\n", Data::RuntimeStats::WalkMode ? "On" : "Off");
+                    printf("Ease setting: %u\n", Data::RuntimeStats::EaseSetting);
+                    printf("Power setting: %u\n", Data::RuntimeStats::PowerSetting);
+
+                    printf("Average battery voltage: %u\n", Data::RuntimeStats::BatteryVoltage);
+                    printf("Average battery current: %li\n", Data::RuntimeStats::BatteryCurrent);
+                }
+                #endif
+
+                vTaskDelay(SECONDARY_TASK_INTERVAL);
             }
 
             vTaskDelete(NULL);
@@ -146,28 +154,6 @@ namespace ReadieFur::OpenTCU::CAN
             //Check if the task has been signalled for deletion.
             while (!ServiceCancellationToken.IsCancellationRequested())
             {
-                #if defined(DEBUG)
-                //This loop runs so frequently, this shouldn't be here.
-                if (EnableRuntimeStats && _lastLogTimestamp + 1000 < esp_log_timestamp())
-                {
-                    _lastLogTimestamp = esp_log_timestamp();
-
-                    printf("Sample count: %i\n", _sampleCount);
-                    _sampleCount = 0;
-
-                    uint16_t realSpeed = _speedBuffer.Average();
-                    printf("Average bike speed: %u\n", (uint32_t)(realSpeed / _wheelMultiplier));
-                    printf("Average real speed: %u\n", realSpeed);
-
-                    printf("Walk mode: %s\n", _walkMode ? "On" : "Off");
-                    printf("Ease setting: %u\n", _easeSetting);
-                    printf("Power setting: %u\n", _powerSetting);
-
-                    printf("Average battery voltage: %u\n", _batteryVoltage.Average());
-                    printf("Average battery current: %li\n", _batteryCurrent.Average());
-                }
-                #endif
-
                 //Attempt to read a message from the bus.
                 SCanMessage message;
                 esp_err_t res;
@@ -198,6 +184,8 @@ namespace ReadieFur::OpenTCU::CAN
                 #if defined(ENABLE_CAN_DUMP) && defined(CAN_DUMP_BEFORE_INTERCEPT)
                 LogMessage(bus, message);
                 #endif
+
+
 
                 //Analyze the message and modify it if needed.
                 InterceptMessage(&message);
@@ -335,7 +323,17 @@ namespace ReadieFur::OpenTCU::CAN
 
                     LOGD(nameof(CAN::BusMaster), "String response for %x: %s", _stringRequestType, _stringRequestBuffer);
 
-                    _strings[_stringRequestType] = std::string(_stringRequestBuffer);
+
+                    switch (_stringRequestType)
+                    {
+                    case EStringType::BikeSerialNumber:
+                        Data::PersistentData::BikeSerialNumber = std::string(_stringRequestBuffer);
+                        _savePersistentData = true;
+                        break;
+                    default:
+                        break;
+                    }
+                    // _strings[_stringRequestType] = std::string(_stringRequestBuffer);
                     delete[] _stringRequestBuffer;
                     _stringRequestBuffer = nullptr;
                 }
@@ -346,9 +344,10 @@ namespace ReadieFur::OpenTCU::CAN
                     && message->data[6] == 0xE0
                     && message->data[7] == 0xAA)
                 {
-                    _wheelCircumference = message->data[4] | message->data[5] << 8;
-                    _wheelMultiplier = (double)_baseWheelCircumference / _wheelCircumference;
-                    LOGD(nameof(CAN::BusMaster), "Received wheel circumference: %u", _wheelCircumference);
+                    uint32_t wheelCircumference = message->data[4] | message->data[5] << 8;
+                    _wheelMultiplier = (double)Data::PersistentData::BaseWheelCircumference / wheelCircumference;
+                    _savePersistentData = true;
+                    LOGD(nameof(CAN::BusMaster), "Received wheel circumference: %u", wheelCircumference);
                     LOGD(nameof(CAN::BusMaster), "Wheel multiplier set to: %f", _wheelMultiplier);
                 }
                 break;
@@ -363,17 +362,18 @@ namespace ReadieFur::OpenTCU::CAN
                 _speedBuffer.AddSample(realSpeed);
                 message->data[0] = realSpeed & 0xFF;
                 message->data[1] = realSpeed >> 8;
+                _lastLiveDataUpdate = xTaskGetTickCount();
                 break;
             }
             case 0x300:
             {
                 //Assist settings.
-                _walkMode = message->data[1] == 0xA5;
-                _easeSetting = message->data[4];
-                _powerSetting = message->data[6];
+                Data::RuntimeStats::WalkMode = message->data[1] == 0xA5;
+                Data::RuntimeStats::EaseSetting = message->data[4];
+                Data::RuntimeStats::PowerSetting = message->data[6];
 
                 //If we are in walk mode and a speed multiplier exists, attempt to keep the walk speed at the original 5kph by setting the motor power to 0 when over a real speed of 5kph.
-                if (_walkMode && _wheelMultiplier != 1.0)
+                if (Data::RuntimeStats::WalkMode && _wheelMultiplier != 1.0)
                 {
                     uint16_t realSpeed = _speedBuffer.Latest();
                     if (realSpeed > 650) //Set to 650 to allow for some margin.
@@ -597,7 +597,7 @@ namespace ReadieFur::OpenTCU::CAN
             #endif
             #pragma endregion
 
-            if (xTaskCreate([](void* param) { static_cast<BusMaster*>(param)->ConfigTask(); }, "ConfigTask", CONFIG_TASK_STACK_SIZE, this, CONFIG_TASK_PRIORITY, &_configTaskHandle) != pdPASS)
+            if (xTaskCreate([](void* param) { static_cast<BusMaster*>(param)->SecondaryTask(); }, "ConfigTask", SECONDARY_TASK_STACK_SIZE, this, SECONDARY_TASK_PRIORITY, &_secondaryTaskHandle) != pdPASS)
             {
                 LOGE(nameof(CAN::BusMaster), "Failed to create config task.");
                 return;
@@ -614,7 +614,7 @@ namespace ReadieFur::OpenTCU::CAN
 
             _can1TaskHandle = nullptr;
             _can2TaskHandle = nullptr;
-            _configTaskHandle = nullptr;
+            _secondaryTaskHandle = nullptr;
 
             #if SOC_TWAI_CONTROLLER_NUM <= 1
             spi_bus_remove_device(_mcpDeviceHandle);
@@ -650,19 +650,6 @@ namespace ReadieFur::OpenTCU::CAN
             ServiceEntrypointPriority = RELAY_TASK_PRIORITY;
         }
 
-        SLiveData GetLiveData()
-        {
-            return SLiveData
-            {
-                .BikeSpeed = _speedBuffer.Average(),
-                .InWalkMode = _walkMode,
-                .EaseSetting = _easeSetting,
-                .PowerSetting = _powerSetting,
-                .BatteryVoltage = _batteryVoltage.Average(),
-                .BatteryCurrent = _batteryCurrent.Average()
-            };
-        }
-
         esp_err_t InjectMessage(bool bus, SCanMessage message)
         {
             LOGI(nameof(CAN::BusMaster), "Injecting message into CAN%c, ID: %x, Length: %i, Data: %02X %02X %02X %02X %02X %02X %02X %02X",
@@ -687,11 +674,11 @@ namespace ReadieFur::OpenTCU::CAN
             return ESP_OK;
         }
 
-        std::string GetString(EStringType type)
-        {
-            if (_strings.find(type) == _strings.end())
-                return "";
-            return _strings[type];
-        }
+        // std::string GetString(EStringType type)
+        // {
+        //     if (_strings.find(type) == _strings.end())
+        //         return "";
+        //     return _strings[type];
+        // }
     };
 };
