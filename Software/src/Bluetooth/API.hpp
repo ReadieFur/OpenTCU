@@ -169,6 +169,7 @@ namespace ReadieFur::OpenTCU::Bluetooth
                 nullptr,
                 [busMaster](uint8_t* inValue, uint16_t inLength)
                 {
+                    LOGD(nameof(Bluetooth::API), "Toggling runtime stats to %s", busMaster->EnableRuntimeStats ? "off" : "on");
                     busMaster->EnableRuntimeStats = !busMaster->EnableRuntimeStats;
                     return ESP_GATT_OK;
                 }
