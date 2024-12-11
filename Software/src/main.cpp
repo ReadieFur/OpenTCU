@@ -34,7 +34,9 @@
 #include <lwip/netdb.h>
 #include <lwip/inet.h>
 #endif
-#include "Config/Flash.hpp"
+#include "Data/Flash.hpp"
+#include "Data/PersistentData.hpp"
+#include <Event/Observable.hpp>
 
 #define CHECK_SERVICE_RESULT(func) do {                                                 \
         ReadieFur::Service::EServiceResult result = func;                               \
@@ -51,8 +53,6 @@
     } while (0)
 
 using namespace ReadieFur::OpenTCU;
-
-std::string DeviceName = "OpenTCU"; //Placeholder value.
 
 #ifdef LOG_UDP
 int UdpSocket;
@@ -87,23 +87,6 @@ void SetLogLevel()
     #else
     esp_log_level_set("*", ESP_LOG_INFO);
     #endif
-}
-
-void ConfigureDeviceName(std::string bikeSerialNumber)
-{
-    LOGD(pcTaskGetName(NULL), "Provided bike serial number: '%s'", bikeSerialNumber.c_str());
-    //Get the device name based on the TCU ID.
-    while (bikeSerialNumber.length() > 0 && !isdigit(bikeSerialNumber.front()))
-        bikeSerialNumber.erase(0, 1);
-    if (bikeSerialNumber.empty())
-    {
-        //Use the mac address as the device name.
-        uint8_t mac[6];
-        esp_read_mac(mac, ESP_MAC_BASE);
-        bikeSerialNumber = std::to_string(mac[0]) + std::to_string(mac[1]) + std::to_string(mac[2]) + std::to_string(mac[3]) + std::to_string(mac[4]) + std::to_string(mac[5]);
-    }
-    DeviceName = "OpenTCU" + bikeSerialNumber;
-    LOGI(pcTaskGetName(NULL), "Device name set to: %s", DeviceName.c_str());
 }
 
 #ifdef LOG_UDP
@@ -166,49 +149,23 @@ extern "C" void app_main()
     }
     CHECK_ESP_RESULT(err);
 
-    CHECK_ESP_RESULT(Config::Flash::Init());
+    CHECK_ESP_RESULT(Data::Flash::Init());
+    CHECK_ESP_RESULT(Data::PersistentData::Init());
+    ReadieFur::Event::TObservableHandle deviceNameObserverHandle;
+    Data::PersistentData::DeviceName.Register(deviceNameObserverHandle);
 
     CHECK_SERVICE_RESULT(ReadieFur::Service::ServiceManager::InstallAndStartService<CAN::BusMaster>());
-    CAN::BusMaster* busMaster = ReadieFur::Service::ServiceManager::GetService<CAN::BusMaster>();
+    CAN::BusMaster* busMaster = ReadieFur::Service::ServiceManager::GetService<CAN::BusMaster>(); //Create a secondary watcher as we want to capture changes now but not wait on them until later.
 
     #ifdef DEBUG
     CHECK_SERVICE_RESULT(ReadieFur::Service::ServiceManager::InstallAndStartService<ReadieFur::Diagnostic::DiagnosticsService>());
     #endif
 
     //Attempt to fetch the device serial number from the bus with some retries (in my testing it can take a few seconds between device boot and the serial number being automatically requested).
-    std::string bikeSerialNumber;
-    for (int i = 0; i < 30; i++)
-    {
-        bikeSerialNumber = busMaster->GetString(CAN::EStringType::BikeSerialNumber);
-        if (!bikeSerialNumber.empty())
-            break;
-        vTaskDelay(pdMS_TO_TICKS(100));
-    }
-    ConfigureDeviceName(bikeSerialNumber);
-
-    const uint32_t PIN = 123456; //TODO: Dynamic PIN.
+    //If the times out then the default value will be used.
+    // Data::PersistentData::DeviceName.WaitOne(deviceNameObserverHandle, pdMS_TO_TICKS(3000));
 
     CHECK_ESP_RESULT(ReadieFur::Network::WiFi::Init());
-    wifi_config_t apConfig =
-    {
-        .ap =
-        {
-            // .password = "OpenTCU" + std::string(PIN), //Temporary, still left open for now.
-            .ssid_len = (uint8_t)DeviceName.length(),
-            .channel = 1,
-            #ifdef DEBUG
-            .authmode = WIFI_AUTH_OPEN,
-            .ssid_hidden = 0,
-            #else
-            .authmode = WIFI_AUTH_WPA2_PSK,
-            .ssid_hidden = 1,
-            #endif
-            .max_connection = 2,
-            .beacon_interval = 100,
-        }
-    };
-    std::strncpy(reinterpret_cast<char*>(apConfig.ap.ssid), DeviceName.c_str(), sizeof(apConfig.ap.ssid));
-    CHECK_ESP_RESULT(ReadieFur::Network::WiFi::ConfigureInterface(WIFI_IF_AP, apConfig));
 
     #ifdef DEBUG
     ConfigureAdditionalLoggers();
@@ -221,12 +178,7 @@ extern "C" void app_main()
     #endif
     #endif
 
-    CHECK_ESP_RESULT(ReadieFur::Network::Bluetooth::BLE::Init(DeviceName.c_str(), PIN));
+    CHECK_ESP_RESULT(ReadieFur::Network::Bluetooth::BLE::Init(Data::PersistentData::DeviceName.Get().c_str(), Data::PersistentData::Pin));
     CHECK_SERVICE_RESULT(ReadieFur::Service::ServiceManager::InstallAndStartService<Bluetooth::API>());
     // CHECK_SERVICE_RESULT(ReadieFur::Service::ServiceManager::InstallAndStartService<Bluetooth::TCU>());
-
-    httpd_config_t otaHttpdConfig = HTTPD_DEFAULT_CONFIG();
-    otaHttpdConfig.server_port = 81;
-    otaHttpdConfig.ctrl_port += 1;
-    CHECK_ESP_RESULT(ReadieFur::Network::OTA::API::Init(&otaHttpdConfig));
 }
