@@ -132,6 +132,14 @@ void ConfigureAdditionalLoggers()
     #endif
 }
 
+void ConfigWatcher(void* pvParameters)
+{
+    while (true)
+    {
+        vTaskDelay(portMAX_DELAY);
+    }
+}
+
 extern "C" void app_main()
 {
     #if defined(DEBUG) && false
@@ -185,4 +193,7 @@ extern "C" void app_main()
     CHECK_ESP_RESULT(ReadieFur::Network::Bluetooth::BLE::Init(Data::PersistentData::DeviceName.Get().c_str(), Data::PersistentData::Pin));
     CHECK_SERVICE_RESULT(ReadieFur::Service::ServiceManager::InstallAndStartService<Bluetooth::API>());
     // CHECK_SERVICE_RESULT(ReadieFur::Service::ServiceManager::InstallAndStartService<Bluetooth::TCU>());
+
+    //TODO: Move this to the persistent data service.
+    xTaskCreate(ConfigWatcher, "ConfigWatcher", 4096, nullptr, 5, nullptr);
 }

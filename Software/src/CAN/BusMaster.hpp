@@ -68,6 +68,7 @@ namespace ReadieFur::OpenTCU::CAN
         char* _stringRequestBuffer = nullptr;
         // std::map<uint8_t, std::string> _strings;
 
+        //TODO: Set an artificial speed limit with a lower wheel size and ease off the power as the limit is approached.
         double _wheelMultiplier = 1.0;
         #pragma endregion
 
@@ -95,7 +96,7 @@ namespace ReadieFur::OpenTCU::CAN
                     _savePersistentData = false;
                 }
 
-                if (xTaskGetTickCount() - _lastLiveDataUpdate < pdMS_TO_TICKS(5000))
+                if (xTaskGetTickCount() - _lastLiveDataUpdate < pdMS_TO_TICKS(2000))
                 {
                     Data::RuntimeStats::BikeSpeed = (uint32_t)(Data::RuntimeStats::RealSpeed / _wheelMultiplier);
                     Data::RuntimeStats::RealSpeed = _speedBuffer.Average();
@@ -344,8 +345,8 @@ namespace ReadieFur::OpenTCU::CAN
                     && message->data[6] == 0xE0
                     && message->data[7] == 0xAA)
                 {
-                    uint32_t wheelCircumference = message->data[4] | message->data[5] << 8;
-                    _wheelMultiplier = (double)Data::PersistentData::BaseWheelCircumference / wheelCircumference;
+                    uint16_t wheelCircumference = message->data[4] | message->data[5] << 8;
+                    _wheelMultiplier = (double)Data::PersistentData::BaseWheelCircumference / Data::PersistentData::TargetWheelCircumference;
                     _savePersistentData = true;
                     LOGD(nameof(CAN::BusMaster), "Received wheel circumference: %u", wheelCircumference);
                     LOGD(nameof(CAN::BusMaster), "Wheel multiplier set to: %f", _wheelMultiplier);
@@ -680,5 +681,33 @@ namespace ReadieFur::OpenTCU::CAN
         //         return "";
         //     return _strings[type];
         // }
+
+        esp_err_t SetTargetWheelCircumference(uint16_t circumference)
+        {
+            if (circumference > 2400 || circumference < 800)
+            {
+                LOGW(nameof(CAN::BusMaster), "Invalid wheel circumference: %u", circumference);
+                return ESP_ERR_INVALID_ARG;
+            }
+
+            SCanMessage message =
+            {
+                .id = 0x100,
+                .data = { 0x05, 0x2E, 0x02, 0x06, (uint8_t)(circumference & 0xFF), (uint8_t)(circumference >> 8), 0x00, 0x00 },
+                .length = 8,
+                .isExtended = false,
+                .isRemote = false
+            };
+            esp_err_t err = InjectMessage(true, message);
+
+            if (err != ESP_OK)
+            {
+                LOGE(nameof(CAN::BusMaster), "Failed to set wheel circumference: %i", err);
+                return err;
+            }
+
+            Data::PersistentData::TargetWheelCircumference = circumference;
+            return ESP_OK;
+        }
     };
 };

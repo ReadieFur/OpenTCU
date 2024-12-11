@@ -18,8 +18,8 @@ namespace ReadieFur::OpenTCU::Data
     public:
         static ReadieFur::Event::Observable<std::string> DeviceName;
         static std::string BikeSerialNumber; //TODO: Convert this to a service and wait on multiple properties for auto-saving.
-        static uint32_t BaseWheelCircumference;
-        static uint32_t TargetWheelCircumference;
+        static uint16_t BaseWheelCircumference;
+        static uint16_t TargetWheelCircumference;
         static uint32_t Pin;
 
         static esp_err_t Init()
@@ -32,8 +32,8 @@ namespace ReadieFur::OpenTCU::Data
             {
             case ESP_OK:
                 JSON_ASSIGN_TO_SOURCE_IF_TYPE(jsonDocument, BikeSerialNumber, std::string);
-                JSON_ASSIGN_TO_SOURCE_IF_TYPE(jsonDocument, BaseWheelCircumference, uint32_t);
-                JSON_ASSIGN_TO_SOURCE_IF_TYPE(jsonDocument, TargetWheelCircumference, uint32_t);
+                JSON_ASSIGN_TO_SOURCE_IF_TYPE(jsonDocument, BaseWheelCircumference, uint16_t);
+                JSON_ASSIGN_TO_SOURCE_IF_TYPE(jsonDocument, TargetWheelCircumference, uint16_t);
                 JSON_ASSIGN_TO_SOURCE_IF_TYPE(jsonDocument, Pin, uint32_t);
                 SetDeviceNameFromBikeSerialNumber(BikeSerialNumber);
                 return ESP_OK;
@@ -78,6 +78,6 @@ namespace ReadieFur::OpenTCU::Data
 
 ReadieFur::Event::Observable<std::string> ReadieFur::OpenTCU::Data::PersistentData::DeviceName("OpenTCU");
 std::string ReadieFur::OpenTCU::Data::PersistentData::BikeSerialNumber;
-uint32_t ReadieFur::OpenTCU::Data::PersistentData::BaseWheelCircumference = 2160;
-uint32_t ReadieFur::OpenTCU::Data::PersistentData::TargetWheelCircumference = 2160;
+uint16_t ReadieFur::OpenTCU::Data::PersistentData::BaseWheelCircumference = 2160;
+uint16_t ReadieFur::OpenTCU::Data::PersistentData::TargetWheelCircumference = 2160;
 uint32_t ReadieFur::OpenTCU::Data::PersistentData::Pin;
