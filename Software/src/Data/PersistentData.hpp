@@ -72,6 +72,7 @@ namespace ReadieFur::OpenTCU::Data
                 bikeSerialNumber = std::to_string(mac[0]) + std::to_string(mac[1]) + std::to_string(mac[2]) + std::to_string(mac[3]) + std::to_string(mac[4]) + std::to_string(mac[5]);
             }
             DeviceName.Set("OpenTCU" + bikeSerialNumber);
+            LOGD(nameof(PersistentData), "Device name set to: %s", DeviceName.Get().c_str());
         }
     };
 };

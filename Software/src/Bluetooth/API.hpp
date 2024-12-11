@@ -39,6 +39,57 @@ namespace ReadieFur::OpenTCU::Bluetooth
                 service->ProcessServerEvent(event, gattsIf, param);
         }
 
+        esp_gatt_status_t ConfigureAP()
+        {
+            //If the AP is already active, reconfigure it as this call may have be made with updated settings.
+
+            wifi_config_t apConfig =
+            {
+                .ap =
+                {
+                    .channel = 1,
+                    #ifdef DEBUG
+                    .authmode = WIFI_AUTH_OPEN,
+                    .ssid_hidden = 0,
+                    #else
+                    .authmode = WIFI_AUTH_WPA2_PSK,
+                    .ssid_hidden = 1,
+                    #endif
+                    .max_connection = 2,
+                    .beacon_interval = 100,
+                }
+            };
+
+            std::string deviceName = Data::PersistentData::DeviceName.Get(); //Returns a copy of the string which in testing gets mangles if not assigned to a variable before calling c_str().
+            const char* deviceNameCStr = deviceName.c_str();
+            apConfig.ap.ssid_len = strlen(deviceNameCStr);
+            std::strncpy(reinterpret_cast<char*>(apConfig.ap.ssid), deviceNameCStr, sizeof(apConfig.ap.ssid));
+            
+            std::string password = "OpenTCU" + std::to_string(Data::PersistentData::Pin);
+            const char* passwordCStr = password.c_str();
+            std::strncpy(reinterpret_cast<char*>(apConfig.ap.password), passwordCStr, sizeof(apConfig.ap.password));
+
+            esp_err_t err = ReadieFur::Network::WiFi::ConfigureInterface(WIFI_IF_AP, apConfig);
+            if (err != ESP_OK)
+            {
+                LOGE(nameof(Bluetooth::API), "Failed to start AP mode: %s", esp_err_to_name(err));
+                return ESP_GATT_INTERNAL_ERROR;
+            }
+
+            httpd_config_t otaHttpdConfig = HTTPD_DEFAULT_CONFIG();
+            otaHttpdConfig.server_port = 81;
+            otaHttpdConfig.ctrl_port += 1;
+            err = ReadieFur::Network::OTA::API::Init(&otaHttpdConfig);
+            if (err != ESP_OK)
+            {
+                LOGE(nameof(Bluetooth::API), "Failed to start OTA server: %s", esp_err_to_name(err));
+                return ESP_GATT_INTERNAL_ERROR;
+            }
+
+            LOGI(nameof(Bluetooth::API), "AP mode started.");
+            return ESP_GATT_OK;
+        }
+
     protected:
         void RunServiceImpl() override
         {
@@ -125,7 +176,7 @@ namespace ReadieFur::OpenTCU::Bluetooth
                     
                     return ESP_GATT_OK;
                 },
-                [busMaster](uint8_t* inValue, uint16_t inLength)
+                [this, busMaster](uint8_t* inValue, uint16_t inLength)
                 {
                     size_t offset = 0;
                     size_t size;
@@ -159,10 +210,29 @@ namespace ReadieFur::OpenTCU::Bluetooth
                     offset += size;
 
                     // Data::PersistentData::DeviceName.Set(deviceName);
-                    Data::PersistentData::BaseWheelCircumference = baseWheelCircumference;
-                    busMaster->SetTargetWheelCircumference(targetWheelCircumference);
-                    ReadieFur::Network::Bluetooth::BLE::SetPin(pin);
-                    Data::PersistentData::Pin = pin;
+                    bool hasChanges = false;
+                    if (Data::PersistentData::BaseWheelCircumference != baseWheelCircumference)
+                    {
+                        Data::PersistentData::BaseWheelCircumference = baseWheelCircumference;
+                        hasChanges = true;
+                    }
+                    if (Data::PersistentData::TargetWheelCircumference != targetWheelCircumference)
+                    {
+                        busMaster->SetTargetWheelCircumference(targetWheelCircumference); //The persistent data is updated via this call.
+                        hasChanges = true;
+                    }
+                    if (Data::PersistentData::Pin != pin)
+                    {
+                        Data::PersistentData::Pin = pin;
+                        ReadieFur::Network::Bluetooth::BLE::SetPin(pin);
+                        hasChanges = true;
+                    }
+
+                    if (!hasChanges)
+                        return ESP_GATT_OK;
+
+                    if (ReadieFur::Network::WiFi::GetMode() == WIFI_MODE_AP)
+                        return ConfigureAP();
 
                     Data::PersistentData::Save();
 
@@ -179,7 +249,7 @@ namespace ReadieFur::OpenTCU::Bluetooth
                     *outLength = sizeof(uint8_t);
                     return ESP_GATT_OK;
                 },
-                [](uint8_t* inValue, uint16_t inLength)
+                [this](uint8_t* inValue, uint16_t inLength)
                 {
                     if (inLength != sizeof(uint8_t))
                         return ESP_GATT_ILLEGAL_PARAMETER;
@@ -201,44 +271,7 @@ namespace ReadieFur::OpenTCU::Bluetooth
                     }
                     else if (enable && currentMode != WIFI_MODE_AP)
                     {
-                        wifi_config_t apConfig =
-                        {
-                            .ap =
-                            {
-                                // .password = "OpenTCU" + std::string(Data::PersistentData::Pin), //Temporary, still left open for now.
-                                .ssid_len = (uint8_t)Data::PersistentData::DeviceName.Get().length(),
-                                .channel = 1,
-                                #ifdef DEBUG
-                                .authmode = WIFI_AUTH_OPEN,
-                                .ssid_hidden = 0,
-                                #else
-                                .authmode = WIFI_AUTH_WPA2_PSK,
-                                .ssid_hidden = 1,
-                                #endif
-                                .max_connection = 2,
-                                .beacon_interval = 100,
-                            }
-                        };
-                        std::strncpy(reinterpret_cast<char*>(apConfig.ap.ssid), Data::PersistentData::DeviceName.Get().c_str(), sizeof(apConfig.ap.ssid));
-                        esp_err_t err = ReadieFur::Network::WiFi::ConfigureInterface(WIFI_IF_AP, apConfig);
-                        if (err != ESP_OK)
-                        {
-                            LOGE(nameof(Bluetooth::API), "Failed to start AP mode: %s", esp_err_to_name(err));
-                            return ESP_GATT_INTERNAL_ERROR;
-                        }
-
-                        httpd_config_t otaHttpdConfig = HTTPD_DEFAULT_CONFIG();
-                        otaHttpdConfig.server_port = 81;
-                        otaHttpdConfig.ctrl_port += 1;
-                        err = ReadieFur::Network::OTA::API::Init(&otaHttpdConfig);
-                        if (err != ESP_OK)
-                        {
-                            LOGE(nameof(Bluetooth::API), "Failed to start OTA server: %s", esp_err_to_name(err));
-                            return ESP_GATT_INTERNAL_ERROR;
-                        }
-
-                        LOGI(nameof(Bluetooth::API), "AP mode started.");
-                        return ESP_GATT_OK;
+                        return ConfigureAP();
                     }
                     else if (!enable && currentMode == WIFI_MODE_AP)
                     {
