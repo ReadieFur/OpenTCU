@@ -62,6 +62,8 @@ namespace ReadieFur::OpenTCU::Bluetooth
                 ESP_GATT_PERM_READ,
                 [busMaster](uint8_t* outValue, uint16_t* outLength)
                 {
+                    *outLength = 0;
+
                     memcpy(outValue + *outLength, &Data::RuntimeStats::BikeSpeed, sizeof(Data::RuntimeStats::BikeSpeed));
                     *outLength += sizeof(Data::RuntimeStats::BikeSpeed);
 
@@ -95,6 +97,78 @@ namespace ReadieFur::OpenTCU::Bluetooth
                     return ESP_GATT_OK;
                 });
 
+            //Persistent data.
+            mainService.AddAttribute(
+                Network::Bluetooth::SUUID(0x3A3D3A3DUL),
+                ESP_GATT_PERM_READ | ESP_GATT_PERM_WRITE,
+                [](uint8_t* outValue, uint16_t* outLength)
+                {
+                    *outLength = 0;
+
+                    std::string deviceName = Data::PersistentData::DeviceName.Get();
+                    std::strncpy(reinterpret_cast<char*>(outValue), deviceName.c_str(), deviceName.length());
+                    *outLength += deviceName.length();
+                    outValue[*outLength++] = '\0';
+
+                    strncpy(reinterpret_cast<char*>(outValue + *outLength), Data::PersistentData::BikeSerialNumber.c_str(), Data::PersistentData::BikeSerialNumber.length());
+                    *outLength += Data::PersistentData::BikeSerialNumber.length();
+                    outValue[*outLength++] = '\0';
+
+                    memcpy(outValue + *outLength, &Data::PersistentData::BaseWheelCircumference, sizeof(Data::PersistentData::BaseWheelCircumference));
+                    *outLength += sizeof(Data::PersistentData::BaseWheelCircumference);
+
+                    memcpy(outValue + *outLength, &Data::PersistentData::TargetWheelCircumference, sizeof(Data::PersistentData::TargetWheelCircumference));
+                    *outLength += sizeof(Data::PersistentData::TargetWheelCircumference);
+
+                    memcpy(outValue + *outLength, &Data::PersistentData::Pin, sizeof(Data::PersistentData::Pin));
+                    *outLength += sizeof(Data::PersistentData::Pin);
+                    
+                    return ESP_GATT_OK;
+                },
+                [busMaster](uint8_t* inValue, uint16_t inLength)
+                {
+                    size_t offset = 0;
+                    size_t size;
+
+                    // std::string deviceName(reinterpret_cast<char*>(inValue));
+                    // offset += deviceName.length();
+
+                    // Data::PersistentData::BikeSerialNumber = reinterpret_cast<char*>(inValue + offset);
+                    // offset += Data::PersistentData::BikeSerialNumber.length();
+
+                    size = sizeof(Data::PersistentData::BaseWheelCircumference);
+                    if (offset + size > inLength)
+                        return ESP_GATT_ILLEGAL_PARAMETER;
+                    uint16_t baseWheelCircumference = *(uint16_t*)(inValue + offset);
+                    offset += size;
+                    if (baseWheelCircumference > 2400 || baseWheelCircumference < 800)
+                        return ESP_GATT_ILLEGAL_PARAMETER;
+
+                    size = sizeof(Data::PersistentData::TargetWheelCircumference);
+                    if (offset + size > inLength)
+                        return ESP_GATT_ILLEGAL_PARAMETER;
+                    uint16_t targetWheelCircumference = *(uint16_t*)(inValue + offset);
+                    offset += size;
+                    if (targetWheelCircumference > 2400 || targetWheelCircumference < 800)
+                        return ESP_GATT_ILLEGAL_PARAMETER;
+
+                    size = sizeof(Data::PersistentData::Pin);
+                    if (offset + size > inLength)
+                        return ESP_GATT_ILLEGAL_PARAMETER;
+                    uint32_t pin = *(uint32_t*)(inValue + offset);
+                    offset += size;
+
+                    // Data::PersistentData::DeviceName.Set(deviceName);
+                    Data::PersistentData::BaseWheelCircumference = baseWheelCircumference;
+                    busMaster->SetTargetWheelCircumference(targetWheelCircumference);
+                    ReadieFur::Network::Bluetooth::BLE::SetPin(pin);
+                    Data::PersistentData::Pin = pin;
+
+                    Data::PersistentData::Save();
+
+                    return ESP_GATT_OK;
+                });
+
             //AP toggle.
             mainService.AddAttribute(
                 Network::Bluetooth::SUUID(0xB45D9CEDUL),
@@ -116,9 +190,15 @@ namespace ReadieFur::OpenTCU::Bluetooth
                     bool enable = inValue[0] == 0x01;
                     wifi_mode_t currentMode = ReadieFur::Network::WiFi::GetMode();
                     if (enable && currentMode == WIFI_MODE_AP)
+                    {
+                        LOGD(nameof(Bluetooth::API), "AP mode is already enabled.");
                         return ESP_GATT_OK;
+                    }
                     else if (!enable && currentMode != WIFI_MODE_AP)
+                    {
+                        LOGD(nameof(Bluetooth::API), "AP mode is already disabled.");
                         return ESP_GATT_OK;
+                    }
                     else if (enable && currentMode != WIFI_MODE_AP)
                     {
                         wifi_config_t apConfig =
@@ -157,6 +237,7 @@ namespace ReadieFur::OpenTCU::Bluetooth
                             return ESP_GATT_INTERNAL_ERROR;
                         }
 
+                        LOGI(nameof(Bluetooth::API), "AP mode started.");
                         return ESP_GATT_OK;
                     }
                     else if (!enable && currentMode == WIFI_MODE_AP)
@@ -168,9 +249,12 @@ namespace ReadieFur::OpenTCU::Bluetooth
                             LOGE(nameof(Bluetooth::API), "Failed to stop AP mode: %s", esp_err_to_name(err));
                             return ESP_GATT_INTERNAL_ERROR;
                         }
+
+                        LOGI(nameof(Bluetooth::API), "AP mode stopped.");
                         return ESP_GATT_OK;
                     }
 
+                    LOGE(nameof(Bluetooth::API), "Invalid AP mode state.");
                     return ESP_GATT_INTERNAL_ERROR; //We shouldn't reach here.
                 });
 
