@@ -72,6 +72,7 @@ namespace ReadieFur::OpenTCU::Bluetooth
             #ifdef DEBUG
             Network::Bluetooth::GattServerService debugService(Network::Bluetooth::SUUID(0x877C911DUL), 1);
 
+            //CAN bus inject message.
             const size_t injectMessageDataSize =
                 sizeof(uint8_t) //bus
                 + sizeof(uint32_t) //id
@@ -117,6 +118,7 @@ namespace ReadieFur::OpenTCU::Bluetooth
                 });
 
             #ifdef ENABLE_CAN_DUMP
+            //CAN bus logging whitelist.
             debugService.AddAttribute(
                 Network::Bluetooth::SUUID(0x1450D8E6UL),
                 ESP_GATT_PERM_WRITE,
@@ -145,6 +147,7 @@ namespace ReadieFur::OpenTCU::Bluetooth
                 });
             #endif
 
+            //Reboot.
             debugService.AddAttribute(
                 Network::Bluetooth::SUUID(0xBFB5E32FUL),
                 ESP_GATT_PERM_WRITE,
@@ -152,9 +155,21 @@ namespace ReadieFur::OpenTCU::Bluetooth
                 nullptr,
                 [logger](uint8_t* inValue, uint16_t inLength)
                 {
-                    //Reboot.
                     LOGW(nameof(Bluetooth::API), "Rebooting device.");
                     esp_restart();
+                    return ESP_GATT_OK;
+                }
+            );
+
+            //Toggle runtime CAN bus stats.
+            debugService.AddAttribute(
+                Network::Bluetooth::SUUID(0x9ED8266DUL),
+                ESP_GATT_PERM_WRITE,
+                0,
+                nullptr,
+                [busMaster](uint8_t* inValue, uint16_t inLength)
+                {
+                    busMaster->EnableRuntimeStats = !busMaster->EnableRuntimeStats;
                     return ESP_GATT_OK;
                 }
             );
