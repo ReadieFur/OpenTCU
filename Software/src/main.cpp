@@ -53,7 +53,7 @@
 
 using namespace ReadieFur::OpenTCU;
 
-std::string DeviceName = "OpenTCU" TCU_NAME; //Placeholder value.
+std::string DeviceName = "OpenTCU"; //Placeholder value.
 
 #ifdef LOG_UDP
 int UdpSocket;
@@ -90,20 +90,21 @@ void SetLogLevel()
     #endif
 }
 
-void ConfigureDeviceName()
+void ConfigureDeviceName(std::string bikeSerialNumber)
 {
+    LOGD(pcTaskGetName(NULL), "Provided bike serial number: '%s'", bikeSerialNumber.c_str());
     //Get the device name based on the TCU ID.
-    std::string deviceId = TCU_NAME;
-    while (deviceId.length() > 0 && !isdigit(deviceId.front()))
-        deviceId.erase(0, 1);
-    if (deviceId.empty())
+    while (bikeSerialNumber.length() > 0 && !isdigit(bikeSerialNumber.front()))
+        bikeSerialNumber.erase(0, 1);
+    if (bikeSerialNumber.empty())
     {
         //Use the mac address as the device name.
         uint8_t mac[6];
         esp_read_mac(mac, ESP_MAC_BASE);
-        deviceId = std::to_string(mac[0]) + std::to_string(mac[1]) + std::to_string(mac[2]) + std::to_string(mac[3]) + std::to_string(mac[4]) + std::to_string(mac[5]);
+        bikeSerialNumber = std::to_string(mac[0]) + std::to_string(mac[1]) + std::to_string(mac[2]) + std::to_string(mac[3]) + std::to_string(mac[4]) + std::to_string(mac[5]);
     }
-    DeviceName = "OpenTCU" + deviceId;
+    DeviceName = "OpenTCU" + bikeSerialNumber;
+    LOGI(pcTaskGetName(NULL), "Device name set to: %s", DeviceName.c_str());
 }
 
 #ifdef LOG_UDP
@@ -158,14 +159,6 @@ extern "C" void app_main()
     // SetCPUFrequency();
     SetLogLevel();
 
-    CHECK_ESP_RESULT(Config::Flash::Init());
-
-    CHECK_SERVICE_RESULT(ReadieFur::Service::ServiceManager::InstallAndStartService<CAN::BusMaster>());
-
-    #ifdef DEBUG
-    CHECK_SERVICE_RESULT(ReadieFur::Service::ServiceManager::InstallAndStartService<ReadieFur::Diagnostic::DiagnosticsService>());
-    #endif
-
     esp_err_t err = nvs_flash_init();
     if (err == ESP_ERR_NVS_NO_FREE_PAGES || err == ESP_ERR_NVS_NEW_VERSION_FOUND)
     {
@@ -174,7 +167,25 @@ extern "C" void app_main()
     }
     CHECK_ESP_RESULT(err);
 
-    ConfigureDeviceName();
+    CHECK_ESP_RESULT(Config::Flash::Init());
+
+    CHECK_SERVICE_RESULT(ReadieFur::Service::ServiceManager::InstallAndStartService<CAN::BusMaster>());
+    CAN::BusMaster* busMaster = ReadieFur::Service::ServiceManager::GetService<CAN::BusMaster>();
+
+    #ifdef DEBUG
+    CHECK_SERVICE_RESULT(ReadieFur::Service::ServiceManager::InstallAndStartService<ReadieFur::Diagnostic::DiagnosticsService>());
+    #endif
+
+    //Attempt to fetch the device serial number from the bus with some retries (in my testing it can take a few seconds between device boot and the serial number being automatically requested).
+    std::string bikeSerialNumber;
+    for (int i = 0; i < 30; i++)
+    {
+        bikeSerialNumber = busMaster->GetString(CAN::EStringType::BikeSerialNumber);
+        if (!bikeSerialNumber.empty())
+            break;
+        vTaskDelay(pdMS_TO_TICKS(100));
+    }
+    ConfigureDeviceName(bikeSerialNumber);
 
     CHECK_ESP_RESULT(ReadieFur::Network::WiFi::Init());
     wifi_config_t apConfig =
