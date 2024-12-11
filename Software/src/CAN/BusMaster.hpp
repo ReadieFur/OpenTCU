@@ -103,8 +103,8 @@ namespace ReadieFur::OpenTCU::CAN
             //Check if the task has been signalled for deletion.
             while (!ServiceCancellationToken.IsCancellationRequested())
             {
-                #if defined(DEBUG) && true
-                if (_lastLogTimestamp + 1000 < esp_log_timestamp())
+                #if defined(DEBUG)
+                if (EnableRuntimeStats && _lastLogTimestamp + 1000 < esp_log_timestamp())
                 {
                     _lastLogTimestamp = esp_log_timestamp();
 
@@ -586,6 +586,10 @@ namespace ReadieFur::OpenTCU::CAN
             SCanMessage message;
             //TODO: Add modified values.
         };
+        #endif
+
+        #ifdef DEBUG
+        bool EnableRuntimeStats = true;
         #endif
 
         BusMaster()
