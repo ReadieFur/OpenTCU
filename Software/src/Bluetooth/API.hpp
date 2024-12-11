@@ -156,14 +156,20 @@ namespace ReadieFur::OpenTCU::Bluetooth
                 {
                     *outLength = 0;
 
-                    std::string deviceName = Data::PersistentData::DeviceName.Get();
-                    std::strncpy(reinterpret_cast<char*>(outValue), deviceName.c_str(), deviceName.length());
-                    *outLength += deviceName.length();
-                    outValue[*outLength++] = '\0';
+                    //TODO: Fix string parsing.
+                    // std::string stdStr = Data::PersistentData::DeviceName.Get();
+                    // const char* cStr = stdStr.c_str();
+                    // size_t strLen = strlen(cStr);
+                    // std::strncpy(reinterpret_cast<char*>(outValue), cStr, strLen);
+                    // *outLength += strLen;
+                    // outValue[*outLength++] = '\0';
 
-                    strncpy(reinterpret_cast<char*>(outValue + *outLength), Data::PersistentData::BikeSerialNumber.c_str(), Data::PersistentData::BikeSerialNumber.length());
-                    *outLength += Data::PersistentData::BikeSerialNumber.length();
-                    outValue[*outLength++] = '\0';
+                    // stdStr = Data::PersistentData::BikeSerialNumber;
+                    // cStr = stdStr.c_str();
+                    // strLen = strlen(cStr);
+                    // strncpy(reinterpret_cast<char*>(outValue + *outLength), cStr, strLen);
+                    // *outLength += strLen;
+                    // outValue[*outLength++] = '\0';
 
                     memcpy(outValue + *outLength, &Data::PersistentData::BaseWheelCircumference, sizeof(Data::PersistentData::BaseWheelCircumference));
                     *outLength += sizeof(Data::PersistentData::BaseWheelCircumference);
@@ -213,16 +219,19 @@ namespace ReadieFur::OpenTCU::Bluetooth
                     bool hasChanges = false;
                     if (Data::PersistentData::BaseWheelCircumference != baseWheelCircumference)
                     {
+                        LOGI(nameof(Bluetooth::API), "Setting base wheel circumference to %i", baseWheelCircumference);
                         Data::PersistentData::BaseWheelCircumference = baseWheelCircumference;
                         hasChanges = true;
                     }
                     if (Data::PersistentData::TargetWheelCircumference != targetWheelCircumference)
                     {
+                        LOGI(nameof(Bluetooth::API), "Setting target wheel circumference to %i", targetWheelCircumference);
                         busMaster->SetTargetWheelCircumference(targetWheelCircumference); //The persistent data is updated via this call.
                         hasChanges = true;
                     }
                     if (Data::PersistentData::Pin != pin)
                     {
+                        LOGI(nameof(Bluetooth::API), "Setting new pin.");
                         Data::PersistentData::Pin = pin;
                         ReadieFur::Network::Bluetooth::BLE::SetPin(pin);
                         hasChanges = true;
