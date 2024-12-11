@@ -122,7 +122,7 @@ namespace ReadieFur::OpenTCU::CAN
                 }
 
                 #ifdef DEBUG
-                if (EnableRuntimeStats)
+                if (EnableRuntimeStats && xTaskGetTickCount() - _lastLiveDataUpdate < pdMS_TO_TICKS(2000))
                 {
                     printf("Sample count: %i\n", _sampleCount);
                     _sampleCount = 0;
