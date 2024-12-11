@@ -26,7 +26,6 @@
 #include <string>
 #include "Config/Flash.hpp"
 #include <ArduinoJson.h>
-#include <Event/Observable.hpp>
 
 // #define CAN_DUMP_BEFORE_INTERCEPT
 #define CAN_DUMP_AFTER_INTERCEPT
@@ -643,7 +642,7 @@ namespace ReadieFur::OpenTCU::CAN
         #endif
 
         #ifdef DEBUG
-        bool EnableRuntimeStats = true;
+        bool EnableRuntimeStats = false;
         #endif
 
         BusMaster()
@@ -687,6 +686,13 @@ namespace ReadieFur::OpenTCU::CAN
                 return _can1->Send(message, CAN_TIMEOUT_TICKS);
 
             return ESP_OK;
+        }
+
+        std::string GetString(EStringType type)
+        {
+            if (_strings.find(type) == _strings.end())
+                return "";
+            return _strings[type];
         }
     };
 };
