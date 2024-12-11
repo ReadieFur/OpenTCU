@@ -26,6 +26,7 @@
 #include <string>
 #include "Config/Flash.hpp"
 #include <ArduinoJson.h>
+#include <Event/Observable.hpp>
 
 // #define CAN_DUMP_BEFORE_INTERCEPT
 #define CAN_DUMP_AFTER_INTERCEPT
@@ -116,12 +117,12 @@ namespace ReadieFur::OpenTCU::CAN
                 }
             }
 
-            if (err == ESP_ERR_NOT_FOUND || err == ESP_FAIL)
+            if (err == ESP_ERR_NOT_FOUND)
             {
                 //Initialize a default config.
                 // _flashConfig["base_wheel_circumference"] = (uint32_t)2160;
             }
-            else
+            else if (err == ESP_FAIL)
             {
                 //If the config fails to load, don't brick the system, instead run using defaults.
                 LOGE(nameof(CAN::BusMaster), "Failed to read config file (%s). Using defaults for this session.", esp_err_to_name(err));
@@ -294,7 +295,7 @@ namespace ReadieFur::OpenTCU::CAN
                         delete[] _stringRequestBuffer;
                     }
                     _stringRequestType = message->data[4];
-                    _stringRequestBuffer = new char[21];  //All string requests seem to be sent in a buffer of 20 bytes.
+                    _stringRequestBuffer = new char[21]; //All string requests seem to be sent in a buffer of 20 bytes.
                     _stringRequestBufferIndex = 0;
 
                     //String response.
