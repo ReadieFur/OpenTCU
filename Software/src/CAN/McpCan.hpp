@@ -125,7 +125,7 @@ namespace ReadieFur::OpenTCU::CAN
             #ifdef USE_CAN_DRIVER_LOCK
             if (xSemaphoreTake(_driverMutex, timeout) != pdTRUE)
             {
-                LOGW(nameof(CAN::McpCan), "Timeout.");
+                // LOGW(nameof(CAN::McpCan), "Timeout.");
                 return ESP_ERR_TIMEOUT;
             }
             #endif
@@ -137,8 +137,8 @@ namespace ReadieFur::OpenTCU::CAN
             #endif
 
             esp_err_t retVal = MCPErrorToESPError(res);
-            if (retVal != ESP_OK)
-                LOGE(nameof(CAN::McpCan), "Failed to send message: %i", retVal);
+            // if (retVal != ESP_OK)
+            //     LOGE(nameof(CAN::McpCan), "Failed to send message: %i", retVal);
             return retVal;
         }
 
@@ -166,7 +166,7 @@ namespace ReadieFur::OpenTCU::CAN
             //Lock the driver from other operations while we read the message.
             if (xSemaphoreTake(_driverMutex, timeout) != pdTRUE)
             {
-                LOGW(nameof(CAN::McpCan), "Timeout.");
+                // LOGW(nameof(CAN::McpCan), "Timeout.");
                 return ESP_ERR_TIMEOUT;
             }
             #endif
@@ -203,7 +203,7 @@ namespace ReadieFur::OpenTCU::CAN
             //I would like to fix this as we are wasting CPU cycles with this bug.
             if (readResult != MCP2515::ERROR_OK)
             {
-                LOGE(nameof(CAN::McpCan), "Failed to receive message: %i", readResult);
+                // LOGE(nameof(CAN::McpCan), "Failed to receive message: %i", readResult);
                 return MCPErrorToESPError(readResult);
             }
 
@@ -222,7 +222,7 @@ namespace ReadieFur::OpenTCU::CAN
             #ifdef USE_CAN_DRIVER_LOCK
             if (xSemaphoreTake(_driverMutex, timeout) != pdTRUE)
             {
-                LOGW(nameof(CAN::McpCan), "Timeout.");
+                // LOGW(nameof(CAN::McpCan), "Timeout.");
                 return ESP_ERR_TIMEOUT;
             }
             #endif

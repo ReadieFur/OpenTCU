@@ -38,6 +38,9 @@ namespace ReadieFur::OpenTCU::CAN
         static const TickType_t CAN_TIMEOUT_TICKS = pdMS_TO_TICKS(100);
         static const uint RELAY_TASK_STACK_SIZE = CONFIG_FREERTOS_IDLE_TASK_STACKSIZE + 1024;
         static const uint RELAY_TASK_PRIORITY = configMAX_PRIORITIES * 0.6;
+        static const uint CONFIG_TASK_STACK_SIZE = CONFIG_FREERTOS_IDLE_TASK_STACKSIZE + 1024;
+        static const uint CONFIG_TASK_PRIORITY = configMAX_PRIORITIES * 0.3;
+        static const TickType_t CONFIG_TASK_INTERVAL = pdMS_TO_TICKS(10000);
         #ifdef ENABLE_CAN_DUMP
         static const uint CAN_DUMP_QUEUE_SIZE = 500;
         #endif
@@ -88,22 +91,64 @@ namespace ReadieFur::OpenTCU::CAN
         size_t _sampleCount = 0;
         #endif
 
-        static void RelayTask(void* param)
+    protected:
+        void ConfigTask()
         {
-            static_cast<SRelayTaskParameters*>(param)->self->RelayTaskLocal(param);
+            //Load config after starting core tasks as the core tasks can function without the config.
+            size_t configSize;
+            esp_err_t err = Config::Flash::Read(CONFIG_PATH, nullptr, &configSize);
+            if (err == ESP_OK)
+            {
+                char configBuffer[configSize];
+                if (Config::Flash::Read(CONFIG_PATH, configBuffer, &configSize) == ESP_OK)
+                {
+                    DeserializationError jsonErr = deserializeJson(_flashConfig, configBuffer);
+                    if (jsonErr != DeserializationError::Ok)
+                    {
+                        LOGE(nameof(CAN::BusMaster), "Failed to deserialize config file: %s", jsonErr.c_str());
+                        err = ESP_FAIL;
+                    }
+                }
+                else
+                {
+                    LOGE(nameof(CAN::BusMaster), "Failed to read config file.");
+                    err = ESP_FAIL;
+                }
+            }
+
+            if (err == ESP_ERR_NOT_FOUND || err == ESP_FAIL)
+            {
+                //Initialize a default config.
+                // _flashConfig["base_wheel_circumference"] = (uint32_t)2160;
+            }
+            else
+            {
+                //If the config fails to load, don't brick the system, instead run using defaults.
+                LOGE(nameof(CAN::BusMaster), "Failed to read config file (%s). Using defaults for this session.", esp_err_to_name(err));
+                vTaskDelete(NULL);
+                return;
+            }
+
+            while (!ServiceCancellationToken.IsCancellationRequested())
+            {
+                vTaskDelay(CONFIG_TASK_INTERVAL);
+            }
+
+            vTaskDelete(NULL);
         }
 
-    protected:
-        virtual void RelayTaskLocal(void* param)
+        virtual void RelayTask(void* param)
         {
             SRelayTaskParameters* params = static_cast<SRelayTaskParameters*>(param);
 
             char bus = pcTaskGetName(xTaskGetHandle(pcTaskGetName(NULL)))[3]; //Only really used for logging & debugging.
+            char otherBus = bus == '1' ? '2' : '1';
 
             //Check if the task has been signalled for deletion.
             while (!ServiceCancellationToken.IsCancellationRequested())
             {
                 #if defined(DEBUG)
+                //This loop runs so frequently, this shouldn't be here.
                 if (EnableRuntimeStats && _lastLogTimestamp + 1000 < esp_log_timestamp())
                 {
                     _lastLogTimestamp = esp_log_timestamp();
@@ -129,7 +174,24 @@ namespace ReadieFur::OpenTCU::CAN
                 esp_err_t res;
                 if ((res = params->can1->Receive(&message, CAN_TIMEOUT_TICKS)) != ESP_OK)
                 {
-                    LOGW(nameof(CAN::BusMaster), "CAN%c failed to receive message: %i", bus, res); //This should probably be an error not a warning.
+                    switch (res)
+                    {
+                    case ESP_ERR_TIMEOUT:
+                        #ifdef DEBUG
+                        //While debugging I have the board externally powered so the bike can be off and this error is to be expected.
+                        #else
+                        //Messages should never time out as they are sent extremely frequently.
+                        LOGW(nameof(CAN::BusMaster), "CAN%c timed out while waiting for message.", bus);
+                        #endif
+                        break;
+                    case ESP_ERR_INVALID_STATE:
+                        //TODO: Trigger a reset of the CAN controller.
+                        LOGE(nameof(CAN::BusMaster), "CAN%c bus failure: %s", bus);
+                        break;
+                    default:
+                        LOGE(nameof(CAN::BusMaster), "CAN%c failed to receive message: %i", bus, res);
+                        break;
+                    }
                     taskYIELD();
                     continue;
                 }
@@ -148,12 +210,25 @@ namespace ReadieFur::OpenTCU::CAN
                 //Relay the message to the other CAN bus.
                 if ((res = params->can2->Send(message, CAN_TIMEOUT_TICKS)) != ESP_OK)
                 {
-                    LOGW(nameof(CAN::BusMaster), "CAN%c failed to relay message: %i", bus, res);
+                    switch (res)
+                    {
+                    case ESP_ERR_TIMEOUT:
+                        //This should be an error as the message should always be sent successfully if the other bus is operational.
+                        LOGE(nameof(CAN::BusMaster), "CAN%c timed out while waiting to relay message.", otherBus);
+                        break;
+                    case ESP_ERR_INVALID_STATE:
+                        LOGE(nameof(CAN::BusMaster), "CAN%c bus failure: %s", otherBus);
+                        break;
+                    default:
+                        LOGE(nameof(CAN::BusMaster), "CAN%c failed to relay message: %i", otherBus, res);
+                        break;
+                    }
                     taskYIELD();
                     continue;
                 }
 
                 //Yield to allow other higher priority tasks to run, but use this method over vTaskDelay(0) keep delay time to a minimal as this is a very high priority task.
+                //We do not set a delay here as the delay is acted upon while waiting for CAN bus operations.
                 taskYIELD();
             }
 
@@ -235,7 +310,7 @@ namespace ReadieFur::OpenTCU::CAN
                 else if (message->data[0] == 0x21 || message->data[0] == 0x22)
                 {
                     //String response continued.
-                    LOGD(nameof(CAN::BusMaster), "Continued response for %x.", _stringRequestType);
+                    // LOGD(nameof(CAN::BusMaster), "Continued response for %x.", _stringRequestType);
                     if (_stringRequestBuffer == nullptr)
                     {
                         LOGW(nameof(CAN::BusMaster), "String response continued before a request was sent.");
@@ -248,7 +323,7 @@ namespace ReadieFur::OpenTCU::CAN
                 else if (message->data[0] == 0x23)
                 {
                     //String response end.
-                    LOGD(nameof(CAN::BusMaster), "String response end for %x.", _stringRequestType);
+                    // LOGD(nameof(CAN::BusMaster), "String response end for %x.", _stringRequestType);
                     if (_stringRequestBuffer == nullptr)
                     {
                         LOGW(nameof(CAN::BusMaster), "String response end before a request was sent.");
@@ -493,15 +568,15 @@ namespace ReadieFur::OpenTCU::CAN
             //TODO: Determine if I should run both CAN tasks on one core and do secondary processing (i.e. metrics, user control, etc) on the other core, or split the load between all cores with CAN bus getting their own core.
             SRelayTaskParameters* params1 = new SRelayTaskParameters { this, _can1, _can2 };
             SRelayTaskParameters* params2 = new SRelayTaskParameters { this, _can2, _can1 };
-
+            const TaskFunction_t relayTaskWrapper = [](void* param) { static_cast<SRelayTaskParameters*>(param)->self->RelayTask(param); };
             #if SOC_CPU_CORES_NUM > 1
             {
-                if (xTaskCreatePinnedToCore(RelayTask, "CAN1->CAN2", RELAY_TASK_STACK_SIZE, params1, RELAY_TASK_PRIORITY, &_can1TaskHandle, 0) != pdPASS)
+                if (xTaskCreatePinnedToCore(relayTaskWrapper, "CAN1->CAN2", RELAY_TASK_STACK_SIZE, params1, RELAY_TASK_PRIORITY, &_can1TaskHandle, 0) != pdPASS)
                 {
                     LOGE(nameof(CAN::BusMaster), "Failed to create relay task for CAN1->CAN2.");
                     return;
                 }
-                if (xTaskCreatePinnedToCore(RelayTask, "CAN2->CAN1", RELAY_TASK_STACK_SIZE, params2, RELAY_TASK_PRIORITY, &_can2TaskHandle, 1) != pdPASS)
+                if (xTaskCreatePinnedToCore(relayTaskWrapper, "CAN2->CAN1", RELAY_TASK_STACK_SIZE, params2, RELAY_TASK_PRIORITY, &_can2TaskHandle, 1) != pdPASS)
                 {
                     LOGE(nameof(CAN::BusMaster), "Failed to create relay task for CAN2->CAN1.");
                     return;
@@ -509,12 +584,12 @@ namespace ReadieFur::OpenTCU::CAN
             }
             #else
             {
-                if (xTaskCreate(RelayTask, "CAN1->CAN2", RELAY_TASK_STACK_SIZE, params1, RELAY_TASK_PRIORITY, &_can1TaskHandle) != pdPASS)
+                if (xTaskCreate(relayTaskWrapper, "CAN1->CAN2", RELAY_TASK_STACK_SIZE, params1, RELAY_TASK_PRIORITY, &_can1TaskHandle) != pdPASS)
                 {
                     LOGE(nameof(CAN::BusMaster), "Failed to create relay task for CAN1->CAN2.");
                     return;
                 }
-                if (xTaskCreate(RelayTask, "CAN2->CAN1", RELAY_TASK_STACK_SIZE, params2, RELAY_TASK_PRIORITY, &_can2TaskHandle) != pdPASS)
+                if (xTaskCreate(relayTaskWrapper, "CAN2->CAN1", RELAY_TASK_STACK_SIZE, params2, RELAY_TASK_PRIORITY, &_can2TaskHandle) != pdPASS)
                 {
                     LOGE(nameof(CAN::BusMaster), "Failed to create relay task for CAN2->CAN1.");
                     return;
@@ -523,36 +598,10 @@ namespace ReadieFur::OpenTCU::CAN
             #endif
             #pragma endregion
 
-            //Load config after starting core tasks as the core tasks can function without the config.
-            size_t configSize;
-            err = Config::Flash::Read(CONFIG_PATH, nullptr, &configSize);
-            if (err == ESP_OK)
+            if (xTaskCreate([](void* param) { static_cast<BusMaster*>(param)->ConfigTask(); }, "ConfigTask", CONFIG_TASK_STACK_SIZE, this, CONFIG_TASK_PRIORITY, &_configTaskHandle) != pdPASS)
             {
-                char configBuffer[configSize];
-                if (Config::Flash::Read(CONFIG_PATH, configBuffer, &configSize) == ESP_OK)
-                {
-                    DeserializationError jsonErr = deserializeJson(_flashConfig, configBuffer);
-                    if (jsonErr != DeserializationError::Ok)
-                    {
-                        LOGE(nameof(CAN::BusMaster), "Failed to deserialize config file: %s", jsonErr.c_str());
-                        err = ESP_FAIL;
-                    }
-                }
-                else
-                {
-                    LOGE(nameof(CAN::BusMaster), "Failed to read config file.");
-                    err = ESP_FAIL;
-                }
-            }
-
-            if (err == ESP_ERR_NOT_FOUND || err == ESP_FAIL)
-            {
-                //Initialize a default config.
-                // _flashConfig["base_wheel_circumference"] = (uint32_t)2160;
-            }
-            else
-            {
-                LOGE(nameof(CAN::BusMaster), "Failed to read config file: %i", err);
+                LOGE(nameof(CAN::BusMaster), "Failed to create config task.");
+                return;
             }
 
             ServiceCancellationToken.WaitForCancellation();
@@ -563,6 +612,10 @@ namespace ReadieFur::OpenTCU::CAN
             _can1 = nullptr;
             delete _can2;
             _can2 = nullptr;
+
+            _can1TaskHandle = nullptr;
+            _can2TaskHandle = nullptr;
+            _configTaskHandle = nullptr;
 
             #if SOC_TWAI_CONTROLLER_NUM <= 1
             spi_bus_remove_device(_mcpDeviceHandle);
