@@ -61,7 +61,7 @@ namespace ReadieFur::OpenTCU::CAN
         TaskHandle_t _secondaryTaskHandle = NULL;
 
         #pragma region Other data
-        bool _savePersistentData = true;
+        bool _savePersistentData = false;
 
         uint8_t _stringRequestType = 0;
         size_t _stringRequestBufferIndex = 0;
@@ -641,7 +641,7 @@ namespace ReadieFur::OpenTCU::CAN
         #endif
 
         #ifdef DEBUG
-        bool EnableRuntimeStats = false;
+        bool EnableRuntimeStats = true;
         #endif
 
         BusMaster()
