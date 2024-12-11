@@ -99,6 +99,7 @@ namespace ReadieFur::OpenTCU::Data
                 fseek(file, 0, SEEK_END);
                 *outLength = ftell(file);
                 fclose(file);
+                _mutex.unlock();
                 return ESP_OK;
             }
 
