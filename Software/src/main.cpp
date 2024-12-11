@@ -12,7 +12,6 @@
 
 #include <freertos/FreeRTOS.h> //Has to always be the first included FreeRTOS related header.
 #include "Service/ServiceManager.hpp"
-#include "Config/Device.h"
 #include "CAN/BusMaster.hpp"
 #include "CAN/Logger.hpp"
 #include <esp_sleep.h>
@@ -187,12 +186,14 @@ extern "C" void app_main()
     }
     ConfigureDeviceName(bikeSerialNumber);
 
+    const uint32_t PIN = 123456; //TODO: Dynamic PIN.
+
     CHECK_ESP_RESULT(ReadieFur::Network::WiFi::Init());
     wifi_config_t apConfig =
     {
         .ap =
         {
-            // .password = "OpenTCU" TCU_PIN, //Temporary, still left open for now.
+            // .password = "OpenTCU" + std::string(PIN), //Temporary, still left open for now.
             .ssid_len = (uint8_t)DeviceName.length(),
             .channel = 1,
             #ifdef DEBUG
@@ -220,7 +221,7 @@ extern "C" void app_main()
     #endif
     #endif
 
-    CHECK_ESP_RESULT(ReadieFur::Network::Bluetooth::BLE::Init(DeviceName.c_str(), TCU_PIN));
+    CHECK_ESP_RESULT(ReadieFur::Network::Bluetooth::BLE::Init(DeviceName.c_str(), PIN));
     CHECK_SERVICE_RESULT(ReadieFur::Service::ServiceManager::InstallAndStartService<Bluetooth::API>());
     // CHECK_SERVICE_RESULT(ReadieFur::Service::ServiceManager::InstallAndStartService<Bluetooth::TCU>());
 

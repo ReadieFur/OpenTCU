@@ -4,7 +4,6 @@
 #include <freertos/FreeRTOS.h>
 #include <freertos/FreeRTOSConfig.h>
 #include "Config/Pinout.h"
-#include "Config/Device.h"
 #include <freertos/task.h>
 #include <driver/gpio.h>
 #include <driver/spi_master.h>
