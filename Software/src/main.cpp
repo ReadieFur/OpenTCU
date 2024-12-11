@@ -134,6 +134,10 @@ void ConfigureAdditionalLoggers()
 
 extern "C" void app_main()
 {
+    #if defined(DEBUG) && false
+    vTaskDelay(pdMS_TO_TICKS(2000)); //Delay to allow the serial port to initialize.
+    #endif
+
     #ifdef _ENABLE_STDOUT_HOOK
     ReadieFur::Logging::OverrideStdout();
     #endif
