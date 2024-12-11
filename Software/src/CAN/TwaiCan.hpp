@@ -75,7 +75,7 @@ namespace ReadieFur::OpenTCU::CAN
             #ifdef USE_CAN_DRIVER_LOCK
             if (xSemaphoreTake(_driverMutex, timeout) != pdTRUE)
             {
-                LOGW(nameof(CAN::TwaiCan), "Timeout.");
+                // LOGW(nameof(CAN::TwaiCan), "Timeout.");
                 return ESP_ERR_TIMEOUT;
             }
             #endif
@@ -84,8 +84,8 @@ namespace ReadieFur::OpenTCU::CAN
             #ifdef USE_CAN_DRIVER_LOCK
             xSemaphoreGive(_driverMutex);
             #endif
-            if (res != ESP_OK)
-                LOGE(nameof(CAN::TwaiCan), "Failed to send message: %i", res);
+            // if (res != ESP_OK)
+            //     LOGE(nameof(CAN::TwaiCan), "Failed to send message: %i", res);
 
             return res;
         }
@@ -94,27 +94,28 @@ namespace ReadieFur::OpenTCU::CAN
         {
             //Use the read alerts function to wait for a message to be received (instead of locking on the twai_receive function).
             uint32_t alerts;
-            if (esp_err_t err = twai_read_alerts_v2(_driverHandle, &alerts, timeout) != ESP_OK)
+            esp_err_t err;
+            if ((err = twai_read_alerts_v2(_driverHandle, &alerts, timeout)) != ESP_OK)
                 return err;
             //We don't need to check the alert type because we have only subscribed to the RX_DATA alert.
 
             #ifdef USE_CAN_DRIVER_LOCK
             if (xSemaphoreTake(_driverMutex, timeout) != pdTRUE)
             {
-                LOGW(nameof(CAN::TwaiCan), "Timeout.");
+                // LOGW(nameof(CAN::TwaiCan), "Timeout.");
                 return ESP_ERR_TIMEOUT;
             }
             #endif
 
             twai_message_t twaiMessage;
-            esp_err_t err = twai_receive_v2(_driverHandle, &twaiMessage, timeout);
+            err = twai_receive_v2(_driverHandle, &twaiMessage, timeout);
             #ifdef USE_CAN_DRIVER_LOCK
             //TODO: Handle potential failing of this release. If this fails the program will enter a catastrophic state.
             xSemaphoreGive(_driverMutex);
             #endif
             if (err != ESP_OK)
             {
-                LOGE(nameof(CAN::TwaiCan), "Failed to receive message: %i", err);
+                // LOGE(nameof(CAN::TwaiCan), "Failed to receive message: %i", err);
                 return err;
             }
 
@@ -133,7 +134,7 @@ namespace ReadieFur::OpenTCU::CAN
             #ifdef USE_CAN_DRIVER_LOCK
             if (xSemaphoreTake(_driverMutex, timeout) != pdTRUE)
             {
-                LOGW(nameof(CAN::TwaiCan), "Timeout.");
+                // LOGW(nameof(CAN::TwaiCan), "Timeout.");
                 return ESP_ERR_TIMEOUT;
             }
             #endif
