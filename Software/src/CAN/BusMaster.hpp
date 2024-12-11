@@ -61,7 +61,7 @@ namespace ReadieFur::OpenTCU::CAN
         TaskHandle_t _secondaryTaskHandle = NULL;
 
         #pragma region Other data
-        bool _savePersistentData = false;
+        bool _savePersistentData = true;
 
         uint8_t _stringRequestType = 0;
         size_t _stringRequestBufferIndex = 0;
