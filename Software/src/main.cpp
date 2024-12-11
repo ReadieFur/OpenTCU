@@ -142,7 +142,7 @@ void ConfigWatcher(void* pvParameters)
 
 extern "C" void app_main()
 {
-    #if defined(DEBUG) && false
+    #if defined(DEBUG) && true
     vTaskDelay(pdMS_TO_TICKS(2000)); //Delay to allow the serial port to initialize.
     #endif
 
@@ -163,8 +163,8 @@ extern "C" void app_main()
 
     CHECK_ESP_RESULT(Data::Flash::Init());
     CHECK_ESP_RESULT(Data::PersistentData::Init());
-    ReadieFur::Event::TObservableHandle deviceNameObserverHandle;
-    Data::PersistentData::DeviceName.Register(deviceNameObserverHandle);
+    // ReadieFur::Event::TObservableHandle deviceNameObserverHandle;
+    // Data::PersistentData::DeviceName.Register(deviceNameObserverHandle);
 
     CHECK_SERVICE_RESULT(ReadieFur::Service::ServiceManager::InstallAndStartService<CAN::BusMaster>());
     CAN::BusMaster* busMaster = ReadieFur::Service::ServiceManager::GetService<CAN::BusMaster>(); //Create a secondary watcher as we want to capture changes now but not wait on them until later.
@@ -178,6 +178,7 @@ extern "C" void app_main()
     // Data::PersistentData::DeviceName.WaitOne(deviceNameObserverHandle, pdMS_TO_TICKS(3000));
 
     CHECK_ESP_RESULT(ReadieFur::Network::WiFi::Init());
+    ReadieFur::Network::WiFi::ShutdownInterface(WIFI_IF_AP);
 
     #ifdef DEBUG
     ConfigureAdditionalLoggers();
@@ -195,5 +196,5 @@ extern "C" void app_main()
     // CHECK_SERVICE_RESULT(ReadieFur::Service::ServiceManager::InstallAndStartService<Bluetooth::TCU>());
 
     //TODO: Move this to the persistent data service.
-    xTaskCreate(ConfigWatcher, "ConfigWatcher", 4096, nullptr, 5, nullptr);
+    // xTaskCreate(ConfigWatcher, "ConfigWatcher", 4096, nullptr, 5, nullptr);
 }
