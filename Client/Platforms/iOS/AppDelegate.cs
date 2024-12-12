@@ -1,6 +1,6 @@
 ﻿using Foundation;
 
-namespace OpenTCU.Client
+namespace ReadieFur.OpenTCU.Client
 {
     [Register("AppDelegate")]
     public class AppDelegate : MauiUIApplicationDelegate

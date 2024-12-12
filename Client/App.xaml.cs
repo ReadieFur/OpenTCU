@@ -1,4 +1,4 @@
-﻿namespace OpenTCU.Client
+﻿namespace ReadieFur.OpenTCU.Client
 {
     public partial class App : Application
     {
