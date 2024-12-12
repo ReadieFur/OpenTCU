@@ -23,7 +23,7 @@
 		<ApplicationTitle>OpenTCU.Client</ApplicationTitle>
 
 		<!-- App Identifier -->
-		<ApplicationId>com.companyname.opentcu.client</ApplicationId>
+		<ApplicationId>com.readiefur.opentcu.client</ApplicationId>
 
 		<!-- Versions -->
 		<ApplicationDisplayVersion>1.0</ApplicationDisplayVersion>
