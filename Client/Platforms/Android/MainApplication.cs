@@ -1,7 +1,7 @@
 ﻿using Android.App;
 using Android.Runtime;
 
-namespace OpenTCU.Client
+namespace ReadieFur.OpenTCU.Client
 {
     [Application]
     public class MainApplication : MauiApplication

@@ -1,6 +1,6 @@
 ﻿using Microsoft.Extensions.Logging;
 
-namespace OpenTCU.Client
+namespace ReadieFur.OpenTCU.Client
 {
     public static class MauiProgram
     {
