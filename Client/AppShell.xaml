@@ -8,7 +8,7 @@
     Title="ReadieFur.OpenTCU.Client">
 
     <ShellContent
-        Title="Home"
+        Title="OpenTCU"
         ContentTemplate="{DataTemplate local:MainPage}"
         Route="MainPage" />
 
