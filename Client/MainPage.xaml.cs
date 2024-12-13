@@ -335,6 +335,12 @@ namespace ReadieFur.OpenTCU.Client
             };
             await _device.SetPersistentData(persistentData); //TODO: Alert user of success/failure.
 
+            //Get the settings from the device to re-validate the entries.
+            persistentData = await _device.GetPersistentData();
+            _viewModel.RealCircumference = persistentData.BaseWheelCircumference;
+            _viewModel.EmulatedCircumference = persistentData.TargetWheelCircumference;
+            _viewModel.Pin = persistentData.Pin;
+
             ApplyOptionsButton.IsEnabled = true;
         }
     }
