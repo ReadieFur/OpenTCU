@@ -12,70 +12,279 @@
         <VerticalStackLayout
             Padding="30,0"
             Spacing="25">
-            <Grid>
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition/>
-                    <ColumnDefinition/>
-                </Grid.ColumnDefinitions>
+            <VerticalStackLayout
+                Spacing="25">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition/>
+                        <ColumnDefinition/>
+                    </Grid.ColumnDefinitions>
+                    <Label
+                        Grid.Column="0"
+                        Text="Devices"
+                        Style="{StaticResource SubHeadline}"
+                        SemanticProperties.HeadingLevel="Level2"
+                        HorizontalOptions="Start"/>
+                    <Button
+                        Grid.Column="1"
+                        x:Name="ScanButton"
+                        Text="Scan for devices"
+                        HorizontalOptions="End"/>
+                </Grid>
+                <ScrollView
+                    MaximumHeightRequest="200">
+                    <Frame
+                        MinimumHeightRequest="150"
+                        BorderColor = "Transparent"
+                        BackgroundColor="{AppThemeBinding Light={StaticResource Gray100}, Dark={StaticResource Gray900}}">
+                        <VerticalStackLayout
+                            x:Name="DeviceList"
+                            Spacing="15"/>
+                    </Frame>
+                </ScrollView>
+            </VerticalStackLayout>
+            <VerticalStackLayout
+                x:Name="DeviceOptionsPanel"
+                Spacing="25">
                 <Label
-                    Grid.Column="0"
-                    Text="Devices"
+                    x:Name="OptionsLabel"
+                    Text="Options"
                     Style="{StaticResource SubHeadline}"
                     SemanticProperties.HeadingLevel="Level2"
                     HorizontalOptions="Start"/>
+                <Grid
+                    Padding="0,-15,0,0">
+                    <Grid.RowDefinitions>
+                        <RowDefinition/>
+                        <RowDefinition/>
+                    </Grid.RowDefinitions>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="auto"/>
+                        <ColumnDefinition Width="2*"/>
+                        <ColumnDefinition Width="1*"/>
+                    </Grid.ColumnDefinitions>
+                    <Label
+                        Grid.Row="0"
+                        Grid.Column="0"
+                        Text="Real wheel circumference"
+                        HorizontalOptions="Start"
+                        VerticalOptions="Center"/>
+                    <Slider
+                        Grid.Row="0"
+                        Grid.Column="1"
+                        HorizontalOptions="Fill"
+                        Minimum="2000"
+                        Maximum="2400"
+                        Value="{Binding RealCircumference, Mode=TwoWay}"/>
+                    <Entry
+                        Grid.Row="0"
+                        Grid.Column="2"
+                        Keyboard="Numeric"
+                        HorizontalOptions="Fill"
+                        Text="{Binding RealCircumference, Mode=TwoWay}"/>
+                    <Label
+                        Grid.Row="1"
+                        Grid.Column="0"
+                        Text="Emulated wheel circumference"
+                        HorizontalOptions="Start"
+                        VerticalOptions="Center"/>
+                    <Slider
+                        Grid.Row="1"
+                        Grid.Column="1"
+                        HorizontalOptions="Fill"
+                        Minimum="800"
+                        Maximum="2400"
+                        Value="{Binding EmulatedCircumference, Mode=TwoWay}"/>
+                    <Entry
+                        Grid.Row="1"
+                        Grid.Column="2"
+                        Keyboard="Numeric"
+                        HorizontalOptions="Fill"
+                        Text="{Binding EmulatedCircumference, Mode=TwoWay}"/>
+                </Grid>
+                <Grid Padding="0,-15,0,0">
+                    <Grid.RowDefinitions>
+                        <RowDefinition/>
+                        <RowDefinition Height="25"/>
+                        <RowDefinition/>
+                    </Grid.RowDefinitions>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="auto"/>
+                        <ColumnDefinition/>
+                    </Grid.ColumnDefinitions>
+                    <Label
+                        Grid.Row="0"
+                        Grid.Column="0"
+                        Text="Speed multiplier: "
+                        HorizontalOptions="Start"
+                        VerticalOptions="Center"/>
+                    <Label
+                        Grid.Row="0"
+                        Grid.Column="1"
+                        Text="{Binding CircumferenceMultiplier, Mode=OneWay}"
+                        HorizontalOptions="End"
+                        VerticalOptions="Center"/>
+                    <Label
+                        Grid.Row="2"
+                        Grid.Column="0"
+                        Text="Max motor speed: "
+                        HorizontalOptions="Start"
+                        VerticalOptions="Center"/>
+                    <Label
+                        Grid.Row="2"
+                        Grid.Column="1"
+                        Text="{Binding MaxMotorSpeed, Mode=OneWay}"
+                        HorizontalOptions="End"
+                        VerticalOptions="Center"/>
+                </Grid>
                 <Button
-                    Grid.Column="1"
-                    x:Name="ScanButton"
-                    Text="Scan for devices"
-                    HorizontalOptions="End"/>
-            </Grid>
-            <ScrollView
-                MaximumHeightRequest="200">
-                <Frame
-                    MinimumHeightRequest="150"
-                    BorderColor = "Transparent"
-                    BackgroundColor="{AppThemeBinding Light={StaticResource Gray100}, Dark={StaticResource Gray900}}">
-                    <VerticalStackLayout
-                        x:Name="DeviceList"
-                        Spacing="15"/>
-                </Frame>
-            </ScrollView>
-            <Label
-                x:Name="OptionsLabel"
-                Text="Options"
-                Style="{StaticResource SubHeadline}"
-                SemanticProperties.HeadingLevel="Level2"
-                HorizontalOptions="Start"/>
-            <Grid>
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="auto"/>
-                    <ColumnDefinition Width="2*"/>
-                    <ColumnDefinition Width="1*"/>
-                </Grid.ColumnDefinitions>
+                    x:Name="ApplyOptionsButton"
+                    Text="Apply changes (requires restart)"
+                    Clicked="ApplyOptionsButton_Clicked"/>
                 <Label
-                    Grid.Column="0"
-                    x:Name="CircumferenceLabel"
-                    Text="Base wheel circumference"
-                    HorizontalOptions="Start"
-                    VerticalOptions="Center"/>
-                <Slider
-                    Grid.Column="1"
-                    HorizontalOptions="Fill"
-                    Minimum="2000"
-                    Maximum="2400"
-                    Value="{Binding BaseCircumference, Mode=TwoWay}"/>
-                <Entry
-                    Grid.Column="2"
-                    x:Name="CircumferenceEntry"
-                    Keyboard="Numeric"
-                    HorizontalOptions="Fill"
-                    Text="{Binding BaseCircumference, Mode=TwoWay}"/>
-            </Grid>
-            <Label
-                Text="Stats"
-                Style="{StaticResource SubHeadline}"
-                SemanticProperties.HeadingLevel="Level2"
-                HorizontalOptions="Start"/>
+                    Text="Stats"
+                    Style="{StaticResource SubHeadline}"
+                    SemanticProperties.HeadingLevel="Level2"
+                    HorizontalOptions="Start"/>
+                <Grid Padding="0,-15,0,0">
+                    <Grid.RowDefinitions>
+                        <RowDefinition/>
+                        <RowDefinition/>
+                        <RowDefinition/>
+                        <RowDefinition/>
+                        <RowDefinition/>
+                        <RowDefinition/>
+                        <RowDefinition/>
+                        <RowDefinition/>
+                        <RowDefinition/>
+                        <RowDefinition/>
+                    </Grid.RowDefinitions>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="auto"/>
+                        <ColumnDefinition/>
+                    </Grid.ColumnDefinitions>
+                    <Label
+                        Grid.Row="0"
+                        Grid.Column="0"
+                        Text="Bike speed: "
+                        HorizontalOptions="Start"
+                        VerticalOptions="Center"/>
+                    <Label
+                        Grid.Row="0"
+                        Grid.Column="1"
+                        Text="{Binding BikeSpeedStr, Mode=OneWay}"
+                        HorizontalOptions="End"
+                        VerticalOptions="Center"/>
+                    <Label
+                        Grid.Row="1"
+                        Grid.Column="0"
+                        Text="Real speed: "
+                        HorizontalOptions="Start"
+                        VerticalOptions="Center"/>
+                    <Label
+                        Grid.Row="1"
+                        Grid.Column="1"
+                        Text="{Binding RealSpeedStr, Mode=OneWay}"
+                        HorizontalOptions="End"
+                        VerticalOptions="Center"/>
+                    <!--<Label
+                        Grid.Row="2"
+                        Grid.Column="0"
+                        Text="Cadance: "
+                        HorizontalOptions="Start"
+                        VerticalOptions="Center"/>
+                    <Label
+                        Grid.Row="2"
+                        Grid.Column="1"
+                        Text="{Binding Cadance, Mode=OneWay}"
+                        HorizontalOptions="End"
+                        VerticalOptions="Center"/>
+                    <Label
+                        Grid.Row="3"
+                        Grid.Column="0"
+                        Text="Rider power: "
+                        HorizontalOptions="Start"
+                        VerticalOptions="Center"/>
+                    <Label
+                        Grid.Row="3"
+                        Grid.Column="1"
+                        Text="{Binding RiderPowerStr, Mode=OneWay}"
+                        HorizontalOptions="End"
+                        VerticalOptions="Center"/>
+                    <Label
+                        Grid.Row="4"
+                        Grid.Column="0"
+                        Text="Motor power: "
+                        HorizontalOptions="Start"
+                        VerticalOptions="Center"/>
+                    <Label
+                        Grid.Row="4"
+                        Grid.Column="1"
+                        Text="{Binding MotorPowerStr, Mode=OneWay}"
+                        HorizontalOptions="End"
+                        VerticalOptions="Center"/>-->
+                    <Label
+                        Grid.Row="5"
+                        Grid.Column="0"
+                        Text="Battery voltage: "
+                        HorizontalOptions="Start"
+                        VerticalOptions="Center"/>
+                    <Label
+                        Grid.Row="5"
+                        Grid.Column="1"
+                        Text="{Binding BatteryVoltageStr, Mode=OneWay}"
+                        HorizontalOptions="End"
+                        VerticalOptions="Center"/>
+                    <Label
+                        Grid.Row="6"
+                        Grid.Column="0"
+                        Text="Battery current: "
+                        HorizontalOptions="Start"
+                        VerticalOptions="Center"/>
+                    <Label
+                        Grid.Row="6"
+                        Grid.Column="1"
+                        Text="{Binding BatteryCurrentStr, Mode=OneWay}"
+                        HorizontalOptions="End"
+                        VerticalOptions="Center"/>
+                    <Label
+                        Grid.Row="7"
+                        Grid.Column="0"
+                        Text="Ease setting: "
+                        HorizontalOptions="Start"
+                        VerticalOptions="Center"/>
+                    <Label
+                        Grid.Row="7"
+                        Grid.Column="1"
+                        Text="{Binding EaseSetting, Mode=OneWay}"
+                        HorizontalOptions="End"
+                        VerticalOptions="Center"/>
+                    <Label
+                        Grid.Row="8"
+                        Grid.Column="0"
+                        Text="Power setting: "
+                        HorizontalOptions="Start"
+                        VerticalOptions="Center"/>
+                    <Label
+                        Grid.Row="8"
+                        Grid.Column="1"
+                        Text="{Binding PowerSetting, Mode=OneWay}"
+                        HorizontalOptions="End"
+                        VerticalOptions="Center"/>
+                    <Label
+                        Grid.Row="9"
+                        Grid.Column="0"
+                        Text="Walk mode: "
+                        HorizontalOptions="Start"
+                        VerticalOptions="Center"/>
+                    <Label
+                        Grid.Row="9"
+                        Grid.Column="1"
+                        Text="{Binding WalkMode, Mode=OneWay}"
+                        HorizontalOptions="End"
+                        VerticalOptions="Center"/>
+                </Grid>
+            </VerticalStackLayout>
         </VerticalStackLayout>
     </ScrollView>
 </ContentPage>

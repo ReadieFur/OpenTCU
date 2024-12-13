@@ -1,11 +1,6 @@
 ﻿using Plugin.BLE;
 using Plugin.BLE.Abstractions.Contracts;
-using System;
-using System.Collections.Generic;
 using System.Diagnostics;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace ReadieFur.OpenTCU.Client
 {
@@ -52,6 +47,30 @@ namespace ReadieFur.OpenTCU.Client
             }
 
             return true;
+        }
+
+        public async Task GetServices(IDevice device)
+        {
+            try
+            {
+                await Adapter.ConnectToDeviceAsync(device);
+                Debug.WriteLine("Connected to device.");
+
+                var services = await device.GetServicesAsync();
+                foreach (var service in services)
+                {
+                    Debug.WriteLine($"Service: {service.Id}");
+                    var characteristics = await service.GetCharacteristicsAsync();
+                    foreach (var characteristic in characteristics)
+                    {
+                        Debug.WriteLine($"Characteristic: {characteristic.Id}");
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error getting services: {ex.Message}");
+            }
         }
 
         private async Task<bool> CheckAndRequestPermissionsAsync()
