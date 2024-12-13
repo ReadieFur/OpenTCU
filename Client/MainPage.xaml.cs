@@ -8,13 +8,17 @@ namespace ReadieFur.OpenTCU.Client
 {
     public partial class MainPage : ContentPage
     {
-        private BLEWrapper _bleWrapper = new();
-        private IDevice? _device = null;
         private MainPageViewModel _viewModel => (MainPageViewModel)BindingContext;
+        private BLEWrapper _bleWrapper = new();
+        private OpenTCUDevice? _device = null;
+        private CancellationTokenSource? _runtimeStatsCancellationTokenSource = null;
+        private Task? _runtimeStatsTask = null;
 
         public MainPage()
         {
             InitializeComponent();
+
+            DeviceElementsEnabled(false);
 
             _bleWrapper.Adapter.ScanTimeoutElapsed += Adapter_ScanTimeoutElapsed;
             _bleWrapper.Adapter.DeviceDiscovered += OnBleDeviceDiscovered;
@@ -23,7 +27,7 @@ namespace ReadieFur.OpenTCU.Client
             ScanButton.Clicked += OnScannerClicked_Scan;
         }
 
-        private void ContentPage_Loaded(object sender, EventArgs e)
+        private async void ContentPage_Loaded(object sender, EventArgs e)
         {
             Debug.WriteLine("MainPage loaded.");
 
@@ -34,7 +38,25 @@ namespace ReadieFur.OpenTCU.Client
             IDevice? device = _bleWrapper.Adapter.ConnectedDevices.FirstOrDefault(d => d.Name == null || d.Name.StartsWith("OpenTCU"));
             if (device is null)
                 return;
-            _device = device;
+
+            try
+            {
+                _device = await OpenTCUDevice.Initialize(device);
+
+                SPersistentData persistentData = await _device.GetPersistentData();
+                _viewModel.RealCircumference = persistentData.BaseWheelCircumference;
+                _viewModel.EmulatedCircumference = persistentData.TargetWheelCircumference;
+                _viewModel.Pin = persistentData.Pin;
+
+                _runtimeStatsCancellationTokenSource = new();
+                _runtimeStatsTask = new Task(RuntimeStatsTask);
+                _runtimeStatsTask.Start();
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Failed to initialize OpenTCUDevice: {ex.Message}");
+                return;
+            }
 
             DeviceList.Clear();
 
@@ -52,7 +74,10 @@ namespace ReadieFur.OpenTCU.Client
             DeviceList.Add(button);
 
             ScanButton.Text = "Connected";
-            //DevicePanel.IsEnabled = true;
+
+            
+
+            DeviceElementsEnabled(true);
         }
 
         private async void ContentPage_Unloaded(object sender, EventArgs e)
@@ -70,15 +95,21 @@ namespace ReadieFur.OpenTCU.Client
 
         private async void OnDeviceDisconnected(object? sender, Plugin.BLE.Abstractions.EventArgs.DeviceEventArgs e)
         {
-            if (e.Device != _device)
+            if (e.Device != _device?.Device)
                 return;
+
+            _runtimeStatsCancellationTokenSource?.Cancel();
+            if (_runtimeStatsTask is not null)
+                await _runtimeStatsTask;
+            _runtimeStatsCancellationTokenSource = null;
+            _runtimeStatsTask = null;
             _device = null;
 
             await Dispatcher.DispatchAsync(() =>
             {
                 ScanButton.Text = "Scan for devices";
                 ScanButton.IsEnabled = true;
-                //DevicePanel.IsEnabled = false;
+                DeviceElementsEnabled(false);
             });
         }
 
@@ -101,7 +132,7 @@ namespace ReadieFur.OpenTCU.Client
 
         private async void OnDeviceButtonClicked_Connect(object? sender, EventArgs e)
         {
-            if (sender is not Button button || button.BindingContext is not IDevice device || _device == device)
+            if (sender is not Button button || button.BindingContext is not IDevice device || _device?.Device == device)
                 return;
 
             ScanButton.IsEnabled = false;
@@ -111,7 +142,7 @@ namespace ReadieFur.OpenTCU.Client
                 await _bleWrapper.Adapter.StopScanningForDevicesAsync();
 
             if (_device is not null)
-                await _bleWrapper.Adapter.DisconnectDeviceAsync(_device);
+                await _bleWrapper.Adapter.DisconnectDeviceAsync(_device.Device);
 
             //Lock the UI to prevent connection to multiple devices during this connection attempt.
             for (int i = 0; i < DeviceList.Children.Count; i++)
@@ -134,7 +165,20 @@ namespace ReadieFur.OpenTCU.Client
             }
 
             Debug.WriteLine("Connected to device.");
-            _device = device;
+            try
+            {
+                _device = await OpenTCUDevice.Initialize(device);
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Failed to initialize OpenTCUDevice: {ex.Message}");
+                ScanButton.IsEnabled = true;
+                ScanButton.Text = "Scan for devices";
+                for (int i = 0; i < DeviceList.Children.Count; i++)
+                    if (DeviceList.Children[i] is Button b)
+                        b.IsEnabled = true;
+                return;
+            }
 
             ScanButton.Text = "Connected";
             ScanButton.Clicked -= OnScannerClicked_Scan;
@@ -152,15 +196,58 @@ namespace ReadieFur.OpenTCU.Client
             button.Clicked += OnDeviceButtonClicked_Disconnect;
             button.IsEnabled = true;*/
 
-            //DevicePanel.IsEnabled = true;
+            SPersistentData persistentData = await _device.GetPersistentData();
+            _viewModel.RealCircumference = persistentData.BaseWheelCircumference;
+            _viewModel.EmulatedCircumference = persistentData.TargetWheelCircumference;
+            _viewModel.Pin = persistentData.Pin;
+
+            _runtimeStatsCancellationTokenSource = new();
+            _runtimeStatsTask = new Task(RuntimeStatsTask);
+            _runtimeStatsTask.Start();
+
+            DeviceElementsEnabled(true);
+        }
+
+        private async void RuntimeStatsTask()
+        {
+            while (!_runtimeStatsCancellationTokenSource?.Token.IsCancellationRequested ?? false && _device is not null)
+            {
+                try
+                {
+                    SRuntimeStats runtimeStats = await _device!.GetRuntimeStats();
+                    //Debug.WriteLine($"BikeSpeed: {runtimeStats.BikeSpeed}, RealSpeed: {runtimeStats.RealSpeed}, Cadance: {runtimeStats.Cadance}, RiderPower: {runtimeStats.RiderPower}, MotorPower: {runtimeStats.MotorPower}, BatteryVoltage: {runtimeStats.BatteryVoltage}, BatteryCurrent: {runtimeStats.BatteryCurrent}, EaseSetting: {runtimeStats.EaseSetting}, PowerSetting: {runtimeStats.PowerSetting}, WalkMode: {runtimeStats.WalkMode}");
+                    _viewModel.BikeSpeed = runtimeStats.BikeSpeed;
+                    _viewModel.RealSpeed = runtimeStats.RealSpeed;
+                    _viewModel.Cadance = runtimeStats.Cadance;
+                    _viewModel.RiderPower = runtimeStats.RiderPower;
+                    _viewModel.MotorPower = runtimeStats.MotorPower;
+                    _viewModel.BatteryVoltage = runtimeStats.BatteryVoltage;
+                    _viewModel.BatteryCurrent = runtimeStats.BatteryCurrent;
+                    _viewModel.EaseSetting = runtimeStats.EaseSetting;
+                    _viewModel.PowerSetting = runtimeStats.PowerSetting;
+                    _viewModel.WalkMode = runtimeStats.WalkMode;
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"Failed to get runtime stats: {ex.Message}");
+                }
+
+                await Task.Delay(1000);
+            }
         }
 
         private async void OnDeviceButtonClicked_Disconnect(object? sender, EventArgs e)
         {
-            if (sender is not Button button || button.BindingContext is not IDevice device || _device is null || device != _device)
+            if (sender is not Button button || button.BindingContext is not IDevice device || _device is null || device != _device.Device)
                 return;
 
-            await _bleWrapper.Adapter.DisconnectDeviceAsync(_device);
+            await _bleWrapper.Adapter.DisconnectDeviceAsync(_device.Device);
+
+            _runtimeStatsCancellationTokenSource?.Cancel();
+            if (_runtimeStatsTask is not null)
+                await _runtimeStatsTask;
+            _runtimeStatsCancellationTokenSource = null;
+            _runtimeStatsTask = null;
             _device = null;
 
             button.Clicked -= OnDeviceButtonClicked_Disconnect;
@@ -192,7 +279,13 @@ namespace ReadieFur.OpenTCU.Client
             if (_device is null)
                 return;
 
-            await _bleWrapper.Adapter.DisconnectDeviceAsync(_device);
+            await _bleWrapper.Adapter.DisconnectDeviceAsync(_device.Device);
+
+            _runtimeStatsCancellationTokenSource?.Cancel();
+            if (_runtimeStatsTask is not null)
+                await _runtimeStatsTask;
+            _runtimeStatsCancellationTokenSource = null;
+            _runtimeStatsTask = null;
             _device = null;
 
             //ScanButton.Text = "Scan for devices"; //Text set by OnDeviceDisconnected.
@@ -202,6 +295,47 @@ namespace ReadieFur.OpenTCU.Client
             for (int i = 0; i < DeviceList.Children.Count; i++)
                 if (DeviceList.Children[i] is Button b)
                     b.IsEnabled = true;
+        }
+
+        private void DeviceElementsEnabled(bool isEnabled)
+        {
+            //Iterate over all children in DeviceOptionsPanel and set the IsEnabled property.
+            for (int i = 0; i < DeviceOptionsPanel.Children.Count; i++)
+                if (DeviceOptionsPanel.Children[i] is View view)
+                    view.IsEnabled = isEnabled;
+        }
+
+        private async void ApplyOptionsButton_Clicked(object sender, EventArgs e)
+        {
+            if (_device is null)
+                return;
+
+            ApplyOptionsButton.IsEnabled = false;
+
+            if (_viewModel.RealCircumference > 2400)
+                _viewModel.RealCircumference = 2400;
+            else if (_viewModel.RealCircumference < 2000)
+                _viewModel.RealCircumference = 2000;
+
+            if (_viewModel.EmulatedCircumference > 2400)
+                _viewModel.EmulatedCircumference = 2400;
+            else if (_viewModel.EmulatedCircumference < 800)
+                _viewModel.EmulatedCircumference = 800;
+
+            if (_viewModel.Pin < uint.MinValue)
+                _viewModel.Pin = uint.MinValue;
+            else if (_viewModel.Pin > uint.MaxValue)
+                _viewModel.Pin = uint.MaxValue;
+
+            SPersistentData persistentData = new()
+            {
+                BaseWheelCircumference = (UInt16)_viewModel.RealCircumference,
+                TargetWheelCircumference = (UInt16)_viewModel.EmulatedCircumference,
+                Pin = (UInt32)_viewModel.Pin
+            };
+            await _device.SetPersistentData(persistentData); //TODO: Alert user of success/failure.
+
+            ApplyOptionsButton.IsEnabled = true;
         }
     }
 }

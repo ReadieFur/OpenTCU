@@ -63,4 +63,6 @@
 		<PackageReference Include="Plugin.BLE" Version="3.1.0" />
 	</ItemGroup>
 
+	<ProjectExtensions><VisualStudio><UserProperties XamarinHotReloadUnhandledDeviceExceptionReadieFurOpenTCUClientHideInfoBar="True" /></VisualStudio></ProjectExtensions>
+
 </Project>
