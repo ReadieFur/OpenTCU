@@ -4,6 +4,12 @@
 #include <hal/adc_hal.h>
 
 /**
+ * TCU parameters.
+ */
+// #define TCU_NAME                    "WSBC..."
+#define TCU_CODE                     123456
+
+/**
  * Pinout configuration for the TWAI controller(s).
  */
 #define TWAI1_TX_PIN                 GPIO_NUM_7
