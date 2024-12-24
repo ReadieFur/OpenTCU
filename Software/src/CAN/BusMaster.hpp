@@ -42,7 +42,6 @@ namespace ReadieFur::OpenTCU::CAN
         #ifdef ENABLE_CAN_DUMP
         static const uint CAN_DUMP_QUEUE_SIZE = 500;
         #endif
-        constexpr static const char* CONFIG_PATH = "/spiffs/can.json";
 
         struct SRelayTaskParameters
         {
@@ -185,8 +184,6 @@ namespace ReadieFur::OpenTCU::CAN
                 #if defined(ENABLE_CAN_DUMP) && defined(CAN_DUMP_BEFORE_INTERCEPT)
                 LogMessage(bus, message);
                 #endif
-
-
 
                 //Analyze the message and modify it if needed.
                 InterceptMessage(&message);

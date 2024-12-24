@@ -159,7 +159,7 @@ extern "C" void app_main()
     // Data::PersistentData::DeviceName.Register(deviceNameObserverHandle);
 
     CHECK_SERVICE_RESULT(ReadieFur::Service::ServiceManager::InstallAndStartService<CAN::BusMaster>());
-    CAN::BusMaster* busMaster = ReadieFur::Service::ServiceManager::GetService<CAN::BusMaster>(); //Create a secondary watcher as we want to capture changes now but not wait on them until later.
+    // CAN::BusMaster* busMaster = ReadieFur::Service::ServiceManager::GetService<CAN::BusMaster>(); //Create a secondary watcher as we want to capture changes now but not wait on them until later.
 
     #ifdef DEBUG
     CHECK_SERVICE_RESULT(ReadieFur::Service::ServiceManager::InstallAndStartService<ReadieFur::Diagnostic::DiagnosticsService>());
