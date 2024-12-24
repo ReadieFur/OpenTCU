@@ -3,7 +3,7 @@
 #include <esp_check.h>
 #include <freertos/FreeRTOS.h>
 #include <freertos/FreeRTOSConfig.h>
-#include "Data/Pinout.h"
+#include "Data/StaticConfig.h"
 #include <freertos/task.h>
 #include <driver/gpio.h>
 #include <driver/spi_master.h>
@@ -163,7 +163,7 @@ namespace ReadieFur::OpenTCU::CAN
                     switch (res)
                     {
                     case ESP_ERR_TIMEOUT:
-                        #ifdef DEBUG
+                        #if defined(DEBUG) && true
                         //While debugging I have the board externally powered so the bike can be off and this error is to be expected.
                         #else
                         //Messages should never time out as they are sent extremely frequently.

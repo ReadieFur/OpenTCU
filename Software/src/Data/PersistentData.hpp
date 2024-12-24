@@ -7,6 +7,7 @@
 #include <Logging.hpp>
 #include <ArduinoJson.h>
 #include <esp_mac.h>
+#include "StaticConfig.h"
 
 namespace ReadieFur::OpenTCU::Data
 {
@@ -81,4 +82,4 @@ ReadieFur::Event::Observable<std::string> ReadieFur::OpenTCU::Data::PersistentDa
 std::string ReadieFur::OpenTCU::Data::PersistentData::BikeSerialNumber;
 uint16_t ReadieFur::OpenTCU::Data::PersistentData::BaseWheelCircumference = 2160;
 uint16_t ReadieFur::OpenTCU::Data::PersistentData::TargetWheelCircumference = 2160;
-uint32_t ReadieFur::OpenTCU::Data::PersistentData::Pin;
+uint32_t ReadieFur::OpenTCU::Data::PersistentData::Pin = TCU_CODE;
