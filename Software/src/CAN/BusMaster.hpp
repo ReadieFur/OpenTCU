@@ -25,8 +25,8 @@
 #include "Data/PersistentData.hpp"
 #include "Data/RuntimeStats.hpp"
 
-// #define CAN_DUMP_BEFORE_INTERCEPT
-#define CAN_DUMP_AFTER_INTERCEPT
+#define CAN_DUMP_BEFORE_INTERCEPT
+// #define CAN_DUMP_AFTER_INTERCEPT
 
 namespace ReadieFur::OpenTCU::CAN
 {
@@ -40,7 +40,7 @@ namespace ReadieFur::OpenTCU::CAN
         static const uint SECONDARY_TASK_PRIORITY = configMAX_PRIORITIES * 0.3;
         static const TickType_t SECONDARY_TASK_INTERVAL = pdMS_TO_TICKS(1000);
         #ifdef ENABLE_CAN_DUMP
-        static const uint CAN_DUMP_QUEUE_SIZE = 500;
+        static const uint CAN_DUMP_QUEUE_SIZE = 1000;
         #endif
 
         struct SRelayTaskParameters
@@ -162,7 +162,7 @@ namespace ReadieFur::OpenTCU::CAN
                     switch (res)
                     {
                     case ESP_ERR_TIMEOUT:
-                        #if defined(DEBUG) && true
+                        #if defined(DEBUG) && false
                         //While debugging I have the board externally powered so the bike can be off and this error is to be expected.
                         #else
                         //Messages should never time out as they are sent extremely frequently.
@@ -208,8 +208,6 @@ namespace ReadieFur::OpenTCU::CAN
                         LOGE(nameof(CAN::BusMaster), "CAN%c failed to relay message: %i", otherBus, res);
                         break;
                     }
-                    taskYIELD();
-                    continue;
                 }
 
                 //Yield to allow other higher priority tasks to run, but use this method over vTaskDelay(0) keep delay time to a minimal as this is a very high priority task.
