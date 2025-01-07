@@ -38,10 +38,18 @@
 #include "Data/PersistentData.hpp"
 #include <Event/Observable.hpp>
 
+#ifdef WS2812B_PIN
+#include <FastLED.h> //Currently not detected by the compiler...
+CRGB leds[1];
+#endif
+
+//TODO: Change to take a status rather than colour.
+void (*setLed)(ushort, ushort, ushort);
+
 #define CHECK_SERVICE_RESULT(func) do {                                                 \
         ReadieFur::Service::EServiceResult result = func;                               \
         if (result == ReadieFur::Service::Ok) break;                                    \
-        LOGE(pcTaskGetName(NULL), "[%d] Failed with result: %i", __LINE__, result);                    \
+        LOGE(pcTaskGetName(NULL), "[%d] Failed with result: %i", __LINE__, result);     \
         abort();                                                                        \
     } while (0)
 
@@ -144,6 +152,22 @@ extern "C" void app_main()
 
     // SetCPUFrequency();
     SetLogLevel();
+
+    gpio_config_t ledIOConfig = {
+        .mode = GPIO_MODE_OUTPUT,
+        .pull_up_en = GPIO_PULLUP_DISABLE,
+        .pull_down_en = GPIO_PULLDOWN_DISABLE,
+        .intr_type = GPIO_INTR_DISABLE
+    };
+    #if defined(WS2812B_PIN)
+    setLed = [](ushort r, ushort g, ushort b) { leds[0] = CRGB(r, g, b); FastLED.show(); };
+    ledIOConfig.pin_bit_mask = 1ULL << WS2812B_PIN;
+    FastLED.addLeds<WS2812B, WS2812B_PIN, GRB>(leds, 1);
+    #elif defined(LED_PIN)
+    setLed = [](ushort r, ushort g, ushort b) { if (r > 0 || g > 0 || b > 0) gpio_set_level(LED_PIN, 1); else gpio_set_level(LED_PIN, 0); };
+    ledIOConfig.pin_bit_mask = 1ULL << LED_PIN;
+    #endif
+    gpio_config(&ledIOConfig);
 
     esp_err_t err = nvs_flash_init();
     if (err == ESP_ERR_NVS_NO_FREE_PAGES || err == ESP_ERR_NVS_NEW_VERSION_FOUND)

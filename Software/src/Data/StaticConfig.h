@@ -25,3 +25,9 @@
 // #define MCP_MOSI_PIN                GPIO_NUM_14
 // #define MCP_MISO_PIN                GPIO_NUM_13
 // #define MCP_CS_PIN                  GPIO_NUM_18
+
+/**
+ * Misc pinout configuration.
+ */
+#define LED_PIN                     GPIO_NUM_15
+// #define WS2812B_PIN                 GPIO_NUM_8
