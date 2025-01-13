@@ -37,7 +37,7 @@ namespace ReadieFur::OpenTCU::Bluetooth
         TCU()
         {
             ServiceEntrypointStackDepth += 1024;
-            AddDependencyType<ReadieFur::Network::Bluetooth::BLE>();
+            // AddDependencyType<ReadieFur::Network::Bluetooth::BLE>();
         }
     };
 };

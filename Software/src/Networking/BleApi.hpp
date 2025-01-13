@@ -12,17 +12,17 @@
 #endif
 #include "Data/PersistentData.hpp"
 #include "Data/RuntimeStats.hpp"
-#include <Network/WiFi.hpp>
+#include <Network/WiFi/Modem.hpp>
 #include <string>
 #include <cstring>
 
 #define _BLE_TCU_NOTIFY(uuid, property) \
     esp_ble_gatts_send_indicate(_serverProfile.gattsIf, _serverProfile.connectionId, liveDataService.GetAttributeHandle(Network::Bluetooth::SUUID(uuid)), sizeof(CAN::SLiveData::property), reinterpret_cast<uint8_t*>(&liveData.property), false);
 
-namespace ReadieFur::OpenTCU::Bluetooth
+namespace ReadieFur::OpenTCU::Networking
 {
     //https://www.bluetooth.com/wp-content/uploads/Files/Specification/HTML/Assigned_Numbers/out/en/Assigned_Numbers.pdf?v=1733673361043
-    class API : public Service::AService
+    class BleApi : public Service::AService
     {
     private:
         Network::Bluetooth::SGattServerProfile _serverProfile =
@@ -69,10 +69,10 @@ namespace ReadieFur::OpenTCU::Bluetooth
             const char* passwordCStr = password.c_str();
             std::strncpy(reinterpret_cast<char*>(apConfig.ap.password), passwordCStr, sizeof(apConfig.ap.password));
 
-            esp_err_t err = ReadieFur::Network::WiFi::ConfigureInterface(WIFI_IF_AP, apConfig);
+            esp_err_t err = ReadieFur::Network::WiFi::Modem::ConfigureInterface(WIFI_IF_AP, apConfig);
             if (err != ESP_OK)
             {
-                LOGE(nameof(Bluetooth::API), "Failed to start AP mode: %s", esp_err_to_name(err));
+                LOGE(nameof(Networking::BleApi), "Failed to start AP mode: %s", esp_err_to_name(err));
                 return ESP_GATT_INTERNAL_ERROR;
             }
 
@@ -80,14 +80,14 @@ namespace ReadieFur::OpenTCU::Bluetooth
             otaHttpdConfig.task_priority = tskIDLE_PRIORITY + 5;
             otaHttpdConfig.server_port = 81;
             otaHttpdConfig.ctrl_port += 1;
-            err = ReadieFur::Network::OTA::API::Init(&otaHttpdConfig);
+            err = ReadieFur::Network::WiFi::OTA::Init(&otaHttpdConfig);
             if (err != ESP_OK)
             {
-                LOGE(nameof(Bluetooth::API), "Failed to start OTA server: %s", esp_err_to_name(err));
+                LOGE(nameof(Networking::BleApi), "Failed to start OTA server: %s", esp_err_to_name(err));
                 return ESP_GATT_INTERNAL_ERROR;
             }
 
-            LOGI(nameof(Bluetooth::API), "AP mode started.");
+            LOGI(nameof(Networking::BleApi), "AP mode started.");
             return ESP_GATT_OK;
         }
 
@@ -96,7 +96,7 @@ namespace ReadieFur::OpenTCU::Bluetooth
         {
             if (!Network::Bluetooth::BLE::IsInitialized())
             {
-                LOGE(nameof(Bluetooth::API), "BLE API not initialized.");
+                LOGE(nameof(Networking::BleApi), "BLE API not initialized.");
                 return;
             }
 
@@ -220,19 +220,19 @@ namespace ReadieFur::OpenTCU::Bluetooth
                     bool hasChanges = false;
                     if (Data::PersistentData::BaseWheelCircumference != baseWheelCircumference)
                     {
-                        LOGI(nameof(Bluetooth::API), "Setting base wheel circumference to %i", baseWheelCircumference);
+                        LOGI(nameof(Networking::BleApi), "Setting base wheel circumference to %i", baseWheelCircumference);
                         Data::PersistentData::BaseWheelCircumference = baseWheelCircumference;
                         hasChanges = true;
                     }
                     if (Data::PersistentData::TargetWheelCircumference != targetWheelCircumference)
                     {
-                        LOGI(nameof(Bluetooth::API), "Setting target wheel circumference to %i", targetWheelCircumference);
+                        LOGI(nameof(Networking::BleApi), "Setting target wheel circumference to %i", targetWheelCircumference);
                         busMaster->SetTargetWheelCircumference(targetWheelCircumference); //The persistent data is updated via this call.
                         hasChanges = true;
                     }
                     if (Data::PersistentData::Pin != pin)
                     {
-                        LOGI(nameof(Bluetooth::API), "Setting new pin.");
+                        LOGI(nameof(Networking::BleApi), "Setting new pin.");
                         Data::PersistentData::Pin = pin;
                         ReadieFur::Network::Bluetooth::BLE::SetPin(pin);
                         hasChanges = true;
@@ -241,7 +241,7 @@ namespace ReadieFur::OpenTCU::Bluetooth
                     if (!hasChanges)
                         return ESP_GATT_OK;
 
-                    if (ReadieFur::Network::WiFi::GetMode() == WIFI_MODE_AP)
+                    if (ReadieFur::Network::WiFi::Modem::GetMode() == WIFI_MODE_AP)
                         return ConfigureAP();
 
                     Data::PersistentData::Save();
@@ -255,7 +255,7 @@ namespace ReadieFur::OpenTCU::Bluetooth
                 ESP_GATT_PERM_READ | ESP_GATT_PERM_WRITE,
                 [](uint8_t* outValue, uint16_t* outLength)
                 {
-                    outValue[0] = ReadieFur::Network::WiFi::GetMode() == WIFI_MODE_AP ? 0x01 : 0x00;
+                    outValue[0] = ReadieFur::Network::WiFi::Modem::GetMode() == WIFI_MODE_AP ? 0x01 : 0x00;
                     *outLength = sizeof(uint8_t);
                     return ESP_GATT_OK;
                 },
@@ -264,19 +264,19 @@ namespace ReadieFur::OpenTCU::Bluetooth
                     if (inLength != sizeof(uint8_t))
                         return ESP_GATT_ILLEGAL_PARAMETER;
 
-                    LOGD(nameof(Bluetooth::API), "Setting AP mode to %s", inValue[0] == 0x01 ? "on" : "off");
+                    LOGD(nameof(Networking::BleApi), "Setting AP mode to %s", inValue[0] == 0x01 ? "on" : "off");
 
                     //TODO: Fix this.
                     bool enable = inValue[0] == 0x01;
-                    wifi_mode_t currentMode = ReadieFur::Network::WiFi::GetMode();
+                    wifi_mode_t currentMode = ReadieFur::Network::WiFi::Modem::GetMode();
                     if (enable && currentMode == WIFI_MODE_AP)
                     {
-                        LOGD(nameof(Bluetooth::API), "AP mode is already enabled.");
+                        LOGD(nameof(Networking::BleApi), "AP mode is already enabled.");
                         return ESP_GATT_OK;
                     }
                     else if (!enable && currentMode != WIFI_MODE_AP)
                     {
-                        LOGD(nameof(Bluetooth::API), "AP mode is already disabled.");
+                        LOGD(nameof(Networking::BleApi), "AP mode is already disabled.");
                         return ESP_GATT_OK;
                     }
                     else if (enable && currentMode != WIFI_MODE_AP)
@@ -285,19 +285,19 @@ namespace ReadieFur::OpenTCU::Bluetooth
                     }
                     else if (!enable && currentMode == WIFI_MODE_AP)
                     {
-                        ReadieFur::Network::OTA::API::Deinit();
-                        esp_err_t err = ReadieFur::Network::WiFi::ShutdownInterface(WIFI_IF_AP);
+                        ReadieFur::Network::WiFi::OTA::Deinit();
+                        esp_err_t err = ReadieFur::Network::WiFi::Modem::ShutdownInterface(WIFI_IF_AP);
                         if (err != ESP_OK)
                         {
-                            LOGE(nameof(Bluetooth::API), "Failed to stop AP mode: %s", esp_err_to_name(err));
+                            LOGE(nameof(Networking::BleApi), "Failed to stop AP mode: %s", esp_err_to_name(err));
                             return ESP_GATT_INTERNAL_ERROR;
                         }
 
-                        LOGI(nameof(Bluetooth::API), "AP mode stopped.");
+                        LOGI(nameof(Networking::BleApi), "AP mode stopped.");
                         return ESP_GATT_OK;
                     }
 
-                    LOGE(nameof(Bluetooth::API), "Invalid AP mode state.");
+                    LOGE(nameof(Networking::BleApi), "Invalid AP mode state.");
                     return ESP_GATT_INTERNAL_ERROR; //We shouldn't reach here.
                 });
 
@@ -320,7 +320,7 @@ namespace ReadieFur::OpenTCU::Bluetooth
                 {
                     if (inLength != injectMessageDataSize)
                     {
-                        LOGW(nameof(Bluetooth::API), "Invalid message length: %i", inLength);
+                        LOGW(nameof(Networking::BleApi), "Invalid message length: %i", inLength);
                         return ESP_GATT_ILLEGAL_PARAMETER;
                     }
 
@@ -334,7 +334,7 @@ namespace ReadieFur::OpenTCU::Bluetooth
                     };
                     if (message.length > 8)
                     {
-                        LOGW(nameof(Bluetooth::API), "Invalid data length: %i", message.length);
+                        LOGW(nameof(Networking::BleApi), "Invalid data length: %i", message.length);
                         return ESP_GATT_ILLEGAL_PARAMETER;
                     }
                     for (size_t i = 0; i < message.length; i++)
@@ -343,7 +343,7 @@ namespace ReadieFur::OpenTCU::Bluetooth
                     esp_err_t res = busMaster->InjectMessage(bus, message);
                     if (res != ESP_OK)
                     {
-                        LOGE(nameof(Bluetooth::API), "Failed to inject message: %i", res);
+                        LOGE(nameof(Networking::BleApi), "Failed to inject message: %i", res);
                         return ESP_GATT_INTERNAL_ERROR;
                     }
 
@@ -361,17 +361,17 @@ namespace ReadieFur::OpenTCU::Bluetooth
                     //Make sure the length is a multiple of 4.
                     if (inLength % 4 != 0)
                     {
-                        LOGW(nameof(Bluetooth::API), "Invalid whitelist length: %i", inLength);
+                        LOGW(nameof(Networking::BleApi), "Invalid whitelist length: %i", inLength);
                         return ESP_GATT_ILLEGAL_PARAMETER;
                     }
 
-                    LOGD(nameof(Bluetooth::API), "Clearing log whitelist.");
+                    LOGD(nameof(Networking::BleApi), "Clearing log whitelist.");
                     logger->Whitelist.clear();
 
                     for (size_t i = 0; i < inLength; i += 4)
                     {
                         uint32_t id = inValue[i] | inValue[i + 1] << 8 | inValue[i + 2] << 16 | inValue[i + 3] << 24;
-                        LOGD(nameof(Bluetooth::API), "Adding ID to whitelist: %x", id);
+                        LOGD(nameof(Networking::BleApi), "Adding ID to whitelist: %x", id);
                         logger->Whitelist.push_back(id);
                     }
 
@@ -386,7 +386,7 @@ namespace ReadieFur::OpenTCU::Bluetooth
                 nullptr,
                 [logger](uint8_t* inValue, uint16_t inLength)
                 {
-                    LOGW(nameof(Bluetooth::API), "Rebooting device.");
+                    LOGW(nameof(Networking::BleApi), "Rebooting device.");
                     esp_restart();
                     return ESP_GATT_OK;
                 }
@@ -399,7 +399,7 @@ namespace ReadieFur::OpenTCU::Bluetooth
                 nullptr,
                 [busMaster](uint8_t* inValue, uint16_t inLength)
                 {
-                    LOGD(nameof(Bluetooth::API), "Toggling runtime stats to %s", busMaster->EnableRuntimeStats ? "off" : "on");
+                    LOGD(nameof(Networking::BleApi), "Toggling runtime stats to %s", busMaster->EnableRuntimeStats ? "off" : "on");
                     busMaster->EnableRuntimeStats = !busMaster->EnableRuntimeStats;
                     return ESP_GATT_OK;
                 }
@@ -411,11 +411,11 @@ namespace ReadieFur::OpenTCU::Bluetooth
             esp_err_t err;
             if ((err = Network::Bluetooth::BLE::RegisterServerApp(&_serverProfile)) != ESP_OK)
             {
-                LOGE(nameof(Bluetooth::API), "Failed to register server app: %s", esp_err_to_name(err));
+                LOGE(nameof(Networking::BleApi), "Failed to register server app: %s", esp_err_to_name(err));
                 return;
             }
 
-            LOGD(nameof(Bluetooth::API), "BLE API started.");
+            LOGD(nameof(Networking::BleApi), "BLE API started.");
 
             ServiceCancellationToken.WaitForCancellation();
 
@@ -427,7 +427,7 @@ namespace ReadieFur::OpenTCU::Bluetooth
         }
 
     public:
-        API()
+        BleApi()
         {
             ServiceEntrypointStackDepth += 1024;
             AddDependencyType<CAN::BusMaster>();

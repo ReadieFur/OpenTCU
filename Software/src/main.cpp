@@ -20,12 +20,12 @@
 #ifdef DEBUG
 #include "Diagnostic/DiagnosticsService.hpp"
 #endif
-#include <Network/WiFi.hpp>
-#include <Network/OTA/API.hpp>
+#include <Network/WiFi/Modem.hpp>
+#include <Network/Wifi/OTA.hpp>
 #include <esp_pm.h>
 #include <Network/Bluetooth/BLE.hpp>
-#include "Bluetooth/API.hpp"
-// #include "Bluetooth/TCU.hpp"
+#include "Networking/BleApi.hpp"
+// #include "Networking/TCU.hpp"
 #include <string>
 #include <esp_mac.h>
 #include <cstring>
@@ -91,7 +91,7 @@ void SetLogLevel()
     // esp_log_level_set(nameof(CAN::McpCan), ESP_LOG_ERROR);
     esp_log_level_set(nameof(CAN::Logger), ESP_LOG_INFO);
     esp_log_level_set(nameof(OTA::API), ESP_LOG_DEBUG);
-    // esp_log_level_set(nameof(Bluetooth::TCU), ESP_LOG_DEBUG);
+    // esp_log_level_set(nameof(Networking::TCU), ESP_LOG_DEBUG);
     #else
     esp_log_level_set("*", ESP_LOG_INFO);
     #endif
@@ -193,8 +193,8 @@ extern "C" void app_main()
     //If the times out then the default value will be used.
     // Data::PersistentData::DeviceName.WaitOne(deviceNameObserverHandle, pdMS_TO_TICKS(3000));
 
-    CHECK_ESP_RESULT(ReadieFur::Network::WiFi::Init());
-    ReadieFur::Network::WiFi::ShutdownInterface(WIFI_IF_AP);
+    CHECK_ESP_RESULT(ReadieFur::Network::WiFi::Modem::Init());
+    ReadieFur::Network::WiFi::Modem::ShutdownInterface(WIFI_IF_AP);
 
     #ifdef DEBUG
     ConfigureAdditionalLoggers();
@@ -208,7 +208,7 @@ extern "C" void app_main()
     #endif
 
     CHECK_ESP_RESULT(ReadieFur::Network::Bluetooth::BLE::Init(Data::PersistentData::DeviceName.Get().c_str(), Data::PersistentData::Pin));
-    CHECK_SERVICE_RESULT(ReadieFur::Service::ServiceManager::InstallAndStartService<Bluetooth::API>());
-    // CHECK_SERVICE_RESULT(ReadieFur::Service::ServiceManager::InstallAndStartService<Bluetooth::TCU>());
+    CHECK_SERVICE_RESULT(ReadieFur::Service::ServiceManager::InstallAndStartService<Networking::BleApi>());
+    // CHECK_SERVICE_RESULT(ReadieFur::Service::ServiceManager::InstallAndStartService<Networking::TCU>());
     // CHECK_ESP_RESULT(InitOTA()); //OTA currently configured in the BT API.
 }
