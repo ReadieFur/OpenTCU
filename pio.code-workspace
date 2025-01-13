@@ -102,7 +102,10 @@
 			"codecvt": "cpp",
 			"filesystem": "cpp",
 			"forward_list": "cpp",
-			"fstream": "cpp"
+			"fstream": "cpp",
+			"bitset": "cpp",
+			"csignal": "cpp",
+			"netfwd": "cpp"
 		}
 	}
 }

@@ -37,6 +37,7 @@
 #include "Data/Flash.hpp"
 #include "Data/PersistentData.hpp"
 #include <Event/Observable.hpp>
+#include <Network/WiFi/EspNow.hpp> //TODO: Temporarily included to check compilation status of this file.
 
 #ifdef WS2812B_PIN
 #include <FastLED.h> //Currently not detected by the compiler...
@@ -211,4 +212,6 @@ extern "C" void app_main()
     CHECK_SERVICE_RESULT(ReadieFur::Service::ServiceManager::InstallAndStartService<Networking::BleApi>());
     // CHECK_SERVICE_RESULT(ReadieFur::Service::ServiceManager::InstallAndStartService<Networking::TCU>());
     // CHECK_ESP_RESULT(InitOTA()); //OTA currently configured in the BT API.
+
+    CHECK_ESP_RESULT(ReadieFur::Network::WiFi::EspNow::Init()); //TODO: Move to own service file, just here for init testing.
 }
