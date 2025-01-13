@@ -210,4 +210,5 @@ extern "C" void app_main()
     CHECK_ESP_RESULT(ReadieFur::Network::Bluetooth::BLE::Init(Data::PersistentData::DeviceName.Get().c_str(), Data::PersistentData::Pin));
     CHECK_SERVICE_RESULT(ReadieFur::Service::ServiceManager::InstallAndStartService<Bluetooth::API>());
     // CHECK_SERVICE_RESULT(ReadieFur::Service::ServiceManager::InstallAndStartService<Bluetooth::TCU>());
+    // CHECK_ESP_RESULT(InitOTA()); //OTA currently configured in the BT API.
 }

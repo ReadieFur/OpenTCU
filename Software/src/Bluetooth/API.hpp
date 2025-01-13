@@ -77,6 +77,7 @@ namespace ReadieFur::OpenTCU::Bluetooth
             }
 
             httpd_config_t otaHttpdConfig = HTTPD_DEFAULT_CONFIG();
+            otaHttpdConfig.task_priority = tskIDLE_PRIORITY + 5;
             otaHttpdConfig.server_port = 81;
             otaHttpdConfig.ctrl_port += 1;
             err = ReadieFur::Network::OTA::API::Init(&otaHttpdConfig);
