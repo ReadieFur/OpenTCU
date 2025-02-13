@@ -22,7 +22,7 @@ This directory contains all the hardware related files and images (such as dimen
 The Turbo Control Unit (TCU) is the computer that manages the motor and battery of the bike, its purpose is to gather metrics about the system and configure components based on user preferences.  
 Within the TCU system there is the Mastermind TCU, motor, and battery.  
 Through some research online the engineers workbook for the Turbo Levo was found, this document contains a lot of information on the mechanical properties of the bike and hints at the electrical properties. From this it was stated that the TCU system uses the CAN bus protocol to communicate between the components.  
-<img src="../Hardware/ProtocolDiagram.png" alt="Protocol Diagram" width="500"/>  
+<img src="../Hardware/ProtocolDiagram.png" alt="Protocol Diagram" height="300"/>  
 
 ### Methodology
 When starting this project I had the idea of attempting to extract the firmware from the TCU, I started out by opening the TCU and looking for any debug ports or JTAG headers, however, with my limited hardware knowledge I was unable to find any or risk damaging the TCU, though I did notice some contact pads that look like they could be for debugging or JTAG, however the chip likley has it'd firmware encrypted as after looking up the silkscreen on the chip I found it supports firmware encryption and secure boot.  
@@ -47,7 +47,7 @@ With these discoveries I was able to determine the final pinout of the connector
 Since working on this project I have found where the official connectors can be sourced from, however they are not cheap. Before knowing where to source the connectors I had decided to model the connectors myself so that they could be 3D printed.  
 In order to do this I took various measurements of the connector and had recreated it inside of Blender using geometry nodes so that I could easily tweak parameters to adjust the connector to fit the TCU.  
 *When I get back to working on the connectors I will tidy up the geometry node graph as it is very messy right now.*  
-<img src="../Hardware/ChogoriConnectorModelled.png" alt="Chogori Connector" width="500"/>  
+<img src="../Hardware/ChogoriConnectorModelled.png" alt="Chogori Connector" height="300"/>  
 Getting this model to fit the plugs required a lot of trial and error, printing and adjusting the model until it fit perfectly. I have since managed to print a connector that fits the plugs. The female plug appears different as I decided to use standard female header pins that could be inserted into the female plug after printing to reduce complexity, however this did mean that the tolerances in the print had to be much more accurate, which seems to be a problem with my current resin printer settings due to how small some of the connector holes are resulting in resin curing inside the small holes.
 
 ## OpenTCU Hardware
@@ -67,5 +67,5 @@ The CAN transceivers and microcontroller both require 5V power, however the bike
 ### OpenTCU Device Images
 Below are two images of the current revision (V3) of the OpenTCU device:  
 *Due to not being able to replicate my good connector print this example of the board has to have each wire manually connected to the bike instead of via the printed connector.*  
-<img src="../Hardware/OpenTCU V3 Top.png" alt="OpenTCU Hardware Top" height="500"/>
-<img src="../Hardware/OpenTCU V3 Side.png" alt="OpenTCU Hardware Top" height="500"/>
+<img src="../Hardware/OpenTCU V3 Top.png" alt="OpenTCU Hardware Top" height="400"/>
+<img src="../Hardware/OpenTCU V3 Side.png" alt="OpenTCU Hardware Top" height="400"/>
