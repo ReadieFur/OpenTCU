@@ -1,16 +1,13 @@
 # OpenTCU
-
-Specialized TCU reverse engineered!
+Specialized TCU reverse engineered!  
 
 The end goal of this project is to completely reverse engineer the TCU so the bike can operate without the original TCU (this would also allow keeping the TCU from detecting abnormal data).
 
-*This project is under heavy research and development, so expect a lot of changes and updates.*
-
-## Table of Contents
 - [OpenTCU](#opentcu)
-  - [Table of Contents](#table-of-contents)
   - [Current Progress](#current-progress)
   - [Documentation](#documentation)
+
+*This project is under heavy research and development, so expect a lot of changes and updates.*
 
 ## Current Progress
 - Hardware
