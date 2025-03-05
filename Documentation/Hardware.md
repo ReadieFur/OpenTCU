@@ -2,7 +2,7 @@
 <!-- Mention the places researched for insight on the hardware protocols. -->
 
 # OpenTCU Hardware
-This section contains a brief overview of files and discoveries made about the hardware of the TCU and the reverse engineered models that are used in this project.  
+This document contains a brief overview of files and discoveries made about the hardware of the TCU and the reverse engineered models that are used in this project.  
 This directory contains all the hardware related files and images (such as dimensions and TCU hardware) for the OpenTCU project.
 
 - [OpenTCU Hardware](#opentcu-hardware)

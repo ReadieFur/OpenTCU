@@ -1,7 +1,8 @@
 <!-- Discuss the reverse modeling techniques used, what I found out about the data, the protocol and encoding used.  -->
 
 # OpenTCU CAN Bus Decoding
-This section contains an overview of the process taken to reverse engineer the CAN bus recordings and discoveries about the data that is sent on the bus.
+This document contains an overview of the process taken to reverse engineer the CAN bus recordings and discoveries about the data that is sent on the bus.  
+*The reversed data section is still under active development and will be updated as more data is discovered.*
 
 - [OpenTCU CAN Bus Decoding](#opentcu-can-bus-decoding)
   - [Recording Setup](#recording-setup)
