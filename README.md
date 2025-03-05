@@ -6,6 +6,12 @@ The end goal of this project is to completely reverse engineer the TCU so the bi
 
 *This project is under heavy research and development, so expect a lot of changes and updates.*
 
+## Table of Contents
+- [OpenTCU](#opentcu)
+  - [Table of Contents](#table-of-contents)
+  - [Current Progress](#current-progress)
+  - [Documentation](#documentation)
+
 ## Current Progress
 - Hardware
   - [x] CAN bus interception
