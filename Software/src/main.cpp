@@ -1,8 +1,8 @@
 #ifdef DEBUG
-// #define LOG_UDP
+#define LOG_UDP
 #define ENABLE_CAN_DUMP_SERIAL
 #ifdef LOG_UDP
-// #define ENABLE_CAN_DUMP_UDP
+#define ENABLE_CAN_DUMP_UDP
 #endif
 
 #if defined(ENABLE_CAN_DUMP_SERIAL) || defined(ENABLE_CAN_DUMP_UDP)
@@ -13,7 +13,7 @@
 #include <freertos/FreeRTOS.h> //Has to always be the first included FreeRTOS related header.
 #include "Service/ServiceManager.hpp"
 #include "CAN/BusMaster.hpp"
-#include "CAN/Logger.hpp"
+#include "CAN/BusLogger.hpp"
 #include <esp_sleep.h>
 #include <freertos/task.h>
 #include "Logging.hpp"
@@ -25,15 +25,11 @@
 #include <esp_pm.h>
 #include <Network/Bluetooth/BLE.hpp>
 #include "Networking/BleApi.hpp"
+#include "Networking/WiFiApi.hpp"
 // #include "Networking/TCU.hpp"
 #include <string>
 #include <esp_mac.h>
 #include <cstring>
-#ifdef LOG_UDP
-#include <lwip/sockets.h>
-#include <lwip/netdb.h>
-#include <lwip/inet.h>
-#endif
 #include "Data/Flash.hpp"
 #include "Data/PersistentData.hpp"
 #include <Event/Observable.hpp>
@@ -63,12 +59,6 @@ void (*setLed)(ushort, ushort, ushort);
 
 using namespace ReadieFur::OpenTCU;
 
-#ifdef LOG_UDP
-int UdpSocket;
-struct sockaddr_in UdpDestAddr;
-int UdpBroadcastEnable = 1;
-#endif
-
 void SetCPUFrequency()
 {
     //Set CPU frequency to the highest available as this real-time system needs to be as fast as possible.
@@ -95,49 +85,6 @@ void SetLogLevel()
     // esp_log_level_set(nameof(Networking::TCU), ESP_LOG_DEBUG);
     #else
     esp_log_level_set("*", ESP_LOG_INFO);
-    #endif
-}
-
-#ifdef LOG_UDP
-int LogUDP(const char* message, size_t length)
-{
-    int udpErr = sendto(UdpSocket, message, length, 0, (struct sockaddr*)&UdpDestAddr, sizeof(UdpDestAddr));
-    // if (udpErr < 0)
-    //     LOGE(pcTaskGetName(NULL), "Failed to send UDP packet: %i", udpErr);
-    return udpErr;
-}
-#endif
-
-void ConfigureAdditionalLoggers()
-{
-    #ifdef LOG_UDP
-    if (!ReadieFur::Network::WiFi::Initalized())
-    {
-        LOGE(nameof(CAN::Logger), "WiFi is not initialized.");
-        return;
-    }
-
-    wifi_mode_t networkMode = ReadieFur::Network::WiFi::GetMode();
-    if (networkMode != WIFI_MODE_AP && networkMode != WIFI_MODE_APSTA)
-    {
-        LOGE(nameof(CAN::Logger), "WiFi is not in AP mode.");
-        return;
-    }
-
-    UdpDestAddr.sin_addr.s_addr = inet_addr("192.168.4.255"); //Default broadcast address for the AP network.
-    UdpDestAddr.sin_family = AF_INET;
-    UdpDestAddr.sin_port = htons(49152);
-
-    UdpSocket = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
-    if (UdpSocket < 0)
-    {
-        LOGE(nameof(CAN::Logger), "Failed to create UDP socket.");
-        return;
-    }
-
-    setsockopt(UdpSocket, SOL_SOCKET, SO_BROADCAST, &UdpBroadcastEnable, sizeof(UdpBroadcastEnable));
-
-    ReadieFur::Logging::AdditionalLoggers.push_back(LogUDP);
     #endif
 }
 
@@ -197,21 +144,14 @@ extern "C" void app_main()
     CHECK_ESP_RESULT(ReadieFur::Network::WiFi::Modem::Init());
     ReadieFur::Network::WiFi::Modem::ShutdownInterface(WIFI_IF_AP);
 
-    #ifdef DEBUG
-    ConfigureAdditionalLoggers();
-    #endif
+    CHECK_SERVICE_RESULT(ReadieFur::Service::ServiceManager::InstallAndStartService<Networking::BleApi>());
+    CHECK_SERVICE_RESULT(ReadieFur::Service::ServiceManager::InstallAndStartService<Networking::WiFiApi>());
+    // CHECK_SERVICE_RESULT(ReadieFur::Service::ServiceManager::InstallAndStartService<Networking::TCU>());
+    // CHECK_ESP_RESULT(InitOTA()); //OTA currently configured in the BT API.
 
     #ifdef ENABLE_CAN_DUMP
     CHECK_SERVICE_RESULT(ReadieFur::Service::ServiceManager::InstallAndStartService<CAN::Logger>());
-    #ifdef LOG_UDP
-    ReadieFur::Service::ServiceManager::GetService<CAN::Logger>()->UdpLogger = LogUDP;
     #endif
-    #endif
-
-    CHECK_ESP_RESULT(ReadieFur::Network::Bluetooth::BLE::Init(Data::PersistentData::DeviceName.Get().c_str(), Data::PersistentData::Pin));
-    CHECK_SERVICE_RESULT(ReadieFur::Service::ServiceManager::InstallAndStartService<Networking::BleApi>());
-    // CHECK_SERVICE_RESULT(ReadieFur::Service::ServiceManager::InstallAndStartService<Networking::TCU>());
-    // CHECK_ESP_RESULT(InitOTA()); //OTA currently configured in the BT API.
 
     CHECK_ESP_RESULT(ReadieFur::Network::WiFi::EspNow::Init()); //TODO: Move to own service file, just here for init testing.
 }

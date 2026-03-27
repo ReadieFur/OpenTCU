@@ -8,11 +8,10 @@
 #include <vector>
 #include "CAN/BusMaster.hpp"
 #ifdef ENABLE_CAN_DUMP
-#include "CAN/Logger.hpp"
+#include "CAN/BusLogger.hpp"
 #endif
 #include "Data/PersistentData.hpp"
 #include "Data/RuntimeStats.hpp"
-#include <Network/WiFi/Modem.hpp>
 #include <string>
 #include <cstring>
 
@@ -39,64 +38,13 @@ namespace ReadieFur::OpenTCU::Networking
                 service->ProcessServerEvent(event, gattsIf, param);
         }
 
-        esp_gatt_status_t ConfigureAP()
-        {
-            //If the AP is already active, reconfigure it as this call may have be made with updated settings.
-
-            wifi_config_t apConfig =
-            {
-                .ap =
-                {
-                    .channel = 1,
-                    #ifdef DEBUG
-                    .authmode = WIFI_AUTH_OPEN,
-                    .ssid_hidden = 0,
-                    #else
-                    .authmode = WIFI_AUTH_WPA2_PSK,
-                    .ssid_hidden = 1,
-                    #endif
-                    .max_connection = 2,
-                    .beacon_interval = 100,
-                }
-            };
-
-            std::string deviceName = Data::PersistentData::DeviceName.Get(); //Returns a copy of the string which in testing gets mangles if not assigned to a variable before calling c_str().
-            const char* deviceNameCStr = deviceName.c_str();
-            apConfig.ap.ssid_len = strlen(deviceNameCStr);
-            std::strncpy(reinterpret_cast<char*>(apConfig.ap.ssid), deviceNameCStr, sizeof(apConfig.ap.ssid));
-            
-            std::string password = "OpenTCU" + std::to_string(Data::PersistentData::Pin);
-            const char* passwordCStr = password.c_str();
-            std::strncpy(reinterpret_cast<char*>(apConfig.ap.password), passwordCStr, sizeof(apConfig.ap.password));
-
-            esp_err_t err = ReadieFur::Network::WiFi::Modem::ConfigureInterface(WIFI_IF_AP, apConfig);
-            if (err != ESP_OK)
-            {
-                LOGE(nameof(Networking::BleApi), "Failed to start AP mode: %s", esp_err_to_name(err));
-                return ESP_GATT_INTERNAL_ERROR;
-            }
-
-            httpd_config_t otaHttpdConfig = HTTPD_DEFAULT_CONFIG();
-            otaHttpdConfig.task_priority = tskIDLE_PRIORITY + 5;
-            otaHttpdConfig.server_port = 81;
-            otaHttpdConfig.ctrl_port += 1;
-            err = ReadieFur::Network::WiFi::OTA::Init(&otaHttpdConfig);
-            if (err != ESP_OK)
-            {
-                LOGE(nameof(Networking::BleApi), "Failed to start OTA server: %s", esp_err_to_name(err));
-                return ESP_GATT_INTERNAL_ERROR;
-            }
-
-            LOGI(nameof(Networking::BleApi), "AP mode started.");
-            return ESP_GATT_OK;
-        }
-
     protected:
         void RunServiceImpl() override
         {
-            if (!Network::Bluetooth::BLE::IsInitialized())
+            esp_err_t err = ReadieFur::Network::Bluetooth::BLE::Init(Data::PersistentData::DeviceName.Get().c_str(), Data::PersistentData::Pin);
+            if (err != ESP_OK)
             {
-                LOGE(nameof(Networking::BleApi), "BLE API not initialized.");
+                LOGE(nameof(Networking::BleApi), "Failed to initialize BLE device: %s", esp_err_to_name(err));
                 return;
             }
 
@@ -241,64 +189,9 @@ namespace ReadieFur::OpenTCU::Networking
                     if (!hasChanges)
                         return ESP_GATT_OK;
 
-                    if (ReadieFur::Network::WiFi::Modem::GetMode() == WIFI_MODE_AP)
-                        return ConfigureAP();
-
                     Data::PersistentData::Save();
 
                     return ESP_GATT_OK;
-                });
-
-            //AP toggle.
-            mainService.AddAttribute(
-                Network::Bluetooth::SUUID(0xB45D9CEDUL),
-                ESP_GATT_PERM_READ | ESP_GATT_PERM_WRITE,
-                [](uint8_t* outValue, uint16_t* outLength)
-                {
-                    outValue[0] = ReadieFur::Network::WiFi::Modem::GetMode() == WIFI_MODE_AP ? 0x01 : 0x00;
-                    *outLength = sizeof(uint8_t);
-                    return ESP_GATT_OK;
-                },
-                [this](uint8_t* inValue, uint16_t inLength)
-                {
-                    if (inLength != sizeof(uint8_t))
-                        return ESP_GATT_ILLEGAL_PARAMETER;
-
-                    LOGD(nameof(Networking::BleApi), "Setting AP mode to %s", inValue[0] == 0x01 ? "on" : "off");
-
-                    //TODO: Fix this.
-                    bool enable = inValue[0] == 0x01;
-                    wifi_mode_t currentMode = ReadieFur::Network::WiFi::Modem::GetMode();
-                    if (enable && currentMode == WIFI_MODE_AP)
-                    {
-                        LOGD(nameof(Networking::BleApi), "AP mode is already enabled.");
-                        return ESP_GATT_OK;
-                    }
-                    else if (!enable && currentMode != WIFI_MODE_AP)
-                    {
-                        LOGD(nameof(Networking::BleApi), "AP mode is already disabled.");
-                        return ESP_GATT_OK;
-                    }
-                    else if (enable && currentMode != WIFI_MODE_AP)
-                    {
-                        return ConfigureAP();
-                    }
-                    else if (!enable && currentMode == WIFI_MODE_AP)
-                    {
-                        ReadieFur::Network::WiFi::OTA::Deinit();
-                        esp_err_t err = ReadieFur::Network::WiFi::Modem::ShutdownInterface(WIFI_IF_AP);
-                        if (err != ESP_OK)
-                        {
-                            LOGE(nameof(Networking::BleApi), "Failed to stop AP mode: %s", esp_err_to_name(err));
-                            return ESP_GATT_INTERNAL_ERROR;
-                        }
-
-                        LOGI(nameof(Networking::BleApi), "AP mode stopped.");
-                        return ESP_GATT_OK;
-                    }
-
-                    LOGE(nameof(Networking::BleApi), "Invalid AP mode state.");
-                    return ESP_GATT_INTERNAL_ERROR; //We shouldn't reach here.
                 });
 
             _services.push_back(&mainService);
@@ -408,7 +301,6 @@ namespace ReadieFur::OpenTCU::Networking
             _services.push_back(&debugService);
             #endif
 
-            esp_err_t err;
             if ((err = Network::Bluetooth::BLE::RegisterServerApp(&_serverProfile)) != ESP_OK)
             {
                 LOGE(nameof(Networking::BleApi), "Failed to register server app: %s", esp_err_to_name(err));

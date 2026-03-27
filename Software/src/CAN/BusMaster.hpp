@@ -227,8 +227,13 @@ namespace ReadieFur::OpenTCU::CAN
             {
                 .timestamp = esp_log_timestamp(),
                 .bus = bus,
-                .message = message //Creates a copy of the struct.
+
+                .id = message.id,
+                .isExtended = message.isExtended,
+                .isRemote = message.isRemote,
+                .length = message.length,
             };
+            memcpy(dump.data, message.data, 8);
 
             //Set wait time to 0 as this should not delay the task.
             #if defined(_LIVE_LOG)
@@ -627,11 +632,17 @@ namespace ReadieFur::OpenTCU::CAN
     public:
         #ifdef ENABLE_CAN_DUMP
         QueueHandle_t CanDumpQueue = NULL;
-        struct SCanDump
+        struct __attribute__((packed)) SCanDump
         {
             ulong timestamp;
             char bus;
-            SCanMessage message;
+
+            uint32_t id;
+            bool isExtended;
+            bool isRemote;
+            uint8_t length;
+            uint8_t data[8];
+
             //TODO: Add modified values.
         };
         #endif
