@@ -13,6 +13,8 @@
 #include <string>
 #include <cstring>
 
+// TODO: Chang eto NimBLE as Bluedroid is massive and unnecessary for our use case.
+
 #define _BLE_TCU_NOTIFY(uuid, property) \
     esp_ble_gatts_send_indicate(_serverProfile.gattsIf, _serverProfile.connectionId, liveDataService.GetAttributeHandle(Network::Bluetooth::SUUID(uuid)), sizeof(CAN::SLiveData::property), reinterpret_cast<uint8_t*>(&liveData.property), false);
 
