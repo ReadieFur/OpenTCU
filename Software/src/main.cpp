@@ -1,3 +1,11 @@
+/**
+ * Copyright (c) 2026, ReadieFur. All rights reserved.
+ * Licensed under the GPL-3.0 License.
+ * Project: OpenTCU
+ * Author: ReadieFur
+ * Repository: https://github.com/ReadieFur/OpenTCU
+ */
+
 #include "ProgramConfig.h"
 #include <freertos/FreeRTOS.h> //Has to always be the first included FreeRTOS related header.
 #include "Service/ServiceManager.hpp"
