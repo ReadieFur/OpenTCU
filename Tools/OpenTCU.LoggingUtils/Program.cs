@@ -153,6 +153,7 @@ _ = Task.Run(() =>
     }
 });
 
+// TODO: Change to sigint capture instead of enter key.
 Console.WriteLine("Press enter to exit...");
 Console.ReadLine();
 cts.Cancel();
