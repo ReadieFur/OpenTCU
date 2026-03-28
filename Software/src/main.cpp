@@ -20,9 +20,8 @@
 #include "Data/Flash.hpp"
 #include "Data/Persistent.hpp"
 #include <Event/Observable.hpp>
-
 #ifdef WS2812B_PIN
-#include <FastLED.h> //Currently not detected by the compiler...
+#include <FastLED.h>
 CRGB leds[1];
 #endif
 
