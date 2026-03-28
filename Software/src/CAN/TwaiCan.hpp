@@ -92,12 +92,12 @@ namespace ReadieFur::OpenTCU::CAN
 
         esp_err_t Receive(SCanMessage* message, TickType_t timeout)
         {
-            //Use the read alerts function to wait for a message to be received (instead of locking on the twai_receive function).
+            // Use the read alerts function to wait for a message to be received (instead of locking on the twai_receive function).
             uint32_t alerts;
             esp_err_t err;
             if ((err = twai_read_alerts_v2(_driverHandle, &alerts, timeout)) != ESP_OK)
                 return err;
-            //We don't need to check the alert type because we have only subscribed to the RX_DATA alert.
+            // We don't need to check the alert type because we have only subscribed to the RX_DATA alert.
 
             #ifdef USE_CAN_DRIVER_LOCK
             if (xSemaphoreTake(_driverMutex, timeout) != pdTRUE)
@@ -110,7 +110,7 @@ namespace ReadieFur::OpenTCU::CAN
             twai_message_t twaiMessage;
             err = twai_receive_v2(_driverHandle, &twaiMessage, timeout);
             #ifdef USE_CAN_DRIVER_LOCK
-            //TODO: Handle potential failing of this release. If this fails the program will enter a catastrophic state.
+            // TODO: Handle potential failing of this release. If this fails the program will enter a catastrophic state.
             xSemaphoreGive(_driverMutex);
             #endif
             if (err != ESP_OK)

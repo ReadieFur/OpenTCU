@@ -1,5 +1,6 @@
 #pragma once
 
+#include "ProgramConfig.h"
 #include <stdint.h>
 #include <Event/Observable.hpp>
 #include <string>
@@ -7,25 +8,24 @@
 #include <Logging.hpp>
 #include <ArduinoJson.h>
 #include <esp_mac.h>
-#include "StaticConfig.h"
 
 namespace ReadieFur::OpenTCU::Data
 {
-    class PersistentData
+    class Persistent
     {
     private:
         constexpr static const char* CONFIG_PATH = "/spiffs/persistent_data.json";
 
     public:
-        static ReadieFur::Event::Observable<std::string> DeviceName;
-        static std::string BikeSerialNumber; //TODO: Convert this to a service and wait on multiple properties for auto-saving.
+        static std::string DeviceName;
+        static std::string BikeSerialNumber; // TODO: Convert this to a service and wait on multiple properties for auto-saving.
         static uint16_t BaseWheelCircumference;
         static uint16_t TargetWheelCircumference;
         static uint32_t Pin;
 
         static esp_err_t Init()
         {
-            SetDeviceNameFromBikeSerialNumber("");
+            SetDeviceNameFromBikeSerialNumber(""); // Default to using the MAC address as the device name until we load the bike serial number from flash.
 
             JsonDocument jsonDocument;
             esp_err_t err = Flash::LoadJson(CONFIG_PATH, jsonDocument);
@@ -39,13 +39,13 @@ namespace ReadieFur::OpenTCU::Data
                 SetDeviceNameFromBikeSerialNumber(BikeSerialNumber);
                 return ESP_OK;
             case ESP_ERR_NOT_FOUND:
-                //Use the default config.
+                // Use the default config.
                 return ESP_OK;
             case ESP_FAIL:
-                LOGE(nameof(PersistentData), "Failed to load persistent data (%s). Using the default config for this session.", esp_err_to_name(err));
+                LOGE(nameof(Persistent), "Failed to load persistent data (%s). Using the default config for this session.", esp_err_to_name(err));
                 return ESP_OK;
             default:
-                LOGE(nameof(PersistentData), "Failed to load persistent data: %s", esp_err_to_name(err));
+                LOGE(nameof(Persistent), "Failed to load persistent data: %s", esp_err_to_name(err));
                 return err;
             }
         }
@@ -62,24 +62,37 @@ namespace ReadieFur::OpenTCU::Data
 
         static void SetDeviceNameFromBikeSerialNumber(std::string bikeSerialNumber)
         {
-            //Get the device name based on the TCU ID.
+            // Get the device name based on the TCU ID.
             while (bikeSerialNumber.length() > 0 && !isdigit(bikeSerialNumber.front()))
                 bikeSerialNumber.erase(0, 1);
             if (bikeSerialNumber.empty())
             {
-                //Use the mac address as the device name.
+                // Use the mac address as the device name.
                 uint8_t mac[6];
                 esp_read_mac(mac, ESP_MAC_BASE);
                 bikeSerialNumber = std::to_string(mac[0]) + std::to_string(mac[1]) + std::to_string(mac[2]) + std::to_string(mac[3]) + std::to_string(mac[4]) + std::to_string(mac[5]);
             }
-            DeviceName.Set("OpenTCU" + bikeSerialNumber);
-            LOGD(nameof(PersistentData), "Device name set to: %s", DeviceName.Get().c_str());
+            DeviceName = "OpenTCU" + bikeSerialNumber;
+            LOGD(nameof(Persistent), "Device name set to: %s", DeviceName.c_str());
+        }
+
+        static bool WaitForDeviceName(TickType_t timeout = portMAX_DELAY)
+        {
+            TickType_t elapsedTime = 0;
+            while (BikeSerialNumber.empty() || DeviceName.empty())
+            {
+                if (elapsedTime >= timeout)
+                    return false;
+                vTaskDelay(pdMS_TO_TICKS(100));
+                elapsedTime += pdMS_TO_TICKS(100);
+            }
+            return true;
         }
     };
 };
 
-ReadieFur::Event::Observable<std::string> ReadieFur::OpenTCU::Data::PersistentData::DeviceName("OpenTCU");
-std::string ReadieFur::OpenTCU::Data::PersistentData::BikeSerialNumber;
-uint16_t ReadieFur::OpenTCU::Data::PersistentData::BaseWheelCircumference = 2160;
-uint16_t ReadieFur::OpenTCU::Data::PersistentData::TargetWheelCircumference = 2160;
-uint32_t ReadieFur::OpenTCU::Data::PersistentData::Pin = TCU_CODE;
+std::string ReadieFur::OpenTCU::Data::Persistent::DeviceName = "OpenTCU";
+std::string ReadieFur::OpenTCU::Data::Persistent::BikeSerialNumber;
+uint16_t ReadieFur::OpenTCU::Data::Persistent::BaseWheelCircumference = 2160;
+uint16_t ReadieFur::OpenTCU::Data::Persistent::TargetWheelCircumference = 2160;
+uint32_t ReadieFur::OpenTCU::Data::Persistent::Pin = TCU_CODE;

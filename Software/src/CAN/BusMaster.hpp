@@ -1,9 +1,9 @@
 #pragma once
 
+#include "ProgramConfig.h"
 #include <esp_check.h>
 #include <freertos/FreeRTOS.h>
 #include <freertos/FreeRTOSConfig.h>
-#include "Data/StaticConfig.h"
 #include <freertos/task.h>
 #include <driver/gpio.h>
 #include <driver/spi_master.h>
@@ -20,13 +20,10 @@
 #include <vector>
 #include <queue>
 #include "EStringType.h"
-#include "Samples.hpp"
+#include "Sample.hpp"
 #include <string>
-#include "Data/PersistentData.hpp"
-#include "Data/RuntimeStats.hpp"
-
-#define CAN_DUMP_BEFORE_INTERCEPT
-// #define CAN_DUMP_AFTER_INTERCEPT
+#include "Data/Persistent.hpp"
+#include "Data/Live.hpp"
 
 namespace ReadieFur::OpenTCU::CAN
 {
@@ -39,7 +36,7 @@ namespace ReadieFur::OpenTCU::CAN
         static const uint SECONDARY_TASK_STACK_SIZE = CONFIG_FREERTOS_IDLE_TASK_STACKSIZE + 1024;
         static const uint SECONDARY_TASK_PRIORITY = configMAX_PRIORITIES * 0.3;
         static const TickType_t SECONDARY_TASK_INTERVAL = pdMS_TO_TICKS(1000);
-        #ifdef ENABLE_CAN_DUMP
+        #ifdef CAN_DUMP
         static const uint CAN_DUMP_QUEUE_SIZE = 1000;
         #endif
 
@@ -51,7 +48,7 @@ namespace ReadieFur::OpenTCU::CAN
         };
 
         #if SOC_TWAI_CONTROLLER_NUM <= 1
-        spi_device_handle_t _mcpDeviceHandle = nullptr; //TODO: Move this to the MCP2515 file.
+        spi_device_handle_t _mcpDeviceHandle = nullptr; // TODO: Move this to the MCP2515 file.
         #endif
         ACan* _can1 = nullptr;
         ACan* _can2 = nullptr;
@@ -61,23 +58,19 @@ namespace ReadieFur::OpenTCU::CAN
 
         #pragma region Other data
         bool _savePersistentData = false;
-
         uint8_t _stringRequestType = 0;
         size_t _stringRequestBufferIndex = 0;
         char* _stringRequestBuffer = nullptr;
         // std::map<uint8_t, std::string> _strings;
-
-        //TODO: Set an artificial speed limit with a lower wheel size and ease off the power as the limit is approached.
+        // TODO: Set an artificial speed limit with a lower wheel size and ease off the power as the limit is approached.
         double _wheelMultiplier = 1.0;
         #pragma endregion
 
         #pragma region Live data
         TickType_t _lastLiveDataUpdate = 0;
-
-        Samples<uint16_t, uint32_t> _speedBuffer = Samples<uint16_t, uint32_t>(10);
-
-        Samples<uint16_t, uint32_t> _batteryVoltage = Samples<uint16_t, uint32_t>(10);
-        Samples<int32_t, int64_t> _batteryCurrent = Samples<int32_t, int64_t>(10);
+        Sample<uint16_t, uint32_t> _speedBuffer = Sample<uint16_t, uint32_t>(10);
+        Sample<uint16_t, uint32_t> _batteryVoltage = Sample<uint16_t, uint32_t>(10);
+        Sample<int32_t, int64_t> _batteryCurrent = Sample<int32_t, int64_t>(10);
         #pragma endregion
 
         #ifdef DEBUG
@@ -91,52 +84,25 @@ namespace ReadieFur::OpenTCU::CAN
             {
                 if (_savePersistentData)
                 {
-                    Data::PersistentData::Save();
+                    Data::Persistent::Save();
                     _savePersistentData = false;
                 }
 
                 if (xTaskGetTickCount() - _lastLiveDataUpdate < pdMS_TO_TICKS(2000))
                 {
-                    Data::RuntimeStats::BikeSpeed = (uint32_t)(Data::RuntimeStats::RealSpeed / _wheelMultiplier);
-                    Data::RuntimeStats::RealSpeed = _speedBuffer.Average();
-                    // Data::RuntimeStats::Cadence = 0; //TODO: Implement cadence.
-                    // Data::RuntimeStats::RiderPower = 0; //TODO: Implement rider power.
-                    // Data::RuntimeStats::MotorPower = 0; //TODO: Implement motor power.
-                    Data::RuntimeStats::BatteryVoltage = _batteryVoltage.Average();
-                    Data::RuntimeStats::BatteryCurrent = _batteryCurrent.Average();
+                    Data::Live::Current.BikeSpeed = (uint32_t)(Data::Live::Current.RealSpeed / _wheelMultiplier);
+                    Data::Live::Current.RealSpeed = _speedBuffer.Average();
+                    // Data::Live::Current.Cadence = 0; // TODO: Implement cadence.
+                    // Data::Live::Current.RiderPower = 0; // TODO: Implement rider power.
+                    // Data::Live::Current.MotorPower = 0; // TODO: Implement motor power.
+                    Data::Live::Current.BatteryVoltage = _batteryVoltage.Average();
+                    Data::Live::Current.BatteryCurrent = _batteryCurrent.Average();
                 }
                 else
                 {
-                    //If the last live data update was over 5 seconds ago, consider the data to be broken/the bike is off.
-                    Data::RuntimeStats::BikeSpeed =
-                        Data::RuntimeStats::RealSpeed =
-                        Data::RuntimeStats::Cadence =
-                        Data::RuntimeStats::RiderPower =
-                        Data::RuntimeStats::MotorPower =
-                        Data::RuntimeStats::BatteryVoltage =
-                        Data::RuntimeStats::BatteryCurrent =
-                        Data::RuntimeStats::EaseSetting =
-                        Data::RuntimeStats::PowerSetting = 0;
-                    Data::RuntimeStats::WalkMode = false;
+                    // If the last live data update was over pdMS_TO_TICKS(x) seconds ago, consider the data to be broken/the bike is off.
+                    Data::Live::Current = {};
                 }
-
-                #ifdef DEBUG
-                if (EnableRuntimeStats && xTaskGetTickCount() - _lastLiveDataUpdate < pdMS_TO_TICKS(2000))
-                {
-                    printf("Sample count: %i\n", _sampleCount);
-                    _sampleCount = 0;
-
-                    printf("Average bike speed: %u\n", Data::RuntimeStats::BikeSpeed);
-                    printf("Average real speed: %u\n", Data::RuntimeStats::RealSpeed);
-
-                    printf("Walk mode: %s\n", Data::RuntimeStats::WalkMode ? "On" : "Off");
-                    printf("Ease setting: %u\n", Data::RuntimeStats::EaseSetting);
-                    printf("Power setting: %u\n", Data::RuntimeStats::PowerSetting);
-
-                    printf("Average battery voltage: %u\n", Data::RuntimeStats::BatteryVoltage);
-                    printf("Average battery current: %li\n", Data::RuntimeStats::BatteryCurrent);
-                }
-                #endif
 
                 vTaskDelay(SECONDARY_TASK_INTERVAL);
             }
@@ -148,13 +114,13 @@ namespace ReadieFur::OpenTCU::CAN
         {
             SRelayTaskParameters* params = static_cast<SRelayTaskParameters*>(param);
 
-            char bus = pcTaskGetName(xTaskGetHandle(pcTaskGetName(NULL)))[3]; //Only really used for logging & debugging.
-            char otherBus = bus == '1' ? '2' : '1';
+            bool bus = pcTaskGetName(xTaskGetHandle(pcTaskGetName(NULL)))[3] == '1'; // Only really used for logging & debugging.
+            char otherBus = !bus;
 
-            //Check if the task has been signalled for deletion.
+            // Check if the task has been signalled for deletion.
             while (!ServiceCancellationToken.IsCancellationRequested())
             {
-                //Attempt to read a message from the bus.
+                // Attempt to read a message from the bus.
                 SCanMessage message;
                 esp_err_t res;
                 if ((res = params->can1->Receive(&message, CAN_TIMEOUT_TICKS)) != ESP_OK)
@@ -163,55 +129,55 @@ namespace ReadieFur::OpenTCU::CAN
                     {
                     case ESP_ERR_TIMEOUT:
                         #if defined(DEBUG) && false
-                        //While debugging I have the board externally powered so the bike can be off and this error is to be expected.
+                        // While debugging I have the board externally powered so the bike can be off and this error is to be expected.
                         #else
-                        //Messages should never time out as they are sent extremely frequently.
-                        LOGW(nameof(CAN::BusMaster), "CAN%c timed out while waiting for message.", bus);
+                        // Messages should never time out as they are sent extremely frequently.
+                        LOGW(nameof(CAN::BusMaster), "CAN%u timed out while waiting for message.", bus);
                         #endif
                         break;
                     case ESP_ERR_INVALID_STATE:
-                        //TODO: Trigger a reset of the CAN controller.
-                        LOGE(nameof(CAN::BusMaster), "CAN%c bus failure: %s", bus);
+                        // TODO: Trigger a reset of the CAN controller.
+                        LOGE(nameof(CAN::BusMaster), "CAN%u bus failure: %s", bus, esp_err_to_name(res));
                         break;
                     default:
-                        LOGE(nameof(CAN::BusMaster), "CAN%c failed to receive message: %i", bus, res);
+                        LOGE(nameof(CAN::BusMaster), "CAN%u failed to receive message: %i", bus, res);
                         break;
                     }
                     taskYIELD();
                     continue;
                 }
 
-                #if defined(ENABLE_CAN_DUMP) && defined(CAN_DUMP_BEFORE_INTERCEPT)
+                #if defined(CAN_DUMP) && defined(CAN_DUMP_BEFORE_INTERCEPT)
                 LogMessage(bus, message);
                 #endif
 
-                //Analyze the message and modify it if needed.
+                // Analyze the message and modify it if needed.
                 InterceptMessage(&message);
 
-                #if defined(ENABLE_CAN_DUMP) && defined(CAN_DUMP_AFTER_INTERCEPT)
+                #if defined(CAN_DUMP) && defined(CAN_DUMP_AFTER_INTERCEPT)
                 LogMessage(bus, message);
                 #endif
 
-                //Relay the message to the other CAN bus.
+                // Relay the message to the other CAN bus.
                 if ((res = params->can2->Send(message, CAN_TIMEOUT_TICKS)) != ESP_OK)
                 {
                     switch (res)
                     {
                     case ESP_ERR_TIMEOUT:
-                        //This should be an error as the message should always be sent successfully if the other bus is operational.
-                        LOGE(nameof(CAN::BusMaster), "CAN%c timed out while waiting to relay message.", otherBus);
+                        // This should be an error as the message should always be sent successfully if the other bus is operational.
+                        LOGE(nameof(CAN::BusMaster), "CAN%u timed out while waiting to relay message.", otherBus);
                         break;
                     case ESP_ERR_INVALID_STATE:
-                        LOGE(nameof(CAN::BusMaster), "CAN%c bus failure: %s", otherBus);
+                        LOGE(nameof(CAN::BusMaster), "CAN%u bus failure: %s", otherBus, esp_err_to_name(res));
                         break;
                     default:
-                        LOGE(nameof(CAN::BusMaster), "CAN%c failed to relay message: %i", otherBus, res);
+                        LOGE(nameof(CAN::BusMaster), "CAN%u failed to relay message: %i", otherBus, res);
                         break;
                     }
                 }
 
-                //Yield to allow other higher priority tasks to run, but use this method over vTaskDelay(0) keep delay time to a minimal as this is a very high priority task.
-                //We do not set a delay here as the delay is acted upon while waiting for CAN bus operations.
+                // Yield to allow other higher priority tasks to run, but use this method over vTaskDelay(0) keep delay time to a minimal as this is a very high priority task.
+                // We do not set a delay here as the delay is acted upon while waiting for CAN bus operations.
                 taskYIELD();
             }
 
@@ -219,15 +185,14 @@ namespace ReadieFur::OpenTCU::CAN
             delete params;
         }
 
-        #ifdef ENABLE_CAN_DUMP
-        inline virtual void LogMessage(char bus, SCanMessage& message)
+        #ifdef CAN_DUMP
+        inline virtual void LogMessage(bool bus, SCanMessage& message)
         {
-            //Copy the original message for logging.
+            // Copy the original message for logging.
             SCanDump dump =
             {
                 .timestamp = esp_log_timestamp(),
                 .bus = bus,
-
                 .id = message.id,
                 .isExtended = message.isExtended,
                 .isRemote = message.isRemote,
@@ -235,12 +200,12 @@ namespace ReadieFur::OpenTCU::CAN
             };
             memcpy(dump.data, message.data, 8);
 
-            //Set wait time to 0 as this should not delay the task.
-            #if defined(_LIVE_LOG)
+            // Set wait time to 0 as this should not delay the task.
+            #if defined(CAN_DUMP_LIVE)
             #elif false
             while (xQueueSend(BusMaster::CanDumpQueue, &dump, 0) == errQUEUE_FULL)
             {
-                //If the queue is full, remove the oldest item.
+                // If the queue is full, remove the oldest item.
                 SCanDump oldDump;
                 xQueueReceive(BusMaster::CanDumpQueue, &oldDump, 0);
             }
@@ -251,7 +216,7 @@ namespace ReadieFur::OpenTCU::CAN
         }
         #endif
 
-        //Force inline for minor performance improvements, ideal in this program as it will be called extremely frequently and is used for real-time data analysis.
+        // Force inline for minor performance improvements, ideal in this program as it will be called extremely frequently and is used for real-time data analysis.
         inline virtual void InterceptMessage(SCanMessage* message)
         {
             switch (message->id)
@@ -285,7 +250,7 @@ namespace ReadieFur::OpenTCU::CAN
                     _stringRequestBuffer = new char[21]; //All string requests seem to be sent in a buffer of 20 bytes.
                     _stringRequestBufferIndex = 0;
 
-                    //String response.
+                    // String response.
                     if (_stringRequestBuffer == nullptr)
                     {
                         LOGW(nameof(CAN::BusMaster), "String response received before a request was sent.");
@@ -297,7 +262,7 @@ namespace ReadieFur::OpenTCU::CAN
                 }
                 else if (message->data[0] == 0x21 || message->data[0] == 0x22)
                 {
-                    //String response continued.
+                    // String response continued.
                     // LOGD(nameof(CAN::BusMaster), "Continued response for %x.", _stringRequestType);
                     if (_stringRequestBuffer == nullptr)
                     {
@@ -310,7 +275,7 @@ namespace ReadieFur::OpenTCU::CAN
                 }
                 else if (message->data[0] == 0x23)
                 {
-                    //String response end.
+                    // String response end.
                     // LOGD(nameof(CAN::BusMaster), "String response end for %x.", _stringRequestType);
                     if (_stringRequestBuffer == nullptr)
                     {
@@ -328,7 +293,7 @@ namespace ReadieFur::OpenTCU::CAN
                     switch (_stringRequestType)
                     {
                     case EStringType::BikeSerialNumber:
-                        Data::PersistentData::BikeSerialNumber = std::string(_stringRequestBuffer);
+                        Data::Persistent::BikeSerialNumber = std::string(_stringRequestBuffer);
                         _savePersistentData = true;
                         break;
                     default:
@@ -346,7 +311,7 @@ namespace ReadieFur::OpenTCU::CAN
                     && message->data[7] == 0xAA)
                 {
                     uint16_t wheelCircumference = message->data[4] | message->data[5] << 8;
-                    _wheelMultiplier = (double)Data::PersistentData::BaseWheelCircumference / Data::PersistentData::TargetWheelCircumference;
+                    _wheelMultiplier = (double)Data::Persistent::BaseWheelCircumference / Data::Persistent::TargetWheelCircumference;
                     _savePersistentData = true;
                     LOGD(nameof(CAN::BusMaster), "Received wheel circumference: %u", wheelCircumference);
                     LOGD(nameof(CAN::BusMaster), "Wheel multiplier set to: %f", _wheelMultiplier);
@@ -355,12 +320,12 @@ namespace ReadieFur::OpenTCU::CAN
             }
             case 0x201:
             {
-                //D1 and D2 combined contain the speed of the bike in km/h * 100 (little-endian).
-                //Example: EA, 01 -> 01EA -> 490 -> 4.9km/h.
-                //We won't work in decimals.
+                // D1 and D2 combined contain the speed of the bike in km/h * 100 (little-endian).
+                // Example: EA, 01 -> 01EA -> 490 -> 4.9km/h.
+                // We won't work in decimals.
                 uint16_t bikeSpeed = message->data[0] | message->data[1] << 8;
                 uint16_t realSpeed = (uint16_t)(bikeSpeed * _wheelMultiplier);
-                _speedBuffer.AddSample(realSpeed);
+                _speedBuffer.Add(realSpeed);
                 message->data[0] = realSpeed & 0xFF;
                 message->data[1] = realSpeed >> 8;
                 _lastLiveDataUpdate = xTaskGetTickCount();
@@ -368,13 +333,13 @@ namespace ReadieFur::OpenTCU::CAN
             }
             case 0x300:
             {
-                //Assist settings.
-                Data::RuntimeStats::WalkMode = message->data[1] == 0xA5;
-                Data::RuntimeStats::EaseSetting = message->data[4];
-                Data::RuntimeStats::PowerSetting = message->data[6];
+                // Assist settings.
+                Data::Live::Current.WalkMode = message->data[1] == 0xA5;
+                Data::Live::Current.EaseSetting = message->data[4];
+                Data::Live::Current.PowerSetting = message->data[6];
 
-                //If we are in walk mode and a speed multiplier exists, attempt to keep the walk speed at the original 5kph by setting the motor power to 0 when over a real speed of 5kph.
-                if (Data::RuntimeStats::WalkMode && _wheelMultiplier != 1.0)
+                // If we are in walk mode and a speed multiplier exists, attempt to keep the walk speed at the original 5kph by setting the motor power to 0 when over a real speed of 5kph.
+                if (Data::Live::Current.WalkMode && _wheelMultiplier != 1.0)
                 {
                     uint16_t realSpeed = _speedBuffer.Latest();
                     if (realSpeed > 650) //Set to 650 to allow for some margin.
@@ -388,12 +353,12 @@ namespace ReadieFur::OpenTCU::CAN
             }
             case 0x401:
             {
-                _batteryVoltage.AddSample(message->data[0] | message->data[1] << 8);
+                _batteryVoltage.Add(message->data[0] | message->data[1] << 8);
 
-                //D5, D6, D7 and D8 combined contain the battery current in mA (little-endian with two's complement).
-                //Example 1: 46, 00, 00, 00 -> 00 000046 -> 70mA.
-                //Example 2: 5B, F0, FF, FF -> FF FFF05B -> -4005mA.
-                _batteryCurrent.AddSample(message->data[4] | message->data[5] << 8 | message->data[6] << 16 | message->data[7] << 24);
+                // D5, D6, D7 and D8 combined contain the battery current in mA (little-endian with two's complement).
+                // Example 1: 46, 00, 00, 00 -> 00 000046 -> 70mA.
+                // Example 2: 5B, F0, FF, FF -> FF FFF05B -> -4005mA.
+                _batteryCurrent.Add(message->data[4] | message->data[5] << 8 | message->data[6] << 16 | message->data[7] << 24);
                 break;
             }
             default:
@@ -407,7 +372,7 @@ namespace ReadieFur::OpenTCU::CAN
 
             #pragma region CAN1
             gpio_config_t hostTxPinConfig1 = {
-                .pin_bit_mask = 1ULL << TWAI1_RX_PIN, //Have the GPIO config inverted, e.g. the RX of the CAN controller is the TX of the host.
+                .pin_bit_mask = 1ULL << TWAI1_RX_PIN, // Have the GPIO config inverted, e.g. the RX of the CAN controller is the TX of the host.
                 .mode = GPIO_MODE_OUTPUT,
                 .pull_up_en = GPIO_PULLUP_DISABLE,
                 .pull_down_en = GPIO_PULLDOWN_ENABLE,
@@ -426,7 +391,7 @@ namespace ReadieFur::OpenTCU::CAN
             _can1 = TwaiCan::Initialize(
                 TWAI_GENERAL_CONFIG_DEFAULT_V2(
                     0,
-                    TWAI1_TX_PIN, //It seems this driver wants the pinout of the controller, not the host, i.e. pass the controller TX pin to the TX parameter, instead of the host TX pin (which would be the RX pin of the controller).
+                    TWAI1_TX_PIN, // It seems this driver wants the pinout of the controller, not the host, i.e. pass the controller TX pin to the TX parameter, instead of the host TX pin (which would be the RX pin of the controller).
                     TWAI1_RX_PIN,
                     TWAI_MODE_NORMAL
                 ),
@@ -470,7 +435,7 @@ namespace ReadieFur::OpenTCU::CAN
                 TWAI_FILTER_CONFIG_ACCEPT_ALL()
             );
             #else
-            //Configure the pins, all pins should be written low to start with.
+            // Configure the pins, all pins should be written low to start with.
             gpio_config_t mosiPinConfig = {
                 .pin_bit_mask = 1ULL << SPI_MOSI_PIN,
                 .mode = GPIO_MODE_OUTPUT,
@@ -502,9 +467,9 @@ namespace ReadieFur::OpenTCU::CAN
             gpio_config_t intPinConfig = {
                 .pin_bit_mask = 1ULL << SPI_INT_PIN,
                 .mode = GPIO_MODE_INPUT,
-                .pull_up_en = GPIO_PULLUP_ENABLE, //Use the internal pullup resistor as the trigger state of the MCP2515 is LOW.
+                .pull_up_en = GPIO_PULLUP_ENABLE, // Use the internal pullup resistor as the trigger state of the MCP2515 is LOW.
                 .pull_down_en = GPIO_PULLDOWN_DISABLE,
-                .intr_type = GPIO_INTR_NEGEDGE //Trigger on the falling edge.
+                .intr_type = GPIO_INTR_NEGEDGE // Trigger on the falling edge.
             };
             if (gpio_config(&mosiPinConfig) != ESP_OK
                 || gpio_config(&misoPinConfig) != ESP_OK
@@ -524,7 +489,7 @@ namespace ReadieFur::OpenTCU::CAN
                 .quadhd_io_num = -1,
                 .max_transfer_sz = SOC_SPI_MAXIMUM_BUFFER_SIZE,
             };
-            //SPI2_HOST is the only SPI bus that can be used as GPSPI on the C3.
+            // SPI2_HOST is the only SPI bus that can be used as GPSPI on the C3.
             if (spi_bus_initialize(SPI2_HOST, &busConfig, SPI_DMA_CH_AUTO) != ESP_OK)
             {
                 LOGE(nameof(CAN::BusMaster), "Failed to initialize SPI bus: %i", 1);
@@ -533,9 +498,9 @@ namespace ReadieFur::OpenTCU::CAN
 
             spi_device_interface_config_t dev_config = {
                 .mode = 0,
-                .clock_speed_hz = SPI_MASTER_FREQ_8M, //Match the SPI CAN controller.
+                .clock_speed_hz = SPI_MASTER_FREQ_8M, // Match the SPI CAN controller.
                 .spics_io_num = SPI_CS_PIN,
-                .queue_size = 2, //2 as per the specification: https://ww1.microchip.com/downloads/en/DeviceDoc/MCP2515-Stand-Alone-CAN-Controller-with-SPI-20001801J.pdf
+                .queue_size = 2, // 2 as per the specification: https://ww1.microchip.com/downloads/en/DeviceDoc/MCP2515-Stand-Alone-CAN-Controller-with-SPI-20001801J.pdf
             };
             if (spi_bus_add_device(SPI2_HOST, &dev_config, &_mcpDeviceHandle) != ESP_OK)
             {
@@ -552,7 +517,7 @@ namespace ReadieFur::OpenTCU::CAN
             }
             #pragma endregion
 
-            #ifdef ENABLE_CAN_DUMP
+            #ifdef CAN_DUMP
             CanDumpQueue = xQueueCreate(CAN_DUMP_QUEUE_SIZE, sizeof(BusMaster::SCanDump));
             if (CanDumpQueue == NULL)
             {
@@ -562,10 +527,10 @@ namespace ReadieFur::OpenTCU::CAN
             #endif
 
             #pragma region Tasks
-            //Create high priority tasks to handle CAN relay tasks.
-            //I am creating the parameters on the heap just in case this method returns before the task starts which will result in an error.
+            // Create high priority tasks to handle CAN relay tasks.
+            // I am creating the parameters on the heap just in case this method returns before the task starts which will result in an error.
 
-            //TODO: Determine if I should run both CAN tasks on one core and do secondary processing (i.e. metrics, user control, etc) on the other core, or split the load between all cores with CAN bus getting their own core.
+            // TODO: Determine if I should run both CAN tasks on one core and do secondary processing (i.e. metrics, user control, etc) on the other core, or split the load between all cores with CAN bus getting their own core.
             SRelayTaskParameters* params1 = new SRelayTaskParameters { this, _can1, _can2 };
             SRelayTaskParameters* params2 = new SRelayTaskParameters { this, _can2, _can1 };
             const TaskFunction_t relayTaskWrapper = [](void* param) { static_cast<SRelayTaskParameters*>(param)->self->RelayTask(param); };
@@ -607,7 +572,7 @@ namespace ReadieFur::OpenTCU::CAN
             ServiceCancellationToken.WaitForCancellation();
 
             #pragma region Cleanup
-            //Tasks should kill themselves when the cancellation token is triggered.
+            // Tasks should kill themselves when the cancellation token is triggered.
             delete _can1;
             _can1 = nullptr;
             delete _can2;
@@ -623,19 +588,20 @@ namespace ReadieFur::OpenTCU::CAN
             #endif
             #pragma endregion
 
-            #ifdef ENABLE_CAN_DUMP
+            #ifdef CAN_DUMP
             vQueueDelete(CanDumpQueue);
             CanDumpQueue = NULL;
             #endif
         }
 
     public:
-        #ifdef ENABLE_CAN_DUMP
+        #ifdef CAN_DUMP
         QueueHandle_t CanDumpQueue = NULL;
         struct __attribute__((packed)) SCanDump
         {
             ulong timestamp;
-            char bus;
+            bool bus;
+            // bool isRx;
 
             uint32_t id;
             bool isExtended;
@@ -643,12 +609,8 @@ namespace ReadieFur::OpenTCU::CAN
             uint8_t length;
             uint8_t data[8];
 
-            //TODO: Add modified values.
+            // uint8_t modified[8]; // TODO: Add modified values.
         };
-        #endif
-
-        #ifdef DEBUG
-        bool EnableRuntimeStats = true;
         #endif
 
         BusMaster()
@@ -659,8 +621,8 @@ namespace ReadieFur::OpenTCU::CAN
 
         esp_err_t InjectMessage(bool bus, SCanMessage message)
         {
-            LOGI(nameof(CAN::BusMaster), "Injecting message into CAN%c, ID: %x, Length: %i, Data: %02X %02X %02X %02X %02X %02X %02X %02X",
-                bus ? '2' : '1',
+            LOGI(nameof(CAN::BusMaster), "Injecting message into CAN%u, ID: %x, Length: %i, Data: %02X %02X %02X %02X %02X %02X %02X %02X",
+                !bus,
                 message.id,
                 message.length,
                 message.data[0],
@@ -712,7 +674,7 @@ namespace ReadieFur::OpenTCU::CAN
                 return err;
             }
 
-            Data::PersistentData::TargetWheelCircumference = circumference;
+            Data::Persistent::TargetWheelCircumference = circumference;
             return ESP_OK;
         }
     };

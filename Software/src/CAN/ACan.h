@@ -1,6 +1,6 @@
 #pragma once
 
-//https://stackoverflow.com/questions/9756893/how-to-implement-interfaces-in-c
+// https://stackoverflow.com/questions/9756893/how-to-implement-interfaces-in-c
 
 #include <esp_err.h>
 #include <freertos/portmacro.h>

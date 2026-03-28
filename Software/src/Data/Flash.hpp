@@ -92,10 +92,10 @@ namespace ReadieFur::OpenTCU::Data
                 return ESP_ERR_NOT_FOUND;
             }
 
-            //If the buffer is null, return the length to the caller.
+            // If the buffer is null, return the length to the caller.
             if (outBuffer == nullptr)
             {
-                //Scan over the file to get the size.
+                // Scan over the file to get the size.
                 fseek(file, 0, SEEK_END);
                 *outLength = ftell(file);
                 fclose(file);
@@ -139,7 +139,7 @@ namespace ReadieFur::OpenTCU::Data
             if (!_initialized)
                 return ESP_ERR_INVALID_STATE;
 
-            //Load config after starting core tasks as the core tasks can function without the config.
+            // Load config after starting core tasks as the core tasks can function without the config.
             size_t configSize;
             esp_err_t err;
             if ((err = Data::Flash::Read(path, nullptr, &configSize)) != ESP_OK)

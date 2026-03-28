@@ -5,7 +5,7 @@
 #include "Logging.hpp"
 #include <Network/WiFi/Modem.hpp>
 #include <Network/WiFi/OTA.hpp>
-#include "Data/PersistentData.hpp"
+#include "Data/Persistent.hpp"
 #include <string>
 #include <cstring>
 #include <lwip/sockets.h>
@@ -17,12 +17,12 @@ namespace ReadieFur::OpenTCU::Networking
     class WiFiApi : public Service::AService
     {
     private:
-        int UdpSocket;
-        struct sockaddr_in UdpDestAddr;
+        int _udpLoggerSocket;
+        struct sockaddr_in _udpLoggerDest;
 
         int LogUDP(const char* data, size_t length)
         {
-            int udpErr = sendto(UdpSocket, data, length, 0, (struct sockaddr*)&UdpDestAddr, sizeof(UdpDestAddr));
+            int udpErr = sendto(_udpLoggerSocket, data, length, 0, (struct sockaddr*)&_udpLoggerDest, sizeof(_udpLoggerDest));
             // if (udpErr < 0)
             //     LOGE(pcTaskGetName(NULL), "Failed to send UDP packet: %i", udpErr);
             return udpErr;
@@ -31,7 +31,15 @@ namespace ReadieFur::OpenTCU::Networking
     protected:
         void RunServiceImpl() override
         {
-            //Configure AP.
+            esp_err_t err = ReadieFur::Network::WiFi::Modem::Init();
+            if (err != ESP_OK)
+            {
+                LOGE(nameof(Networking::WiFiApi), "Failed to initialize Wi-Fi modem: %s", esp_err_to_name(err));
+                return;
+            }
+            ReadieFur::Network::WiFi::Modem::ShutdownInterface(WIFI_IF_STA);
+
+            // Configure AP.
             wifi_config_t apConfig =
             {
                 .ap =
@@ -41,7 +49,8 @@ namespace ReadieFur::OpenTCU::Networking
                     .authmode = WIFI_AUTH_OPEN,
                     .ssid_hidden = 0,
                     #else
-                    .authmode = WIFI_AUTH_WPA2_PSK,
+                    // .authmode = WIFI_AUTH_WPA2_PSK,
+                    .authmode = WIFI_AUTH_OPEN,
                     .ssid_hidden = 1,
                     #endif
                     .max_connection = 2,
@@ -49,16 +58,17 @@ namespace ReadieFur::OpenTCU::Networking
                 }
             };
 
-            std::string deviceName = Data::PersistentData::DeviceName.Get(); //Returns a copy of the string which in testing gets mangles if not assigned to a variable before calling c_str().
+            Data::Persistent::WaitForDeviceName(pdMS_TO_TICKS(5000));
+            std::string deviceName = Data::Persistent::DeviceName; // Returns a copy of the string which in testing gets mangles if not assigned to a variable before calling c_str().
             const char* deviceNameCStr = deviceName.c_str();
             apConfig.ap.ssid_len = strlen(deviceNameCStr);
             std::strncpy(reinterpret_cast<char*>(apConfig.ap.ssid), deviceNameCStr, sizeof(apConfig.ap.ssid));
             
-            std::string password = "OpenTCU" + std::to_string(Data::PersistentData::Pin);
+            std::string password = "OpenTCU" + std::to_string(Data::Persistent::Pin);
             const char* passwordCStr = password.c_str();
             std::strncpy(reinterpret_cast<char*>(apConfig.ap.password), passwordCStr, sizeof(apConfig.ap.password));
 
-            esp_err_t err = ReadieFur::Network::WiFi::Modem::ConfigureInterface(WIFI_IF_AP, apConfig);
+            err = ReadieFur::Network::WiFi::Modem::ConfigureInterface(WIFI_IF_AP, apConfig);
             if (err != ESP_OK)
             {
                 LOGE(nameof(Networking::WiFiApi), "Failed to start AP mode: %s", esp_err_to_name(err));
@@ -66,19 +76,19 @@ namespace ReadieFur::OpenTCU::Networking
             }
 
             // Configure UDP.
-            UdpDestAddr.sin_addr.s_addr = inet_addr("192.168.4.255"); //Default broadcast address for the AP network.
-            UdpDestAddr.sin_family = AF_INET;
-            UdpDestAddr.sin_port = htons(49152);
+            _udpLoggerDest.sin_addr.s_addr = inet_addr("192.168.4.255"); // Default broadcast address for the AP network.
+            _udpLoggerDest.sin_family = AF_INET;
+            _udpLoggerDest.sin_port = htons(49152);
 
-            UdpSocket = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
-            if (UdpSocket < 0)
+            _udpLoggerSocket = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+            if (_udpLoggerSocket < 0)
             {
                 LOGE(nameof(Networking::WiFiApi), "Failed to create UDP socket.");
                 return;
             }
 
             int udpBroadcastEnable = 1;
-            setsockopt(UdpSocket, SOL_SOCKET, SO_BROADCAST, &udpBroadcastEnable, sizeof(udpBroadcastEnable));
+            setsockopt(_udpLoggerSocket, SOL_SOCKET, SO_BROADCAST, &udpBroadcastEnable, sizeof(udpBroadcastEnable));
 
             ReadieFur::Logging::AdditionalLoggers.push_back([this](const char* data, size_t length) { return LogUDP(data, length); });
 
@@ -96,10 +106,12 @@ namespace ReadieFur::OpenTCU::Networking
 
             LOGI(nameof(Networking::WiFiApi), "AP mode started.");
 
+            // CHECK_ESP_RESULT(ReadieFur::Network::WiFi::EspNow::Init());
+
             ServiceCancellationToken.WaitForCancellation();
 
             ReadieFur::Network::WiFi::OTA::Deinit();
-            close(UdpSocket);
+            close(_udpLoggerSocket);
             ReadieFur::Network::WiFi::Modem::Deinit();
         }
 
@@ -111,7 +123,7 @@ namespace ReadieFur::OpenTCU::Networking
 
         // int UDPSendRaw(const void* data, size_t length)
         // {
-        //     return sendto(UdpSocket, data, length, 0, (struct sockaddr*)&UdpDestAddr, sizeof(UdpDestAddr));
+        //     return sendto(_udpLoggerSocket, data, length, 0, (struct sockaddr*)&_udpLoggerDest, sizeof(_udpLoggerDest));
         // }
     };
 };

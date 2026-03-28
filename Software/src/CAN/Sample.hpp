@@ -3,7 +3,7 @@
 namespace ReadieFur::OpenTCU::CAN
 {
     template <typename T, typename TAverage = T>
-    class Samples
+    class Sample
     {
     private:
         size_t _capacity;
@@ -11,16 +11,16 @@ namespace ReadieFur::OpenTCU::CAN
         size_t _index = 0;
 
     public:
-        Samples(size_t capacity) : _capacity(capacity), _samples(new T[capacity]) {}
+        Sample(size_t capacity) : _capacity(capacity), _samples(new T[capacity]) {}
 
-        ~Samples()
+        ~Sample()
         {
             delete[] _samples;
         }
 
-        inline void AddSample(T sample)
+        inline void Add(T sample)
         {
-            //Add samples to the array, and remove the oldest sample if the array is full.
+            // Add samples to the array, and remove the oldest sample if the array is full.
             if (_index >= _capacity)
             {
                 for (size_t i = 1; i < _capacity; i++)

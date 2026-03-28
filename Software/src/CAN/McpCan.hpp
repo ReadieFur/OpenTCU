@@ -24,7 +24,7 @@ namespace ReadieFur::OpenTCU::CAN
         spi_device_handle_t _device;
         MCP2515* _mcp2515;
         gpio_num_t _interruptPin;
-        volatile SemaphoreHandle_t _interruptSemaphore = xSemaphoreCreateCounting(2, 0); //2 because the MCP2515 has two buffers (RX0 and RX1).
+        volatile SemaphoreHandle_t _interruptSemaphore = xSemaphoreCreateCounting(2, 0); // 2 because the MCP2515 has two buffers (RX0 and RX1).
 
         static esp_err_t MCPErrorToESPError(MCP2515::ERROR error)
         {
@@ -48,20 +48,20 @@ namespace ReadieFur::OpenTCU::CAN
         {
             BaseType_t higherPriorityTaskWoken = pdFALSE;
 
-            //No need to check the arg type given I know what it is (optimization).
-            //Notify the task that a message has been received.
+            // No need to check the arg type given I know what it is (optimization).
+            // Notify the task that a message has been received.
             xSemaphoreGiveFromISR(static_cast<McpCan*>(arg)->_interruptSemaphore, &higherPriorityTaskWoken);
 
-            //If a higher priority task was woken, yield to it.
-            //I don't really understand the purpose of this, but it seems to be a common practice.
+            // If a higher priority task was woken, yield to it.
+            // I don't really understand the purpose of this, but it seems to be a common practice.
             if (higherPriorityTaskWoken == pdTRUE)
                 portYIELD_FROM_ISR();
         }
 
         McpCan(spi_device_handle_t device, CAN_SPEED speed, CAN_CLOCK clock, gpio_num_t interruptPin) : ACan()
         {
-            //Keep a reference to the device (required for the MCP2515 library otherwise it will crash the device).
-            //We are passing an instance here so that the instance does not need to be stored outside of this class.
+            // Keep a reference to the device (required for the MCP2515 library otherwise it will crash the device).
+            // We are passing an instance here so that the instance does not need to be stored outside of this class.
             this->_device = device;
             this->_interruptPin = interruptPin;
 
@@ -74,8 +74,8 @@ namespace ReadieFur::OpenTCU::CAN
 
         int Install()
         {
-            //It seems like this method returns an error all of the time, however it is safe to call again. If something truly bad happens we will likely throw in the next stage.
-            //https://esp32.com/viewtopic.php?t=13167
+            // It seems like this method returns an error all of the time, however it is safe to call again. If something truly bad happens we will likely throw in the next stage.
+            // https://esp32.com/viewtopic.php?t=13167
             gpio_install_isr_service(0);
             if (gpio_isr_handler_add(_interruptPin, OnInterrupt, this) != ESP_OK)
             {
@@ -83,7 +83,7 @@ namespace ReadieFur::OpenTCU::CAN
                 return 1;
             }
 
-            //Read the initial state of the interrupt pin.
+            // Read the initial state of the interrupt pin.
             if (gpio_get_level(this->_interruptPin) == 0)
                 xSemaphoreGive(_interruptSemaphore);
 
@@ -108,7 +108,7 @@ namespace ReadieFur::OpenTCU::CAN
             _mcp2515->reset();
             delete _mcp2515;
 
-            //Release the semaphore incase it is taken (this will cause an error if something is waiting on it, but it's best to error and catch rather than hang).
+            // Release the semaphore incase it is taken (this will cause an error if something is waiting on it, but it's best to error and catch rather than hang).
             xSemaphoreGive(_interruptSemaphore);
         }
 
@@ -143,12 +143,12 @@ namespace ReadieFur::OpenTCU::CAN
 
         esp_err_t Receive(SCanMessage* message, TickType_t timeout = 0)
         {
-            //Check if we need to wait for a message to be received.
+            // Check if we need to wait for a message to be received.
             if (gpio_get_level(_interruptPin) == 1)
             {
                 // TRACE("SPI Wait: %d, %d", uxSemaphoreGetCount(interruptSemaphore), gpio_get_level(interruptPin));
 
-                //Wait in a "non-blocking" manner by allowing the CPU to do other things while waiting for a message.
+                // Wait in a "non-blocking" manner by allowing the CPU to do other things while waiting for a message.
                 if (xSemaphoreTake(_interruptSemaphore, timeout) != pdTRUE)
                 {
                     // LOGV(nameof(CAN::McpCan), "SPI Timeout: %d, %d", uxSemaphoreGetCount(interruptSemaphore), gpio_get_level(interruptPin));
@@ -162,7 +162,7 @@ namespace ReadieFur::OpenTCU::CAN
             }
 
             #ifdef USE_CAN_DRIVER_LOCK
-            //Lock the driver from other operations while we read the message.
+            // Lock the driver from other operations while we read the message.
             if (xSemaphoreTake(_driverMutex, timeout) != pdTRUE)
             {
                 // LOGW(nameof(CAN::McpCan), "Timeout.");
@@ -170,8 +170,8 @@ namespace ReadieFur::OpenTCU::CAN
             }
             #endif
 
-            //https://github.com/autowp/arduino-canhacker/blob/master/CanHacker.cpp#L216-L271
-            //https://ww1.microchip.com/downloads/en/DeviceDoc/MCP2515-Stand-Alone-CAN-Controller-with-SPI-20001801J.pdf#54
+            // https://github.com/autowp/arduino-canhacker/blob/master/CanHacker.cpp#L216-L271
+            // https://ww1.microchip.com/downloads/en/DeviceDoc/MCP2515-Stand-Alone-CAN-Controller-with-SPI-20001801J.pdf#54
             uint8_t interruptFlags = _mcp2515->getInterrupts();
 
             if (interruptFlags & MCP2515::CANINTF_ERRIF) //Error Interrupt Flag bit is set.
@@ -185,7 +185,7 @@ namespace ReadieFur::OpenTCU::CAN
                 readResult = _mcp2515->readMessage(MCP2515::RXB1, &frame);
             else
                 readResult = MCP2515::ERROR_NOMSG;
-            //I shouldn't need to check this flag as we shouldn't ever be in a sleep mode (for now).
+            // I shouldn't need to check this flag as we shouldn't ever be in a sleep mode (for now).
             // if (interruptFlags & MCP2515::CANINTF_WAKIF) Wake-up Interrupt Flag bit is set.
             //     mcp2515->clearInterrupts();
             if (interruptFlags & MCP2515::CANINTF_ERRIF)
@@ -197,9 +197,9 @@ namespace ReadieFur::OpenTCU::CAN
             xSemaphoreGive(_driverMutex);
             #endif
 
-            //At some point in this development I broke the interrupt and it seems it never fires now.
-            //As a result of I am using gpio_get_level. However an issue has occurred where I can reach this point and read empty messages (error code 5).
-            //I would like to fix this as we are wasting CPU cycles with this bug.
+            // At some point in this development I broke the interrupt and it seems it never fires now.
+            // As a result of I am using gpio_get_level. However an issue has occurred where I can reach this point and read empty messages (error code 5).
+            // I would like to fix this as we are wasting CPU cycles with this bug.
             if (readResult != MCP2515::ERROR_OK)
             {
                 // LOGE(nameof(CAN::McpCan), "Failed to receive message: %i", readResult);
