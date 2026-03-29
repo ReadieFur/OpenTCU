@@ -248,9 +248,6 @@ namespace ReadieFur::OpenTCU::Networking
         {
             ServiceEntrypointStackDepth += 1024;
             AddDependencyType<CAN::BusMaster>();
-            #ifdef CAN_DUMP
-            AddDependencyType<CAN::BusLogger>();
-            #endif
         }
     };
 };

@@ -36,10 +36,28 @@ CRGB leds[1];
 //TODO: Change to take a status rather than colour.
 void (*setLed)(ushort, ushort, ushort);
 
+const char* ServiceResultToString(ReadieFur::Service::EServiceResult result)
+{
+    switch (result)
+    {
+        case ReadieFur::Service::Ok: return "Ok";
+        case ReadieFur::Service::Failed: return "Failed";
+        case ReadieFur::Service::NotInstalled: return "NotInstalled";
+        case ReadieFur::Service::InUse: return "InUse";
+        case ReadieFur::Service::MissingDependencies: return "MissingDependencies";
+        case ReadieFur::Service::DependencyNotReady: return "DependencyNotReady";
+        case ReadieFur::Service::AlreadyInstalled: return "AlreadyInstalled";
+        case ReadieFur::Service::Timeout: return "Timeout";
+        case ReadieFur::Service::Suspended: return "Suspended";
+        case ReadieFur::Service::NotReady: return "NotReady";
+        default: return "UnknownResult";
+    }
+}
+
 #define CHECK_SERVICE_RESULT(func) do {                                                 \
         ReadieFur::Service::EServiceResult result = func;                               \
         if (result == ReadieFur::Service::Ok) break;                                    \
-        LOGE(pcTaskGetName(NULL), "[%d] Failed with result: %i", __LINE__, result);     \
+        LOGE(pcTaskGetName(NULL), "[%d] Failed with result: %s", __LINE__, ServiceResultToString(result));     \
         abort();                                                                        \
     } while (0)
 
@@ -116,7 +134,7 @@ void InitFlash()
 
 extern "C" void app_main()
 {
-    SetCPUFrequency();
+    // SetCPUFrequency();
     SetLogLevel();
     ConfigureLED();
     InitFlash();
@@ -132,11 +150,11 @@ extern "C" void app_main()
     CHECK_SERVICE_RESULT(ReadieFur::Service::ServiceManager::InstallAndStartService<ReadieFur::Diagnostic::DiagnosticsService>());
     #endif
 
-    CHECK_SERVICE_RESULT(ReadieFur::Service::ServiceManager::InstallAndStartService<Networking::BleApi>());
-    CHECK_SERVICE_RESULT(ReadieFur::Service::ServiceManager::InstallAndStartService<Networking::WiFiApi>());
-    // CHECK_SERVICE_RESULT(ReadieFur::Service::ServiceManager::InstallAndStartService<Networking::TCU>());
-
     #ifdef CAN_DUMP
     CHECK_SERVICE_RESULT(ReadieFur::Service::ServiceManager::InstallAndStartService<CAN::BusLogger>());
     #endif
+
+    CHECK_SERVICE_RESULT(ReadieFur::Service::ServiceManager::InstallAndStartService<Networking::BleApi>());
+    CHECK_SERVICE_RESULT(ReadieFur::Service::ServiceManager::InstallAndStartService<Networking::WiFiApi>());
+    // CHECK_SERVICE_RESULT(ReadieFur::Service::ServiceManager::InstallAndStartService<Networking::TCU>());
 }

@@ -1,16 +1,20 @@
 #pragma once
 
+#include "ProgramConfig.h"
 #include <Service/AService.hpp>
 #include <esp_err.h>
 #include "Logging.hpp"
 #include <Network/WiFi/Modem.hpp>
 #include <Network/WiFi/OTA.hpp>
+#include "CAN/BusLogger.hpp"
 #include "Data/Persistent.hpp"
 #include <string>
 #include <cstring>
 #include <lwip/sockets.h>
 #include <lwip/netdb.h>
 #include <lwip/inet.h>
+
+#define __UDP_BROADCAST_ADDRESS "192.168.4.255" // Default broadcast address for the AP network.
 
 namespace ReadieFur::OpenTCU::Networking
 {
@@ -19,6 +23,10 @@ namespace ReadieFur::OpenTCU::Networking
     private:
         int _udpLoggerSocket;
         struct sockaddr_in _udpLoggerDest;
+        #ifdef CAN_DUMP
+        int _udpBusSocket;
+        struct sockaddr_in _udpBusDest;
+        #endif
 
         int LogUDP(const char* data, size_t length)
         {
@@ -75,22 +83,41 @@ namespace ReadieFur::OpenTCU::Networking
                 return;
             }
 
-            // Configure UDP.
-            _udpLoggerDest.sin_addr.s_addr = inet_addr("192.168.4.255"); // Default broadcast address for the AP network.
+            // Configure UDP Logger.
+            _udpLoggerDest.sin_addr.s_addr = inet_addr(__UDP_BROADCAST_ADDRESS);
             _udpLoggerDest.sin_family = AF_INET;
             _udpLoggerDest.sin_port = htons(49152);
-
             _udpLoggerSocket = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
             if (_udpLoggerSocket < 0)
             {
                 LOGE(nameof(Networking::WiFiApi), "Failed to create UDP socket.");
                 return;
             }
-
             int udpBroadcastEnable = 1;
             setsockopt(_udpLoggerSocket, SOL_SOCKET, SO_BROADCAST, &udpBroadcastEnable, sizeof(udpBroadcastEnable));
-
             ReadieFur::Logging::AdditionalLoggers.push_back([this](const char* data, size_t length) { return LogUDP(data, length); });
+
+            #ifdef CAN_DUMP
+            CAN::BusLogger* busLogger = GetService<CAN::BusLogger>();
+            // Dynamically fetch service (prevents circular dependency issues).
+            if (busLogger != nullptr)
+            {
+                // Configure UDP for CAN dump.
+                _udpBusDest.sin_addr.s_addr = inet_addr(__UDP_BROADCAST_ADDRESS);
+                _udpBusDest.sin_family = AF_INET;
+                _udpBusDest.sin_port = htons(49153);
+                _udpBusSocket = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+                if (_udpBusSocket < 0)
+                {
+                    LOGE(nameof(Networking::WiFiApi), "Failed to create UDP socket.");
+                    return;
+                }
+                fcntl(_udpBusSocket, F_SETFL, O_NONBLOCK); // Set socket to non-blocking to prevent potential issues with the logging task.
+                setsockopt(_udpBusSocket, SOL_SOCKET, SO_BROADCAST, &udpBroadcastEnable, sizeof(udpBroadcastEnable));
+            
+                busLogger->UDPSendFunc = [this](const void* data, size_t length) { return LogUDP(reinterpret_cast<const char*>(data), length); };
+            }
+            #endif
 
             // Configure OTA.
             httpd_config_t otaHttpdConfig = HTTPD_DEFAULT_CONFIG();
@@ -104,13 +131,15 @@ namespace ReadieFur::OpenTCU::Networking
                 return;
             }
 
-            LOGI(nameof(Networking::WiFiApi), "AP mode started.");
+            LOGI(nameof(Networking::WiFiApi), "WiFi service configured.");
 
             // CHECK_ESP_RESULT(ReadieFur::Network::WiFi::EspNow::Init());
 
             ServiceCancellationToken.WaitForCancellation();
 
             ReadieFur::Network::WiFi::OTA::Deinit();
+            if (busLogger != nullptr)
+                busLogger->UDPSendFunc = nullptr;
             close(_udpLoggerSocket);
             ReadieFur::Network::WiFi::Modem::Deinit();
         }
@@ -118,7 +147,10 @@ namespace ReadieFur::OpenTCU::Networking
     public:
         WiFiApi()
         {
-            ServiceEntrypointStackDepth += 1024;
+            ServiceEntrypointStackDepth += 1024 * 2;
+            #ifdef CAN_DUMP
+            AddDependencyType<CAN::BusLogger>(); // Undoes the need for the GetService check above but including it anyway.
+            #endif
         }
 
         // int UDPSendRaw(const void* data, size_t length)

@@ -40,10 +40,13 @@
 // #define CAN_DUMP_SERIAL
 #define CAN_DUMP_UDP
 #define CAN_DUMP_BEFORE_INTERCEPT
-// #define CAN_DUMP_AFTER_INTERCEPT
 #endif
 
 // ==== Conditionals ====
 #if defined(CAN_DUMP_SERIAL) || defined(CAN_DUMP_UDP)
 #define CAN_DUMP
+#endif
+
+#ifndef CAN_DUMP_BEFORE_INTERCEPT
+#define CAN_DUMP_AFTER_INTERCEPT
 #endif

@@ -3,7 +3,6 @@
 #include "ProgramConfig.h"
 #include <Service/AService.hpp>
 #include "BusMaster.hpp"
-#include "Networking/WiFiApi.hpp"
 #include <Helpers.h>
 #include <Logging.hpp>
 #include <string>
@@ -14,12 +13,12 @@ namespace ReadieFur::OpenTCU::CAN
 {
     class BusLogger : public Service::AService
     {
+    public:
+        std::function<int(const void* data, size_t length)> UDPSendFunc = nullptr; // Dynamically set by the WiFiApi service to avoid circular dependency issues.
+
     private:
         static const TickType_t LOG_INTERVAL = pdMS_TO_TICKS(500);
         BusMaster* _busMaster = nullptr;
-        Networking::WiFiApi* _wifiApi = nullptr;
-        int _udpSocket;
-        struct sockaddr_in _udpDest;
 
         #ifdef CAN_DUMP_SERIAL
         inline void SerialLog(const char* format, ...)
@@ -53,9 +52,12 @@ namespace ReadieFur::OpenTCU::CAN
             #endif
 
             #ifdef CAN_DUMP_UDP
-            int bytesSent = sendto(_udpSocket, &dump, sizeof(dump), 0, (struct sockaddr*)&_udpDest, sizeof(_udpDest));
-            // if (bytesSent < 0)
-            //     LOGE(nameof(CAN::Logger), "Failed to send UDP packet: %i", bytesSent);
+            if (UDPSendFunc != nullptr)
+            {
+                int bytesSent = UDPSendFunc(&dump, sizeof(dump));
+                // if (bytesSent < 0)
+                //     LOGE(nameof(CAN::Logger), "Failed to send UDP packet: %i", bytesSent);
+            }
             #endif
         }
         #endif
@@ -65,22 +67,6 @@ namespace ReadieFur::OpenTCU::CAN
         {
             // Get dependencies.
             _busMaster = GetService<BusMaster>(); // Won't be null here, the service manager will ensure that all required services are started before this one.
-            _wifiApi = GetService<Networking::WiFiApi>();
-
-            // Configure UDP for CAN dump.
-            // AP should always be ready here due to the dependency.
-            _udpDest.sin_addr.s_addr = inet_addr("192.168.4.255");
-            _udpDest.sin_family = AF_INET;
-            _udpDest.sin_port = htons(49153);
-            _udpSocket = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
-            if (_udpSocket < 0)
-            {
-                LOGE(nameof(Networking::WiFiApi), "Failed to create UDP socket.");
-                return;
-            }
-            fcntl(_udpSocket, F_SETFL, O_NONBLOCK); // Set socket to non-blocking to prevent potential issues with the logging task.
-            int udpBroadcastEnable = 1;
-            setsockopt(_udpSocket, SOL_SOCKET, SO_BROADCAST, &udpBroadcastEnable, sizeof(udpBroadcastEnable));
 
             while (!ServiceCancellationToken.IsCancellationRequested())
             {
@@ -105,7 +91,6 @@ namespace ReadieFur::OpenTCU::CAN
                 #endif
             }
 
-            close(_udpSocket);
             _busMaster = nullptr;
         }
 
@@ -114,7 +99,6 @@ namespace ReadieFur::OpenTCU::CAN
         {
             ServiceEntrypointStackDepth += 1024;
             AddDependencyType<BusMaster>();
-            AddDependencyType<Networking::WiFiApi>();
         }
     };
 };
