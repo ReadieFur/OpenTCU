@@ -8,7 +8,7 @@ namespace OpenTCU.LoggingUtils
     {
         private static string BuildLog(string message)
         {
-            string log = $"[{DateTime.Now:HH:mm:ss}]";
+            string log = $"[{DateTime.Now:HH:mm:ss:fff}]";
 #if LOG_CLASS
             string? @class = new StackFrame(2).GetMethod()?.DeclaringType?.Name;
             if (@class is not null)
