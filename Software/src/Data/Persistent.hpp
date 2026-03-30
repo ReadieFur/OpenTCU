@@ -95,4 +95,9 @@ std::string ReadieFur::OpenTCU::Data::Persistent::DeviceName = "OpenTCU";
 std::string ReadieFur::OpenTCU::Data::Persistent::BikeSerialNumber;
 uint16_t ReadieFur::OpenTCU::Data::Persistent::BaseWheelCircumference = 2160;
 uint16_t ReadieFur::OpenTCU::Data::Persistent::TargetWheelCircumference = 2160;
-uint32_t ReadieFur::OpenTCU::Data::Persistent::Pin = TCU_CODE;
+uint32_t ReadieFur::OpenTCU::Data::Persistent::Pin =
+#ifdef TCU_CODE
+    TCU_CODE;
+#else
+    0;
+#endif

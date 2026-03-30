@@ -57,8 +57,11 @@ namespace ReadieFur::OpenTCU::Networking
                     .authmode = WIFI_AUTH_OPEN,
                     .ssid_hidden = 0,
                     #else
-                    // .authmode = WIFI_AUTH_WPA2_PSK,
+                    #ifdef TCU_CODE
+                    .authmode = WIFI_AUTH_WPA2_PSK,
+                    #else
                     .authmode = WIFI_AUTH_OPEN,
+                    #endif
                     .ssid_hidden = 1,
                     #endif
                     .max_connection = 2,

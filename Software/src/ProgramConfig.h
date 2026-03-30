@@ -33,7 +33,7 @@
 
 // ==== TCU Parameters ====
 // #define TCU_NAME                    "WSBC..."
-#define TCU_CODE                     123456                     //TODO: Move this to the platformio config
+// #define TCU_CODE                     123456                     //TODO: Move this to the platformio config
 
 // ==== Debug Options ====
 #ifdef DEBUG

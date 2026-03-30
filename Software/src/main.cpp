@@ -28,7 +28,6 @@
 #include "Data/Persistent.hpp"
 #include <Event/Observable.hpp>
 #include "led_strip.h"
-#include "NimBLEDevice.h"
 
 #define CHECK_SERVICE_RESULT(func) do {                                                 \
         ReadieFur::Service::EServiceResult result = func;                               \
