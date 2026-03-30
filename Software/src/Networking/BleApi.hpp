@@ -234,8 +234,8 @@ namespace ReadieFur::OpenTCU::Networking
             NimBLECharacteristic* persistentDataCharacteristic = mainService->createCharacteristic(PERSISTENT_CHAR_UUID, NIMBLE_PROPERTY::READ | NIMBLE_PROPERTY::WRITE /*| NIMBLE_PROPERTY::NOTIFY*/); // TODO: Implement notify for this characteristic.
             persistentDataCharacteristic->setCallbacks(new CallbackWrapper({
                 .ReadCallback = std::bind(&BleApi::OnPersistentDataRead, this, std::placeholders::_1, std::placeholders::_2),
-                .WriteCallback = std::bind(&BleApi::OnPersistentDataWrite, this, std::placeholders::_1, std::placeholders::_2)}
-            ));
+                .WriteCallback = std::bind(&BleApi::OnPersistentDataWrite, this, std::placeholders::_1, std::placeholders::_2)
+            }));
 
             NimBLEService* debugService = bleServer->createService(UUID_DEBUG_SERVICE);
             NimBLECharacteristic* injectCharacteristic = debugService->createCharacteristic(INJECT_CHAR_UUID, NIMBLE_PROPERTY::WRITE);
