@@ -18,7 +18,6 @@
 #include "Diagnostic/DiagnosticsService.hpp"
 #endif
 #include <esp_pm.h>
-#include <Network/Bluetooth/BLE.hpp>
 #include "Networking/BleApi.hpp"
 #include "Networking/WiFiApi.hpp"
 // #include "Networking/TCU.hpp"
@@ -29,6 +28,7 @@
 #include "Data/Persistent.hpp"
 #include <Event/Observable.hpp>
 #include "led_strip.h"
+#include "NimBLEDevice.h"
 
 #define CHECK_SERVICE_RESULT(func) do {                                                 \
         ReadieFur::Service::EServiceResult result = func;                               \
