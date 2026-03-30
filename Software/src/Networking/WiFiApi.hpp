@@ -13,6 +13,7 @@
 #include <lwip/sockets.h>
 #include <lwip/netdb.h>
 #include <lwip/inet.h>
+#include <esp_wifi.h>
 
 #define __UDP_BROADCAST_ADDRESS "192.168.4.255" // Default broadcast address for the AP network.
 
@@ -38,6 +39,13 @@ namespace ReadieFur::OpenTCU::Networking
                 return;
             }
             ReadieFur::Network::WiFi::Modem::ShutdownInterface(WIFI_IF_STA);
+
+            /* The following settings are made to try and reduce the operating temperature of the chip
+             * since it runs quite hot with the TWAI bus at max frequency & WiFi running,
+             * plus this device will be in an enclosed environment with limited cooling.
+             */
+            esp_wifi_set_max_tx_power(40); // Range is 8-84 (2dBm to 20dBm in 0.25dBm increments).
+            esp_wifi_set_ps(WIFI_PS_MIN_MODEM); // Allow the modem to sleep when possible (even if only for a few milliseconds at a time).
 
             // Configure AP.
             wifi_config_t apConfig =
