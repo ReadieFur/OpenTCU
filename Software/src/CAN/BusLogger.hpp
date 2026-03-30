@@ -87,6 +87,16 @@ namespace ReadieFur::OpenTCU::CAN
                     capturedQueueLength--;
                     portYIELD();
                 }
+                #endif
+
+                // If the queue is full by this point, clear it to discard outdated messages (this could possibly happen due to the CPU being overloaded).
+                if (uxQueueSpacesAvailable(_busMaster->CanDumpQueue) == 0)
+                {
+                    LOGW(nameof(CAN::BusLogger), "CAN dump queue is full, clearing queue to prevent overflow.");
+                    xQueueReset(_busMaster->CanDumpQueue);
+                }
+
+                #ifndef CAN_DUMP_LIVE
                 vTaskDelay(LOG_INTERVAL);
                 #endif
             }

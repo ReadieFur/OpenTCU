@@ -27,14 +27,6 @@ namespace ReadieFur::OpenTCU::Networking
         int _udpBusSocket;
         struct sockaddr_in _udpBusDest;
         #endif
-
-        int LogUDP(const char* data, size_t length)
-        {
-            int udpErr = sendto(_udpLoggerSocket, data, length, 0, (struct sockaddr*)&_udpLoggerDest, sizeof(_udpLoggerDest));
-            // if (udpErr < 0)
-            //     LOGE(pcTaskGetName(NULL), "Failed to send UDP packet: %i", udpErr);
-            return udpErr;
-        }
         
     protected:
         void RunServiceImpl() override
@@ -95,7 +87,9 @@ namespace ReadieFur::OpenTCU::Networking
             }
             int udpBroadcastEnable = 1;
             setsockopt(_udpLoggerSocket, SOL_SOCKET, SO_BROADCAST, &udpBroadcastEnable, sizeof(udpBroadcastEnable));
-            ReadieFur::Logging::AdditionalLoggers.push_back([this](const char* data, size_t length, esp_log_level_t level) { return LogUDP(data, length); });
+            ReadieFur::Logging::AdditionalLoggers.push_back([this](const char* data, size_t length, esp_log_level_t level) {
+                return sendto(_udpLoggerSocket, data, length, 0, (struct sockaddr*)&_udpLoggerDest, sizeof(_udpLoggerDest));
+            });
 
             #ifdef CAN_DUMP
             CAN::BusLogger* busLogger = GetService<CAN::BusLogger>();
@@ -114,8 +108,10 @@ namespace ReadieFur::OpenTCU::Networking
                 }
                 fcntl(_udpBusSocket, F_SETFL, O_NONBLOCK); // Set socket to non-blocking to prevent potential issues with the logging task.
                 setsockopt(_udpBusSocket, SOL_SOCKET, SO_BROADCAST, &udpBroadcastEnable, sizeof(udpBroadcastEnable));
-            
-                busLogger->UDPSendFunc = [this](const void* data, size_t length) { return LogUDP(reinterpret_cast<const char*>(data), length); };
+
+                busLogger->UDPSendFunc = [this](const void* data, size_t length) {
+                    return sendto(_udpBusSocket, data, length, 0, (struct sockaddr*)&_udpBusDest, sizeof(_udpBusDest));
+                };
             }
             #endif
 
