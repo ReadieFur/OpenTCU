@@ -27,8 +27,9 @@
 /**
  * Misc pinout configuration.
  */
-#define LED_PIN                     GPIO_NUM_15
-// #define WS2812B_PIN                 GPIO_NUM_8
+#define STATIC_LED_PIN              GPIO_NUM_15
+#define RGB_WS2812B_PIN             GPIO_NUM_8
+#define LED_LOGGER
 
 // ==== TCU Parameters ====
 // #define TCU_NAME                    "WSBC..."

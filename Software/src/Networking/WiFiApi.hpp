@@ -95,7 +95,7 @@ namespace ReadieFur::OpenTCU::Networking
             }
             int udpBroadcastEnable = 1;
             setsockopt(_udpLoggerSocket, SOL_SOCKET, SO_BROADCAST, &udpBroadcastEnable, sizeof(udpBroadcastEnable));
-            ReadieFur::Logging::AdditionalLoggers.push_back([this](const char* data, size_t length) { return LogUDP(data, length); });
+            ReadieFur::Logging::AdditionalLoggers.push_back([this](const char* data, size_t length, esp_log_level_t level) { return LogUDP(data, length); });
 
             #ifdef CAN_DUMP
             CAN::BusLogger* busLogger = GetService<CAN::BusLogger>();
