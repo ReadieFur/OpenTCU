@@ -38,27 +38,60 @@ namespace ReadieFur::OpenTCU::Networking
     class BleApi : public Service::AService
     {
     private:
-        class CallbackWrapper : public NimBLECharacteristicCallbacks
+        class ServerCallbacks : public NimBLEServerCallbacks
         {
             public:
                 struct SParams
                 {
-                    std::function<void(NimBLECharacteristic* characteristic, NimBLEConnInfo& connInfo)> ReadCallback = nullptr;
-                    std::function<void(NimBLECharacteristic* characteristic, NimBLEConnInfo& connInfo)> WriteCallback = nullptr;
-                    std::function<void(NimBLECharacteristic* characteristic, NimBLEConnInfo& connInfo, int code)> StatusCallback = nullptr;
-                    std::function<void(NimBLECharacteristic* characteristic, NimBLEConnInfo& connInfo, uint16_t subValue)> SubscribeCallback = nullptr;
+                    std::function<void(NimBLEServer* server, NimBLEConnInfo& connInfo)> OnConnect = nullptr;
+                    std::function<void(NimBLEServer* server, NimBLEConnInfo& connInfo, int reason)> OnDisconnect = nullptr;
+                    std::function<void(uint16_t MTU, NimBLEConnInfo& connInfo)> OnMTUChange = nullptr;
+                    std::function<uint32_t()> OnPassKeyDisplay = nullptr;
+                    std::function<void(NimBLEConnInfo& connInfo)> OnPassKeyEntry = nullptr;
+                    std::function<void(NimBLEConnInfo& connInfo, uint32_t pin)> OnConfirmPassKey = nullptr;
+                    std::function<void(NimBLEConnInfo& connInfo)> OnAuthenticationComplete = nullptr;
+                    std::function<void(NimBLEConnInfo& connInfo)> OnIdentity = nullptr;
+                    std::function<void(NimBLEConnInfo& connInfo)> OnConnParamsUpdate = nullptr;
+                };
+
+            private:
+                SParams _callbacks;
+
+            public:
+                ServerCallbacks(const SParams& callbacks) : _callbacks(callbacks) {}
+
+                void onConnect(NimBLEServer* server, NimBLEConnInfo& connInfo) override { if (_callbacks.OnConnect) _callbacks.OnConnect(server, connInfo); }
+                void onDisconnect(NimBLEServer* server, NimBLEConnInfo& connInfo, int reason) override { if (_callbacks.OnDisconnect) _callbacks.OnDisconnect(server, connInfo, reason); }
+                void onMTUChange(uint16_t MTU, NimBLEConnInfo& connInfo) override { if (_callbacks.OnMTUChange) _callbacks.OnMTUChange(MTU, connInfo); }
+                uint32_t onPassKeyDisplay() override { return _callbacks.OnPassKeyDisplay ? _callbacks.OnPassKeyDisplay() : 0; }
+                void onPassKeyEntry(NimBLEConnInfo& connInfo) override { if (_callbacks.OnPassKeyEntry) _callbacks.OnPassKeyEntry(connInfo); }
+                void onConfirmPassKey(NimBLEConnInfo& connInfo, uint32_t pin) override { if (_callbacks.OnConfirmPassKey) _callbacks.OnConfirmPassKey(connInfo, pin); }
+                void onAuthenticationComplete(NimBLEConnInfo& connInfo) override { if (_callbacks.OnAuthenticationComplete) _callbacks.OnAuthenticationComplete(connInfo); }
+                void onIdentity(NimBLEConnInfo& connInfo) override { if (_callbacks.OnIdentity) _callbacks.OnIdentity(connInfo); }
+                void onConnParamsUpdate(NimBLEConnInfo& connInfo) override { if (_callbacks.OnConnParamsUpdate) _callbacks.OnConnParamsUpdate(connInfo); }
+        };
+
+        class CharacteristicCallback : public NimBLECharacteristicCallbacks
+        {
+            public:
+                struct SParams
+                {
+                    std::function<void(NimBLECharacteristic* characteristic, NimBLEConnInfo& connInfo)> OnRead = nullptr;
+                    std::function<void(NimBLECharacteristic* characteristic, NimBLEConnInfo& connInfo)> OnWrite = nullptr;
+                    std::function<void(NimBLECharacteristic* characteristic, NimBLEConnInfo& connInfo, int code)> OnStatus = nullptr;
+                    std::function<void(NimBLECharacteristic* characteristic, NimBLEConnInfo& connInfo, uint16_t subValue)> OnSubscribe = nullptr;
                 };
 
             private:
                 SParams _callbacks;
  
             public:
-                CallbackWrapper(const SParams& callbacks) : _callbacks(callbacks) {}
+                CharacteristicCallback(const SParams& callbacks) : _callbacks(callbacks) {}
 
-                void onRead(NimBLECharacteristic* characteristic, NimBLEConnInfo& connInfo) override { if (_callbacks.ReadCallback) _callbacks.ReadCallback(characteristic, connInfo); }
-                void onWrite(NimBLECharacteristic* characteristic, NimBLEConnInfo& connInfo) override { if (_callbacks.WriteCallback) _callbacks.WriteCallback(characteristic, connInfo); }
-                void onStatus(NimBLECharacteristic* characteristic, NimBLEConnInfo& connInfo, int code) override { if (_callbacks.StatusCallback) _callbacks.StatusCallback(characteristic, connInfo, code); }
-                void onSubscribe(NimBLECharacteristic* characteristic, NimBLEConnInfo& connInfo, uint16_t subValue) override { if (_callbacks.SubscribeCallback) _callbacks.SubscribeCallback(characteristic, connInfo, subValue); }
+                void onRead(NimBLECharacteristic* characteristic, NimBLEConnInfo& connInfo) override { if (_callbacks.OnRead) _callbacks.OnRead(characteristic, connInfo); }
+                void onWrite(NimBLECharacteristic* characteristic, NimBLEConnInfo& connInfo) override { if (_callbacks.OnWrite) _callbacks.OnWrite(characteristic, connInfo); }
+                void onStatus(NimBLECharacteristic* characteristic, NimBLEConnInfo& connInfo, int code) override { if (_callbacks.OnStatus) _callbacks.OnStatus(characteristic, connInfo, code); }
+                void onSubscribe(NimBLECharacteristic* characteristic, NimBLEConnInfo& connInfo, uint16_t subValue) override { if (_callbacks.OnSubscribe) _callbacks.OnSubscribe(characteristic, connInfo, subValue); }
         };
 
         struct __attribute__((packed)) SPersistentDataPayload
@@ -73,7 +106,19 @@ namespace ReadieFur::OpenTCU::Networking
 
         CAN::BusMaster* _busMaster = nullptr;
         TaskHandle_t _notifyTaskHandle = NULL;
+        NimBLEAdvertising* _advertising = nullptr;
         NimBLECharacteristic* _runtimeStatsCharacteristic = nullptr;
+
+        void OnServerConnect(NimBLEServer* server, NimBLEConnInfo& connInfo)
+        {
+            LOGI(nameof(Networking::BleApi), "Client connected: %s", connInfo.getAddress().toString().c_str());
+        }
+
+        void OnServerDisconnect(NimBLEServer* server, NimBLEConnInfo& connInfo, int reason)
+        {
+            if (_advertising)
+                _advertising->start();
+        }
 
         void SyncRuntimeStats(NimBLECharacteristic* characteristic, const Data::SLive& snapshot)
         {
@@ -227,21 +272,25 @@ namespace ReadieFur::OpenTCU::Networking
             #endif
 
             NimBLEServer* bleServer = NimBLEDevice::createServer();
+            bleServer->setCallbacks(new ServerCallbacks({
+                .OnConnect = std::bind(&BleApi::OnServerConnect, this, std::placeholders::_1, std::placeholders::_2),
+                .OnDisconnect = std::bind(&BleApi::OnServerDisconnect, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3)
+            }));
 
             NimBLEService* mainService = bleServer->createService(MAIN_SERVICE_UUID);
             _runtimeStatsCharacteristic = mainService->createCharacteristic(RUNTIME_CHAR_UUID, NIMBLE_PROPERTY::READ | NIMBLE_PROPERTY::NOTIFY);
-            _runtimeStatsCharacteristic->setCallbacks(new CallbackWrapper({.ReadCallback = std::bind(&BleApi::OnRuntimeStatsRead, this, std::placeholders::_1, std::placeholders::_2)}));
+            _runtimeStatsCharacteristic->setCallbacks(new CharacteristicCallback({.OnRead = std::bind(&BleApi::OnRuntimeStatsRead, this, std::placeholders::_1, std::placeholders::_2)}));
             NimBLECharacteristic* persistentDataCharacteristic = mainService->createCharacteristic(PERSISTENT_CHAR_UUID, NIMBLE_PROPERTY::READ | NIMBLE_PROPERTY::WRITE /*| NIMBLE_PROPERTY::NOTIFY*/); // TODO: Implement notify for this characteristic.
-            persistentDataCharacteristic->setCallbacks(new CallbackWrapper({
-                .ReadCallback = std::bind(&BleApi::OnPersistentDataRead, this, std::placeholders::_1, std::placeholders::_2),
-                .WriteCallback = std::bind(&BleApi::OnPersistentDataWrite, this, std::placeholders::_1, std::placeholders::_2)
+            persistentDataCharacteristic->setCallbacks(new CharacteristicCallback({
+                .OnRead = std::bind(&BleApi::OnPersistentDataRead, this, std::placeholders::_1, std::placeholders::_2),
+                .OnWrite = std::bind(&BleApi::OnPersistentDataWrite, this, std::placeholders::_1, std::placeholders::_2)
             }));
 
             NimBLEService* debugService = bleServer->createService(UUID_DEBUG_SERVICE);
             NimBLECharacteristic* injectCharacteristic = debugService->createCharacteristic(INJECT_CHAR_UUID, NIMBLE_PROPERTY::WRITE);
-            injectCharacteristic->setCallbacks(new CallbackWrapper({.WriteCallback = std::bind(&BleApi::OnInjectWrite, this, std::placeholders::_1, std::placeholders::_2)}));
+            injectCharacteristic->setCallbacks(new CharacteristicCallback({.OnWrite = std::bind(&BleApi::OnInjectWrite, this, std::placeholders::_1, std::placeholders::_2)}));
             NimBLECharacteristic* rebootCharacteristic = debugService->createCharacteristic(REBOOT_CHAR_UUID, NIMBLE_PROPERTY::WRITE);
-            rebootCharacteristic->setCallbacks(new CallbackWrapper({.WriteCallback = std::bind(&BleApi::OnRebootWrite, this, std::placeholders::_1, std::placeholders::_2)}));
+            rebootCharacteristic->setCallbacks(new CharacteristicCallback({.OnWrite = std::bind(&BleApi::OnRebootWrite, this, std::placeholders::_1, std::placeholders::_2)}));
 
             if (xTaskCreate([](void* param) { static_cast<BleApi*>(param)->NotifyTask(); }, "BleNotifyTask", NOTIFY_TASK_STACK_SIZE, this, NOTIFY_TASK_PRIORITY, &_notifyTaskHandle) != pdPASS)
             {
@@ -249,15 +298,15 @@ namespace ReadieFur::OpenTCU::Networking
                 return;
             }
 
-            NimBLEAdvertising* advertising = NimBLEDevice::getAdvertising();
-            advertising->setName(Data::Persistent::DeviceName);
-            advertising->addServiceUUID(MAIN_SERVICE_UUID);
-            advertising->start();
+            _advertising = NimBLEDevice::getAdvertising();
+            _advertising->setName(Data::Persistent::DeviceName);
+            _advertising->addServiceUUID(MAIN_SERVICE_UUID);
+            _advertising->start();
 
             LOGD(nameof(Networking::BleApi), "BLE API started.");
             ServiceCancellationToken.WaitForCancellation();
 
-            advertising->stop();
+            _advertising->stop();
             bleServer->removeService(mainService);
             bleServer->removeService(debugService);
         }
