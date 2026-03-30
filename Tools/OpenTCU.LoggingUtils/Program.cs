@@ -4,17 +4,18 @@ using System.Runtime.InteropServices;
 using ManagedNativeWifi;
 using System.Net.NetworkInformation;
 using OpenTCU.LoggingUtils;
-
-//START:
+using System.Buffers.Binary;
 
 if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
     Console.SetBufferSize(120, 1000);
 
+CancellationTokenSource cts = new();
+
 #region Connect to OpenTCU Wi-Fi Network
 if (NativeWifi.EnumerateInterfaces().Count() == 0)
-    throw new Exception($"[{DateTime.Now:HH:mm:ss}] No Wi-Fi interfaces found.");
+    throw new Exception("No Wi-Fi interfaces found.");
 
-Console.WriteLine($"[{DateTime.Now:HH:mm:ss}] Scanning for OpenTCU networks...");
+Logger.WriteLine("Scanning for OpenTCU networks...");
 IPAddress? openTCUAddress = null;
 IPAddress? clientAddress = null;
 while (true)
@@ -23,12 +24,12 @@ while (true)
 
     if (NativeWifi.EnumerateAvailableNetworks().FirstOrDefault(n => n.Ssid.ToString().StartsWith("OpenTCU")) is not AvailableNetworkPack networkPack)
     {
-        Console.WriteLine($"[{DateTime.Now:HH:mm:ss}] Failed to find OpenTCU network, retrying...");
+        Logger.WriteLine("Failed to find OpenTCU network, retrying...");
         await Task.Delay(5000);
         continue;
     }
 
-    Console.WriteLine($"[{DateTime.Now:HH:mm:ss}] Connecting to network: {networkPack.Ssid}");
+    Logger.WriteLine($"Connecting to network: {networkPack.Ssid}");
 
     string profileXml = $@"<?xml version=""1.0""?>
     <WLANProfile xmlns=""http://www.microsoft.com/networking/WLAN/profile/v1"">
@@ -54,19 +55,19 @@ while (true)
 
     if (!await Task.Run(() => NativeWifi.ConnectNetwork(networkPack.InterfaceInfo.Id, networkPack.Ssid.ToString(), networkPack.BssType)))
     {
-        Console.WriteLine($"[{DateTime.Now:HH:mm:ss}] Failed to connect to network, retrying...");
+        Logger.WriteLine("Failed to connect to network, retrying...");
         await Task.Delay(5000);
         continue;
     }
 
-    Console.WriteLine($"[{DateTime.Now:HH:mm:ss}] Successfully connected to {networkPack.Ssid}, waiting for DHCP");
+    Logger.WriteLine($"Successfully connected to {networkPack.Ssid}, waiting for DHCP");
     DateTime dhcpStartTime = DateTime.Now;
     bool gotDhcp = false;
     while (!gotDhcp)
     {
         if (NativeWifi.EnumerateInterfaces().FirstOrDefault(i => i.Id == networkPack.InterfaceInfo.Id) is not InterfaceInfo interfaceInfo)
         {
-            Console.WriteLine($"[{DateTime.Now:HH:mm:ss}] Failed to find Wi-Fi interface, retrying...");
+            Logger.WriteLine("Failed to find Wi-Fi interface, retrying...");
             await Task.Delay(1000);
             continue;
         }
@@ -75,7 +76,7 @@ while (true)
             .FirstOrDefault(n => string.Equals(n.Id, interfaceInfo.Id.ToString("B"), StringComparison.OrdinalIgnoreCase));
         if (networkInterface is null || networkInterface.OperationalStatus != OperationalStatus.Up)
         {
-            Console.WriteLine($"[{DateTime.Now:HH:mm:ss}] Wi-Fi interface is not up, retrying...");
+            Logger.WriteLine("Wi-Fi interface is not up, retrying...");
             await Task.Delay(1000);
             continue;
         }
@@ -86,7 +87,7 @@ while (true)
         {
             if ((DateTime.Now - dhcpStartTime).TotalSeconds > 30)
             {
-                Console.WriteLine($"[{DateTime.Now:HH:mm:ss}] Failed to obtain DHCP lease within timeout, retrying...");
+                Logger.WriteLine("Failed to obtain DHCP lease within timeout, retrying...");
                 break;
             }
 
@@ -98,12 +99,12 @@ while (true)
         openTCUAddress = ipProps.GatewayAddresses.Select(g => g.Address).FirstOrDefault(a => a.AddressFamily == AddressFamily.InterNetwork);
         if (openTCUAddress is null)
         {
-            Console.WriteLine($"[{DateTime.Now:HH:mm:ss}] Failed to find gateway address, retrying...");
+            Logger.WriteLine("Failed to find gateway address, retrying...");
             await Task.Delay(1000);
             continue;
         }
 
-        Console.WriteLine($"[{DateTime.Now:HH:mm:ss}] Obtained IP address: {assignedAddress}");
+        Logger.WriteLine($"Obtained IP address: {assignedAddress}");
         gotDhcp = true;
     }
     if (!gotDhcp)
@@ -115,13 +116,11 @@ while (true)
     break;
 }
 
-Console.WriteLine($"[{DateTime.Now:HH:mm:ss}] Establishing connection...");
+Logger.WriteLine("Establishing connection...");
 #endregion
 
-#region Connect to UDP streams
+#region UDP streams
 IPEndPoint remoteEP = new(IPAddress.Any, 0); // ESP32 AP is often always 192.168.4.1
-
-CancellationTokenSource cts = new();
 
 using UdpClient udpLogClient = new();
 udpLogClient.Client.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
@@ -137,10 +136,10 @@ _ = Task.Run(() =>
             if (recievedBytes.Length > 0)
             {
                 string message = System.Text.Encoding.UTF8.GetString(recievedBytes);
-                Console.Write($"[{DateTime.Now:HH:mm:ss}] {message}");
+                Logger.Write(message);
             }
         }
-        catch (Exception ex) { Console.WriteLine($"[{DateTime.Now:HH:mm:ss}] {ex.Message}"); }
+        catch (Exception ex) { Logger.WriteLine(ex.Message); }
     }
 });
 
@@ -150,11 +149,18 @@ udpBusClient.Client.Bind(new IPEndPoint(clientAddress!, 49153));
 _ = Task.Run(() =>
 {
     CancellationToken ct = cts.Token;
+
+    /*TcpListener gvretSrver = new(IPAddress.Any, 3333);
+    gvretSrver.Start();
+    using TcpClient gvretClient = gvretSrver.AcceptTcpClient();
+    using NetworkStream gvretStream = gvretClient.GetStream();*/
+
     while (!ct.IsCancellationRequested)
     {
         try
         {
             byte[] recievedBytes = udpBusClient.Receive(ref remoteEP);
+
             if (recievedBytes.Length == Marshal.SizeOf<SCanDump>())
             {
                 GCHandle handle = GCHandle.Alloc(recievedBytes, GCHandleType.Pinned);
@@ -171,9 +177,9 @@ _ = Task.Run(() =>
                         dataString = BitConverter.ToString(dataBytes).Replace("-", " ");
                     }
 
-                    Console.WriteLine($"[{DateTime.Now:HH:mm:ss}] "
-                        + $"Timestamp: {canDump.Timestamp}, "
-                        + $"Bus: {canDump.Bus}, "
+                    Logger.WriteLine(
+                        $"Timestamp: {canDump.Timestamp}, "
+                        + "Bus: " + (canDump.Bus ? "1" : "0") + ", "
                         + $"ID: 0x{canDump.Id:X3}, "
                         + $"EXT: {canDump.IsExtended}, "
                         + $"RTR: {canDump.IsRemote}, "
@@ -181,25 +187,49 @@ _ = Task.Run(() =>
                         + $"Data: {dataString}"
                     );
 
-                    // TODO: Stream data to savvycan from here in a format it can understand (i.e. GVRET).
+                    // Create GVRET frame
+                    byte[] packet = new byte[20];
+                    packet[0] = 0xF1; // Sync
+                    packet[1] = 0x00; // Can frame command
+
+                    // Timestamp (little-endian, microseconds)
+                    // GVRET uses the MSB (Bit 31) of the ID to signal extended
+                    uint timestampUs = canDump.Timestamp * 1000; // Convert ms to us
+                    BinaryPrimitives.WriteUInt32LittleEndian(packet.AsSpan(2), timestampUs);
+
+                    // ID + Extended flag
+                    uint idWithFlags = canDump.Id;
+                    if (canDump.IsExtended) idWithFlags |= 0x80000000;
+                    BinaryPrimitives.WriteUInt32LittleEndian(packet.AsSpan(6), idWithFlags);
+
+                    packet[10] = canDump.Length; // DLC
+                    packet[11] = (byte)(canDump.Bus ? 1 : 0); // Bus
+
+                    // Copy data bytes
+                    unsafe
+                    {
+                        for (int i = 0; i < canDump.Length; i++)
+                            packet[12 + i] = canDump.Data[i];
+                    }
                 }
-                catch (Exception ex) { Console.WriteLine($"[{DateTime.Now:HH:mm:ss}] {ex.Message}"); }
+                catch (Exception ex) { Logger.WriteLine(ex.Message); }
                 finally { handle.Free(); }
             }
             else
             {
-                Console.WriteLine($"[{DateTime.Now:HH:mm:ss} Received invalid bus data of length {recievedBytes.Length}]");
+                Logger.WriteLine($"Received invalid bus data of length: {recievedBytes.Length}");
             }
         }
-        catch (Exception ex) { Console.WriteLine($"[{DateTime.Now:HH:mm:ss}] {ex.Message}"); }
+        catch (Exception ex) { Logger.WriteLine(ex.Message); }
     }
-});
 
-// TODO: Change to sigint capture instead of enter key.
+    //gvretSrver.Stop();
+});
+#endregion
+
 Console.CancelKeyPress += (s, e) =>
 {
-    Console.WriteLine($"[{DateTime.Now:HH:mm:ss}] Shutting down...");
+    Logger.WriteLine("Shutting down...");
     cts.Cancel();
 };
 cts.Token.WaitHandle.WaitOne();
-#endregion
