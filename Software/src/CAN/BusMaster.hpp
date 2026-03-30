@@ -37,7 +37,13 @@ namespace ReadieFur::OpenTCU::CAN
         static const uint SECONDARY_TASK_PRIORITY = configMAX_PRIORITIES * 0.3;
         static const TickType_t SECONDARY_TASK_INTERVAL = pdMS_TO_TICKS(1000);
         #ifdef CAN_DUMP
-        static const uint CAN_DUMP_QUEUE_SIZE = 1000;
+        static const uint CAN_DUMP_QUEUE_SIZE =
+            #ifdef CAN_DUMP_LIVE
+            200
+            #else
+            1000
+            #endif
+        ;
         #endif
 
         struct SRelayTaskParameters
@@ -128,11 +134,21 @@ namespace ReadieFur::OpenTCU::CAN
                     switch (res)
                     {
                     case ESP_ERR_TIMEOUT:
-                        #if defined(DEBUG) && false
-                        // While debugging I have the board externally powered so the bike can be off and this error is to be expected.
-                        #else
-                        // Messages should never time out as they are sent extremely frequently.
+                        // Messages should never time out as they are sent extremely frequently, if this occurs it likely means the bus is not operational or the esp32 is overloaded.
                         LOGW(nameof(CAN::BusMaster), "CAN%u timed out while waiting for message.", bus);
+                        #ifdef CAN_DUMP_BLANK_ON_TIMEOUT
+                        {
+                            // If the bus timed out, add a blank message to the log to indicate this (mainly used for the UDP log testing).
+                            SCanMessage blankMessage = {
+                                .id = 0,
+                                .data = {0},
+                                .length = 1,
+                                .isExtended = false,
+                                .isRemote = false
+                            };
+                            blankMessage.data[0] = 0xFF;
+                            LogMessage(bus, blankMessage);
+                        }
                         #endif
                         break;
                     case ESP_ERR_INVALID_STATE:
@@ -147,14 +163,14 @@ namespace ReadieFur::OpenTCU::CAN
                     continue;
                 }
 
-                #if defined(CAN_DUMP) && defined(CAN_DUMP_BEFORE_INTERCEPT)
+                #ifdef CAN_DUMP_BEFORE_INTERCEPT
                 LogMessage(bus, message);
                 #endif
 
                 // Analyze the message and modify it if needed.
                 InterceptMessage(&message);
 
-                #if defined(CAN_DUMP) && defined(CAN_DUMP_AFTER_INTERCEPT)
+                #ifdef CAN_DUMP_AFTER_INTERCEPT
                 LogMessage(bus, message);
                 #endif
 
@@ -201,18 +217,8 @@ namespace ReadieFur::OpenTCU::CAN
             memcpy(dump.data, message.data, 8);
 
             // Set wait time to 0 as this should not delay the task.
-            #if defined(CAN_DUMP_LIVE)
-            #elif false
-            while (xQueueSend(BusMaster::CanDumpQueue, &dump, 0) == errQUEUE_FULL)
-            {
-                // If the queue is full, remove the oldest item.
-                SCanDump oldDump;
-                xQueueReceive(BusMaster::CanDumpQueue, &oldDump, 0);
-            }
-            #else
             if (xQueueSend(BusMaster::CanDumpQueue, &dump, 0) == errQUEUE_FULL)
-                LOGW(nameof(CAN::BusMaster), "CAN log queue is full.");
-            #endif
+                LOGW(nameof(CAN::BusMaster), "CAN dump queue is full.");
         }
         #endif
 

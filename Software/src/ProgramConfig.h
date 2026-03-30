@@ -37,10 +37,11 @@
 
 // ==== Debug Options ====
 #ifdef DEBUG
-// #define CAN_DUMP_LIVE
+#define CAN_DUMP_LIVE
 // #define CAN_DUMP_SERIAL
 #define CAN_DUMP_UDP
 #define CAN_DUMP_BEFORE_INTERCEPT
+#define CAN_DUMP_BLANK_ON_TIMEOUT
 #endif
 
 // ==== Conditionals ====
