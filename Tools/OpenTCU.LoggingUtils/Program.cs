@@ -10,10 +10,13 @@ WiFiManager wifi = new(cts.Token);
 await wifi.StartAsync();
 
 UdpLogService udpLogService = new(wifi, cts.Token);
-udpLogService.Start();
+//udpLogService.Start();
 
 UdpBusService udpBusService = new(wifi, cts.Token);
-udpBusService.Start();
+//udpBusService.Start();
+
+GvretTcpService gvretTcpService = new(udpBusService, cts.Token);
+gvretTcpService.Start();
 
 Console.CancelKeyPress += (s, e) =>
 {
