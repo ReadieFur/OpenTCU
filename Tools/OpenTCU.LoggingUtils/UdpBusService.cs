@@ -1,8 +1,11 @@
-﻿using System.Runtime.InteropServices;
+﻿using System;
+using System.Runtime.InteropServices;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace OpenTCU.LoggingUtils
 {
-    internal class UdpBusService : UdpServiceBase
+    public class UdpBusService : UdpServiceBase
     {
         public event EventHandler<SCanDump>? CanDumpReceived;
 

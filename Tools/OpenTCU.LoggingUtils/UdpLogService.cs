@@ -1,8 +1,10 @@
 ﻿using System.Text;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace OpenTCU.LoggingUtils
 {
-    internal class UdpLogService : UdpServiceBase
+    public class UdpLogService : UdpServiceBase
     {
         public UdpLogService(WiFiManager wifi, CancellationToken ct) : base(wifi, 49152, ct) { }
 

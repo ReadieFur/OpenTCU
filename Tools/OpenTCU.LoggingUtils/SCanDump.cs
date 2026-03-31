@@ -3,7 +3,7 @@
 namespace OpenTCU.LoggingUtils
 {
     [StructLayout(LayoutKind.Sequential, Pack = 1)]
-    internal struct SCanDump
+    public struct SCanDump
     {
         // In ESP-IDF (C++), ulong is 32-bit (4 bytes). Use uint in C#.
         public uint Timestamp;

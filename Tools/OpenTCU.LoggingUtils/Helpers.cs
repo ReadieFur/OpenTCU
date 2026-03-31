@@ -1,8 +1,9 @@
-﻿using System.Buffers.Binary;
+﻿using System;
+using System.Buffers.Binary;
 
 namespace OpenTCU.LoggingUtils
 {
-    internal static class Helpers
+    public static class Helpers
     {
         public static byte[] CanDumpToGvretFrame(SCanDump canDump)
         {

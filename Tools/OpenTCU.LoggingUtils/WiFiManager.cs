@@ -1,11 +1,15 @@
-﻿using System.Net;
+﻿using System;
+using System.Linq;
+using System.Net;
 using System.Net.NetworkInformation;
 using System.Net.Sockets;
+using System.Threading;
+using System.Threading.Tasks;
 using ManagedNativeWifi;
 
 namespace OpenTCU.LoggingUtils
 {
-    internal class WiFiManager
+    public class WiFiManager
     {
         private const string SSID_PREFIX = "OpenTCU";
         private readonly CancellationToken _ct;

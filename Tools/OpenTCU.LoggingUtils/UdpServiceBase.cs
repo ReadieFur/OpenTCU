@@ -1,9 +1,12 @@
-﻿using System.Net;
+﻿using System;
+using System.Net;
 using System.Net.Sockets;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace OpenTCU.LoggingUtils
 {
-    internal abstract class UdpServiceBase
+    public abstract class UdpServiceBase
     {
         protected readonly WiFiManager _wifi;
         protected readonly int _port;

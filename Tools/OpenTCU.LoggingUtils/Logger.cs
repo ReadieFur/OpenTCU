@@ -1,10 +1,11 @@
 ﻿//#define LOG_CLASS
 
+using System;
 using System.Diagnostics;
 
 namespace OpenTCU.LoggingUtils
 {
-    internal static class Logger
+    public static class Logger
     {
         private static string BuildLog(string message)
         {

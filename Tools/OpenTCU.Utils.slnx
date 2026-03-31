@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="OpenTCU.LoggingUtils/OpenTCU.LoggingUtils.csproj" />
+  <Project Path="OpenTCU.Visualiser/OpenTCU.Visualiser.csproj" />
+</Solution>
