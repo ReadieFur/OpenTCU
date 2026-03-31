@@ -12,17 +12,16 @@ using System.Windows.Shapes;
 
 namespace OpenTCU.Visualiser
 {
-    /// <summary>
-    /// Interaction logic for MainWindow.xaml
-    /// </summary>
     public partial class MainWindow : Window
     {
+        private ViewModel BindingContext => (ViewModel)DataContext;
+
         public MainWindow()
         {
             InitializeComponent();
         }
 
-        // For now always connect to a live instance but in the future eadd a toggle to switch between live and file mode.
+        // For now always connect to a live instance but in the future add a toggle to switch between live and file mode.
         public override async void BeginInit()
         {
             base.BeginInit();
@@ -31,14 +30,20 @@ namespace OpenTCU.Visualiser
 
             CancellationToken ct = CancellationToken.None;
 
-            WiFiManager wifi = new(ct);
-            await wifi.StartAsync();
+            WiFiManager wifiManager = new(ct);
+            wifiManager.Start();
 
-            UdpLogService udpLogService = new(wifi, ct);
+            UdpLogService udpLogService = new(wifiManager, ct);
             udpLogService.Start();
 
-            UdpBusService udpBusService = new(wifi, ct);
+            UdpBusService udpBusService = new(wifiManager, ct) { LogToConsole = false };
+            udpBusService.CanDumpReceived += (s, e) => Dispatcher.Invoke(() => OnCanFrameReceived(s, e));
             udpBusService.Start();
+        }
+
+        private void OnCanFrameReceived(object? sender, SCanDump frame)
+        {
+            BindingContext.Frames.Add(frame);
         }
     }
 }

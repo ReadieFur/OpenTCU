@@ -3,10 +3,50 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:oxy="http://oxyplot.org/wpf"
+        xmlns:dgx="urn:tom-englert.de/DataGridExtensions"
         xmlns:local="clr-namespace:OpenTCU.Visualiser"
-        mc:Ignorable="d"
+        mc:Ignorable="d" WindowStartupLocation="CenterScreen"
         Title="MainWindow" Height="450" Width="800">
-    <Grid>
 
+    <Window.DataContext>
+        <local:ViewModel/>
+    </Window.DataContext>
+    
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <StackPanel Grid.Row="0" Orientation="Horizontal">
+            <!--<CheckBox Content="Live mode"/>-->
+            <!--<Button Content="Open File" Click="OpenFile_Click"/>-->
+        </StackPanel>
+
+        <Grid Grid.Row="1">
+            <DataGrid
+                IsReadOnly="True"
+                AutoGenerateColumns="False"
+                VerticalScrollBarVisibility="Auto"
+                CanUserSortColumns="False"
+                CanUserResizeColumns="False"
+                CanUserReorderColumns="False"
+                dgx:DataGridFilter.IsAutoFilterEnabled="True"
+                ItemsSource="{Binding Frames}">
+                <DataGrid.Columns>
+                    <DataGridTextColumn Header="Time" Binding="{Binding Timestamp}"/>
+                    <DataGridTextColumn Header="Bus" Binding="{Binding Bus}"/>
+                    <DataGridTextColumn Header="ID" Binding="{Binding ID}"/>
+                    <DataGridCheckBoxColumn Header="Ext" Binding="{Binding IsExtended}"/>
+                    <DataGridCheckBoxColumn Header="RTR" Binding="{Binding IsRemote}"/>
+                    <DataGridTextColumn Header="Len" Binding="{Binding Length}"/>
+                    <!--<DataGridTextColumn Header="Data"
+                                        Width="*"
+                                        Binding="{Binding Data, Converter={StaticResource ByteToHex}}"
+                                        dgx:DataGridFilterColumn.IsFilterVisible="False"/>-->
+                </DataGrid.Columns>
+            </DataGrid>
+        </Grid>
     </Grid>
 </Window>

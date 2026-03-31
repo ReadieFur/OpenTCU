@@ -8,6 +8,7 @@ namespace OpenTCU.LoggingUtils
     public class UdpBusService : UdpServiceBase
     {
         public event EventHandler<SCanDump>? CanDumpReceived;
+        public bool LogToConsole = false;
 
         public UdpBusService(WiFiManager wifi, CancellationToken ct) : base(wifi, 49153, ct) { }
 
@@ -29,15 +30,18 @@ namespace OpenTCU.LoggingUtils
                         dataString = BitConverter.ToString(dataBytes).Replace("-", " ");
                     }
 
-                    //Logger.WriteLine(
-                    //    $"Timestamp: {canDump.Timestamp}, "
-                    //    + "Bus: " + (canDump.Bus ? "1" : "0") + ", "
-                    //    + $"ID: 0x{canDump.Id:X3}, "
-                    //    + $"EXT: {canDump.IsExtended}, "
-                    //    + $"RTR: {canDump.IsRemote}, "
-                    //    + $"Len: {canDump.Length}, "
-                    //    + $"Data: {dataString}"
-                    //);
+                    if (LogToConsole)
+                    {
+                        Logger.WriteLine(
+                            $"Timestamp: {canDump.Timestamp}, "
+                            + "Bus: " + (canDump.Bus ? "1" : "0") + ", "
+                            + $"ID: 0x{canDump.Id:X3}, "
+                            + $"EXT: {canDump.IsExtended}, "
+                            + $"RTR: {canDump.IsRemote}, "
+                            + $"Len: {canDump.Length}, "
+                            + $"Data: {dataString}"
+                        );
+                    }
 
                     CanDumpReceived?.Invoke(this, canDump);
                 }

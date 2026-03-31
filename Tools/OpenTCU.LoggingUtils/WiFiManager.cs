@@ -24,7 +24,7 @@ namespace OpenTCU.LoggingUtils
             _ct = ct;
         }
 
-        public async Task StartAsync()
+        public void Start()
         {
             if (!NativeWifi.EnumerateInterfaces().Any())
                 throw new Exception("No Wi-Fi interfaces found.");

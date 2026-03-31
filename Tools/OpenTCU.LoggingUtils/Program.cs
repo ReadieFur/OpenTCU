@@ -12,13 +12,13 @@ if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
 
 CancellationTokenSource cts = new();
 
-WiFiManager wifi = new(cts.Token);
-await wifi.StartAsync();
+WiFiManager wifiManager = new(cts.Token);
+wifiManager.Start();
 
-UdpLogService udpLogService = new(wifi, cts.Token);
+UdpLogService udpLogService = new(wifiManager, cts.Token);
 udpLogService.Start();
 
-UdpBusService udpBusService = new(wifi, cts.Token);
+UdpBusService udpBusService = new(wifiManager, cts.Token) { LogToConsole = true };
 udpBusService.Start();
 
 Console.CancelKeyPress += (s, e) =>
