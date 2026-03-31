@@ -21,6 +21,9 @@ udpLogService.Start();
 UdpBusService udpBusService = new(wifiManager, cts.Token) { LogToConsole = true };
 udpBusService.Start();
 
+BusFileWriter busFileWriter = new(udpBusService, cts.Token);
+busFileWriter.Start();
+
 Console.CancelKeyPress += (s, e) =>
 {
     Logger.WriteLine("Shutting down...");
