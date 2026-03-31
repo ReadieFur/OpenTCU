@@ -75,6 +75,9 @@ namespace OpenTCU.Visualiser
                         EnableMenuItem(hMenu, SC_CLOSE, MF_GRAYED);
                     }
                 }
+
+                Console.SetBufferSize(120, 1000);
+                Console.Title = "OpenTCU Live Logger";
             }
         }
 
