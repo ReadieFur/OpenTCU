@@ -13,10 +13,10 @@ UdpLogService udpLogService = new(wifi, cts.Token);
 //udpLogService.Start();
 
 UdpBusService udpBusService = new(wifi, cts.Token);
-//udpBusService.Start();
+udpBusService.Start();
 
-GvretTcpService gvretTcpService = new(udpBusService, cts.Token);
-gvretTcpService.Start();
+TcpStreamer tcpStreamer = new(udpBusService, cts.Token);
+tcpStreamer.Start();
 
 Console.CancelKeyPress += (s, e) =>
 {

@@ -1,5 +1,4 @@
-﻿using System.Buffers.Binary;
-using System.Runtime.InteropServices;
+﻿using System.Runtime.InteropServices;
 
 namespace OpenTCU.LoggingUtils
 {
@@ -27,15 +26,15 @@ namespace OpenTCU.LoggingUtils
                         dataString = BitConverter.ToString(dataBytes).Replace("-", " ");
                     }
 
-                    Logger.WriteLine(
-                        $"Timestamp: {canDump.Timestamp}, "
-                        + "Bus: " + (canDump.Bus ? "1" : "0") + ", "
-                        + $"ID: 0x{canDump.Id:X3}, "
-                        + $"EXT: {canDump.IsExtended}, "
-                        + $"RTR: {canDump.IsRemote}, "
-                        + $"Len: {canDump.Length}, "
-                        + $"Data: {dataString}"
-                    );
+                    //Logger.WriteLine(
+                    //    $"Timestamp: {canDump.Timestamp}, "
+                    //    + "Bus: " + (canDump.Bus ? "1" : "0") + ", "
+                    //    + $"ID: 0x{canDump.Id:X3}, "
+                    //    + $"EXT: {canDump.IsExtended}, "
+                    //    + $"RTR: {canDump.IsRemote}, "
+                    //    + $"Len: {canDump.Length}, "
+                    //    + $"Data: {dataString}"
+                    //);
 
                     CanDumpReceived?.Invoke(this, canDump);
                 }
