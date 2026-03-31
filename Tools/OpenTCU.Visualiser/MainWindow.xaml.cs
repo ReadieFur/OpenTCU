@@ -22,6 +22,7 @@ namespace OpenTCU.Visualiser
             InitializeComponent();
         }
 
+        // For now always connect to a live instance but in the future eadd a toggle to switch between live and file mode.
         public override async void BeginInit()
         {
             base.BeginInit();
