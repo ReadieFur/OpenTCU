@@ -33,7 +33,7 @@ namespace OpenTCU.LoggingUtils
                 throw new Exception("WiFiManager is already running.");
 
             // Run the monitor loop in the background
-            _monitorTask = Task.Run(MonitorLoop, _ct);
+            _monitorTask = Task.Run(MonitorLoop);
         }
 
         private async Task MonitorLoop()
@@ -70,7 +70,7 @@ namespace OpenTCU.LoggingUtils
                     Logger.WriteLine($"Connected! Client: {ClientAddress}, Gateway: {OpenTCUAddress}");
                 }
 
-                await Task.Delay(5000, _ct);
+                try { await Task.Delay(5000, _ct); } catch (OperationCanceledException) { }
             }
         }
 
@@ -127,7 +127,7 @@ namespace OpenTCU.LoggingUtils
                     }
                 }
 
-                await Task.Delay(1000, _ct);
+                try { await Task.Delay(1000, _ct); } catch (OperationCanceledException) { return; }
             }
         }
 

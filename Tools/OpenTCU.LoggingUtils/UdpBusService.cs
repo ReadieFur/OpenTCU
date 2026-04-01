@@ -32,14 +32,15 @@ namespace OpenTCU.LoggingUtils
 
                     if (LogToConsole)
                     {
-                        Logger.WriteLine(
-                            $"Timestamp: {canDump.Timestamp}, "
+                        Logger.WriteLine("\x1b[96m" // Bright cyan
+                            + $"Timestamp: {canDump.Timestamp}, "
                             + "Bus: " + (canDump.Bus ? "1" : "0") + ", "
                             + $"ID: 0x{canDump.Id:X3}, "
                             + $"EXT: {canDump.IsExtended}, "
                             + $"RTR: {canDump.IsRemote}, "
                             + $"Len: {canDump.Length}, "
                             + $"Data: {dataString}"
+                            + "\x1b[0m" //Reset console color
                         );
                     }
 

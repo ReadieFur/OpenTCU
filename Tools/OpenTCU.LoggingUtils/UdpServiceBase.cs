@@ -25,8 +25,9 @@ namespace OpenTCU.LoggingUtils
         {
             if (_task is not null)
                 throw new Exception($"{GetType().Name} is already running.");
-            _task = Task.Run(ServiceLoop, _ct);
+            _task = Task.Run(ServiceLoop);
         }
+
         private async Task ServiceLoop()
         {
             while (!_ct.IsCancellationRequested)
@@ -54,13 +55,15 @@ namespace OpenTCU.LoggingUtils
                     catch (Exception ex)
                     {
                         Logger.WriteLine($"{GetType().Name} Error: {ex.Message}");
-                        await Task.Delay(2000, _ct); // Cool down before retry
+                        try { await Task.Delay(2000, _ct); } // Cool down before retry
+                        catch (OperationCanceledException) { }
                     }
                 }
                 else
                 {
                     // Wait for WifiManager to restore connection
-                    await Task.Delay(1000, _ct);
+                    try { await Task.Delay(1000, _ct); }
+                    catch (OperationCanceledException) { }
                 }
             }
         }
