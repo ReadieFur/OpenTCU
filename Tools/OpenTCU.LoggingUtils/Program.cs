@@ -7,7 +7,7 @@ using OpenTCU.LoggingUtils;
 
 if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
 {
-    Console.SetBufferSize(120, 1000);
+    try { Console.SetBufferSize(120, 1000); } catch { }
     Console.Title = "OpenTCU Live Logger";
 }
 
